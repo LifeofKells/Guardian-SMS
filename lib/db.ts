@@ -646,6 +646,54 @@ export const db = {
         }
     },
 
+    getDARData: async (shiftId: string) => {
+        try {
+            const shiftDoc = await getDoc(doc(firestore, 'shifts', shiftId));
+            if (!shiftDoc.exists()) return { data: null, error: 'Shift not found' };
+            const shift = { ...shiftDoc.data(), id: shiftDoc.id } as Shift;
+
+            const [siteDoc, officerDoc, incidentsRaw, timeEntriesRaw] = await Promise.all([
+                getDoc(doc(firestore, 'sites', shift.site_id)),
+                shift.officer_id ? getDoc(doc(firestore, 'officers', shift.officer_id)) : Promise.resolve(null),
+                getDocs(query(collection(firestore, 'incidents'), where('shift_id', '==', shiftId))),
+                getDocs(query(collection(firestore, 'time_entries'), where('shift_id', '==', shiftId)))
+            ]);
+
+            const site = siteDoc.exists() ? { ...siteDoc.data(), id: siteDoc.id } as Site : null;
+            const clientDoc = site ? await getDoc(doc(firestore, 'clients', site.client_id)) : null;
+
+            return {
+                data: {
+                    shift,
+                    site,
+                    client: clientDoc?.exists() ? { ...clientDoc.data(), id: clientDoc.id } as Client : null,
+                    officer: (officerDoc && officerDoc.exists()) ? { ...officerDoc.data(), id: officerDoc.id } as Officer : null,
+                    incidents: incidentsRaw.docs.map(d => ({ ...d.data(), id: d.id } as Incident)),
+                    time_entries: timeEntriesRaw.docs.map(d => ({ ...d.data(), id: d.id } as TimeEntry))
+                },
+                error: null
+            };
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
+    getOfficerBreadcrumbs: async (officerId: string, limitCount: number = 50) => {
+        try {
+            const q = query(
+                collection(firestore, 'officer_locations'),
+                where('officer_id', '==', officerId),
+                orderBy('timestamp', 'desc'),
+                limit(limitCount)
+            );
+            const snapshot = await getDocs(q);
+            const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as OfficerLocation));
+            return { data: data.reverse(), error: null }; // Sort chronologically for path drawing
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
     getFullInvoices: async () => {
         try {
             const [invoices, clients] = await Promise.all([

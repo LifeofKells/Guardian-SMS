@@ -2,10 +2,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Card, Badge, Button, Avatar, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input, Label } from '../components/ui';
 import { db } from '../lib/db';
-import { TimeEntry, Shift } from '../lib/types';
+import { TimeEntry, Shift, Site } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
-import { Check, X, Download, ChevronLeft, ChevronRight, Pencil, ArrowUpDown, ArrowUp, ArrowDown, Filter, XCircle, Search, Clock, Calendar, Plus, Loader2 } from 'lucide-react';
+import {
+    Check, X, Download, ChevronLeft, ChevronRight, Pencil,
+    ArrowUpDown, ArrowUp, ArrowDown, Filter, XCircle, Search,
+    Clock, Calendar, Plus, Loader2, FileText, Building2
+} from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { DARPreview } from '../components/DARPreview';
 
 type SortConfig = {
     key: string;
@@ -16,6 +21,7 @@ type FilterConfig = {
     date: string;
     status: string;
     officer: string;
+    site: string;
 };
 
 export default function Timesheets() {
@@ -62,8 +68,27 @@ export default function Timesheets() {
     // Sorting & Filtering State
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'clock_in', direction: 'desc' });
     const [searchTerm, setSearchTerm] = useState('');
-    const [filters, setFilters] = useState<FilterConfig>({ date: '', status: 'all', officer: 'all' });
+    const [filters, setFilters] = useState<FilterConfig>({ date: '', status: 'all', officer: 'all', site: 'all' });
     const [showFilters, setShowFilters] = useState(false);
+
+    // DAR Modal State
+    const [isDAROpen, setIsDAROpen] = useState(false);
+    const [darData, setDarData] = useState<any>(null);
+    const [loadingDAR, setLoadingDAR] = useState<string | null>(null);
+
+    const handleGenerateDAR = async (shiftId: string) => {
+        if (!shiftId) return;
+        setLoadingDAR(shiftId);
+        try {
+            const { data } = await db.getDARData(shiftId);
+            setDarData(data);
+            setIsDAROpen(true);
+        } catch (e) {
+            console.error("Failed to load DAR data", e);
+        } finally {
+            setLoadingDAR(null);
+        }
+    };
 
     // Edit Modal State
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -203,13 +228,15 @@ export default function Timesheets() {
 
             const matchOfficer = filters.officer === 'all' || e.officer_id === filters.officer;
 
+            const matchSite = filters.site === 'all' || e.shift?.site_id === filters.site;
+
             let matchDate = true;
             if (filters.date) {
                 const entryDate = new Date(e.clock_in).toISOString().split('T')[0];
                 matchDate = entryDate === filters.date;
             }
 
-            return matchSearch && matchStatus && matchOfficer && matchDate;
+            return matchSearch && matchStatus && matchOfficer && matchSite && matchDate;
         }).sort((a: any, b: any) => {
             const dateA = new Date(a[sortConfig.key]).getTime();
             const dateB = new Date(b[sortConfig.key]).getTime();
@@ -260,9 +287,9 @@ export default function Timesheets() {
                             >
                                 <Filter className="h-4 w-4" />
                                 Filters
-                                {(filters.status !== 'all' || filters.date !== '' || filters.officer !== 'all') && (
+                                {(filters.status !== 'all' || filters.date !== '' || filters.officer !== 'all' || filters.site !== 'all') && (
                                     <Badge variant="secondary" className="ml-1 h-5 px-1.5 min-w-[20px] bg-primary text-primary-foreground">
-                                        {[filters.status !== 'all', filters.date !== '', filters.officer !== 'all'].filter(Boolean).length}
+                                        {[filters.status !== 'all', filters.date !== '', filters.officer !== 'all', filters.site !== 'all'].filter(Boolean).length}
                                     </Badge>
                                 )}
                             </Button>
@@ -332,13 +359,26 @@ export default function Timesheets() {
                                     </select>
                                 </div>
                             )}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Site</Label>
+                                <select
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    value={filters.site}
+                                    onChange={e => setFilters(f => ({ ...f, site: e.target.value }))}
+                                >
+                                    <option value="all">All Sites</option>
+                                    {sites.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="md:col-span-3 flex justify-end">
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     className="text-xs h-8 h-auto py-1"
                                     onClick={() => {
-                                        setFilters({ date: '', status: 'all', officer: 'all' });
+                                        setFilters({ date: '', status: 'all', officer: 'all', site: 'all' });
                                         setSearchTerm('');
                                     }}
                                 >
@@ -384,11 +424,29 @@ export default function Timesheets() {
                                         </Badge>
                                     </td>
                                     <td className="p-4 text-right">
-                                        {isAdmin && (
-                                            <Button variant="ghost" size="sm" onClick={() => handleEditOpen(entry)}>
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                        <div className="flex justify-end gap-1">
+                                            {entry.shift_id && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    title="Generate DAR"
+                                                    onClick={() => handleGenerateDAR(entry.shift_id)}
+                                                    disabled={!!loadingDAR}
+                                                    className="text-primary hover:bg-primary/10"
+                                                >
+                                                    {loadingDAR === entry.shift_id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                    ) : (
+                                                        <FileText className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            )}
+                                            {isAdmin && (
+                                                <Button variant="ghost" size="sm" onClick={() => handleEditOpen(entry)}>
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -486,6 +544,12 @@ export default function Timesheets() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <DARPreview
+                open={isDAROpen}
+                onOpenChange={setIsDAROpen}
+                data={darData}
+            />
         </div>
     );
 }

@@ -8,17 +8,19 @@ import {
     Users, Clock, AlertTriangle, DollarSign, Map as MapIcon, LocateFixed,
     CheckCircle2, XCircle, Loader2, Calendar, Activity, Shield,
     Radio, Phone, FileText, ChevronRight, Siren, Briefcase, TrendingUp,
-    Wallet, PieChart, BarChart3, ShieldAlert, Zap, Battery, MapPin, Search
+    Wallet, PieChart, BarChart3, ShieldAlert, Zap, Battery, MapPin, Search, Navigation
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '../contexts/ToastContext';
 import { useCommandCenter } from '../hooks/useRealtime';
 import { AlertBanner } from '../components/AlertBanner';
 import { PanicAlertModal } from '../components/PanicAlertModal';
+import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 
 // --- OPERATIONAL COMMAND WALL ---
 const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site[], locations: any[], panicAlerts: any[] }) => {
     const [search, setSearch] = useState('');
+    const [breadcrumbOfficer, setBreadcrumbOfficer] = useState<{ id: string, name: string } | null>(null);
 
     const filteredSites = sites.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.address.toLowerCase().includes(search.toLowerCase()));
 
@@ -101,9 +103,19 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site
                                             </div>
 
                                             {officerAtSite && (
-                                                <div className="flex items-center gap-1.5 bg-muted/30 px-2 py-0.5 rounded text-[10px] font-mono">
-                                                    <Battery className="h-3 w-3 text-emerald-500" />
-                                                    88%
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 px-2 text-[9px] gap-1 hover:bg-primary/10 hover:text-primary transition-all border border-transparent hover:border-primary/20"
+                                                        onClick={() => setBreadcrumbOfficer({ id: officerAtSite.officer_id, name: 'Active Officer' })}
+                                                    >
+                                                        <Navigation className="h-2.5 w-2.5" /> Trail
+                                                    </Button>
+                                                    <div className="flex items-center gap-1.5 bg-muted/30 px-2 py-0.5 rounded text-[10px] font-mono">
+                                                        <Battery className="h-3 w-3 text-emerald-500" />
+                                                        88%
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -114,6 +126,13 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site
                     })}
                 </div>
             </div>
+
+            <BreadcrumbTrail
+                open={!!breadcrumbOfficer}
+                onOpenChange={(open) => !open && setBreadcrumbOfficer(null)}
+                officerId={breadcrumbOfficer?.id || ''}
+                officerName={breadcrumbOfficer?.name || ''}
+            />
         </div>
     );
 };
