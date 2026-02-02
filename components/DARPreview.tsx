@@ -73,8 +73,14 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
                             print-color-adjust: exact !important;
                         }
                         @media print {
-                            @page { size: auto; margin: 0; }
-                            body { background: white !important; margin: 1.5cm; }
+                            @page { 
+                                size: auto; 
+                                margin: 20mm 15mm 20mm 15mm; 
+                            }
+                            body { 
+                                background: white !important; 
+                                margin: 0 !important; 
+                            }
                             .no-print { display: none !important; }
                             .print-break { page-break-after: always; }
                             
@@ -90,7 +96,7 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
                     </style>
                 </head>
                 <body class="bg-white">
-                    <div class="max-w-[850px] mx-auto">
+                    <div class="max-w-[850px] mx-auto px-12 py-8">
                         ${printContent.innerHTML}
                     </div>
                 </body>
@@ -118,7 +124,7 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
         <Dialog open={open} onOpenChange={onOpenChange} className="max-w-4xl max-h-[90vh]">
             <div className="flex flex-col h-full overflow-hidden">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border/50 bg-muted/20 shrink-0">
+                <div className="flex items-center justify-between p-4 pr-14 border-b border-border/50 bg-muted/20 shrink-0">
                     <div className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
                         <h2 className="font-bold text-lg">Daily Activity Report Preview</h2>
@@ -131,7 +137,7 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
                 </div>
 
                 {/* Preview Content */}
-                <div className="flex-1 overflow-y-auto p-8 bg-slate-50 dark:bg-slate-900/50 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 dark:bg-slate-900/50 custom-scrollbar">
                     <div
                         ref={printRef}
                         className="bg-white dark:bg-slate-950 shadow-xl border border-border mx-auto max-w-[800px] p-10 min-h-[1000px] text-slate-900 dark:text-slate-100"

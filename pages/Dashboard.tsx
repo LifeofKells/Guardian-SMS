@@ -138,33 +138,36 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site
 };
 
 export default function Dashboard() {
-    const { profile } = useAuth();
+    const { profile, organization } = useAuth();
     const { addToast } = useToast();
     const isAdmin = profile?.role === 'ops_manager' || profile?.role === 'admin' || profile?.role === 'owner';
     const isClient = profile?.role === 'client';
 
     // React Query Fetching
     const { data: sites = [] } = useQuery({
-        queryKey: ['sites', profile?.client_id], // specific cache key for client
+        queryKey: ['sites', profile?.client_id, organization?.id], // specific cache key for client
         queryFn: async () => {
-            const { data } = await db.sites.select();
+            if (!organization) return [];
+            const { data } = await db.sites.select(organization.id);
             // Filter sites if client
             if (isClient && profile?.client_id) {
                 return (data || []).filter(s => s.client_id === profile.client_id);
             }
             return data || [];
-        }
+        },
+        enabled: !!organization
     });
 
     const { data: dashboardData, isLoading: isLoadingData } = useQuery({
         queryKey: ['dashboardData', isAdmin ? 'admin' : isClient ? 'client' : 'officer'],
         queryFn: async () => {
+            if (!organization) return null;
             if (isAdmin || isClient) {
                 const [shiftsRes, entriesRes, incidentsRes, officersRes] = await Promise.all([
-                    db.getFullSchedule(),
-                    db.getFullTimeEntries(),
-                    db.getFullIncidents(),
-                    db.officers.select()
+                    db.getFullSchedule(organization.id),
+                    db.getFullTimeEntries(organization.id),
+                    db.getFullIncidents(organization.id),
+                    db.officers.select(organization.id)
                 ]);
 
                 let shifts = shiftsRes.data || [];
@@ -217,14 +220,15 @@ export default function Dashboard() {
             }
             return null;
         },
-        enabled: sites.length > 0 || isAdmin // Wait for sites to load if client
+        enabled: (sites.length > 0 || isAdmin) && !!organization // Wait for sites to load if client
     });
 
     const { data: myNextShift } = useQuery({
-        queryKey: ['myNextShift', profile?.id],
-        enabled: !isAdmin && !isClient && !!profile,
+        queryKey: ['myNextShift', profile?.id, organization?.id],
+        enabled: !isAdmin && !isClient && !!profile && !!organization,
         queryFn: async () => {
-            const { data: schedule } = await db.getFullSchedule();
+            if (!organization) return null;
+            const { data: schedule } = await db.getFullSchedule(organization.id);
             if (schedule && profile) {
                 const myShifts = schedule.filter(s => s.officer_id === profile.id);
                 const now = new Date();

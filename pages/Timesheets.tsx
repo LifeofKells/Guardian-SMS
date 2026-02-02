@@ -26,14 +26,16 @@ type FilterConfig = {
 
 export default function Timesheets() {
     const queryClient = useQueryClient();
-    const { profile } = useAuth();
+    const { profile, organization } = useAuth();
     const isAdmin = profile?.role === 'admin' || profile?.role === 'ops_manager' || profile?.role === 'owner';
 
     // --- QUERIES ---
     const { data: entries = [], isLoading: isLoadingEntries } = useQuery({
-        queryKey: ['timeEntries'],
+        queryKey: ['timeEntries', organization?.id],
+        enabled: !!organization,
         queryFn: async () => {
-            const { data } = await db.getFullTimeEntries();
+            if (!organization) return [];
+            const { data } = await db.getFullTimeEntries(organization.id);
             let loaded = data || [];
             if (!isAdmin && profile?.id) {
                 loaded = loaded.filter(e => e.officer_id === profile.id);
@@ -43,18 +45,21 @@ export default function Timesheets() {
     });
 
     const { data: officers = [] } = useQuery({
-        queryKey: ['officers'],
+        queryKey: ['officers', organization?.id],
         queryFn: async () => {
-            const { data } = await db.officers.select();
+            if (!organization) return [];
+            const { data } = await db.officers.select(organization.id);
             return data || [];
         },
-        enabled: isAdmin
+        enabled: isAdmin && !!organization
     });
 
     const { data: sites = [] } = useQuery({
-        queryKey: ['sites'],
+        queryKey: ['sites', organization?.id],
+        enabled: !!organization,
         queryFn: async () => {
-            const { data } = await db.sites.select();
+            if (!organization) return [];
+            const { data } = await db.sites.select(organization.id);
             return data || [];
         }
     });
@@ -127,6 +132,7 @@ export default function Timesheets() {
                     performed_by: profile?.full_name || 'System',
                     performed_by_id: profile?.id || 'system',
                     target_resource: 'TimeEntry',
+                    organization_id: organization?.id || '',
                     target_id: variables.id,
                     timestamp: new Date().toISOString()
                 });
@@ -143,6 +149,7 @@ export default function Timesheets() {
             const end = new Date(clock_out);
 
             const { data: shift } = await db.shifts.create({
+                organization_id: organization?.id || '',
                 site_id,
                 officer_id,
                 start_time: clock_in,
@@ -157,6 +164,7 @@ export default function Timesheets() {
             const durationHours = (durationMs / (1000 * 60 * 60)) - (break_duration / 60);
 
             const { data } = await db.time_entries.create({
+                organization_id: organization?.id || '',
                 shift_id: shift.id,
                 officer_id,
                 clock_in,
@@ -177,6 +185,7 @@ export default function Timesheets() {
                 performed_by: profile?.full_name || 'System',
                 performed_by_id: profile?.id || 'system',
                 target_resource: 'TimeEntry',
+                organization_id: organization?.id || '',
                 timestamp: new Date().toISOString()
             });
         }

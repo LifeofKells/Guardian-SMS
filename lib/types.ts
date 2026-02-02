@@ -1,11 +1,23 @@
 
 export type Role = 'owner' | 'admin' | 'ops_manager' | 'officer' | 'client';
 
+export interface Organization {
+  id: string;
+  name: string;
+  owner_id: string; // User ID of the owner
+  created_at: string;
+  settings?: {
+    timezone: string;
+    currency: string;
+  };
+}
+
 export interface User {
   id: string;
   full_name: string;
   email: string;
   role: Role;
+  organization_id: string;
   avatar_url?: string;
   client_id?: string; // If role is client, links to Client entity
   is_temporary_password?: boolean; // Forces password change on next login
@@ -13,6 +25,7 @@ export interface User {
 
 export interface Client {
   id: string;
+  organization_id: string;
   name: string;
   status: 'active' | 'prospect' | 'terminated';
   contact_name: string;
@@ -27,6 +40,7 @@ export interface Client {
 
 export interface Site {
   id: string;
+  organization_id: string;
   client_id: string;
   name: string;
   address: string;
@@ -49,6 +63,7 @@ export interface Certification {
 
 export interface Officer {
   id: string;
+  organization_id: string;
   full_name: string;
   email: string;
   badge_number: string;
@@ -65,6 +80,7 @@ export interface Officer {
 
 export interface Shift {
   id: string;
+  organization_id: string;
   site_id: string;
   officer_id: string | null;
   start_time: string; // ISO string
@@ -78,6 +94,7 @@ export interface Shift {
 
 export interface TimeEntry {
   id: string;
+  organization_id: string;
   shift_id: string;
   officer_id: string;
   clock_in: string;
@@ -93,6 +110,7 @@ export interface TimeEntry {
 
 export interface Incident {
   id: string;
+  organization_id: string;
   site_id: string;
   officer_id: string;
   type: 'theft' | 'vandalism' | 'injury' | 'trespassing' | 'other';
@@ -104,6 +122,7 @@ export interface Incident {
 
 export interface PayrollRun {
   id: string;
+  organization_id: string;
   period_start: string;
   period_end: string;
   total_amount: number;
@@ -114,6 +133,7 @@ export interface PayrollRun {
 
 export interface Invoice {
   id: string;
+  organization_id: string;
   client_id: string;
   invoice_number: string;
   issue_date: string;
@@ -125,6 +145,7 @@ export interface Invoice {
 
 export interface Feedback {
   id: string;
+  organization_id: string;
   client_id: string;
   shift_id: string;
   rating: number; // 1-5
@@ -135,6 +156,7 @@ export interface Feedback {
 
 export interface AuditLog {
   id: string;
+  organization_id: string;
   action: 'create' | 'update' | 'delete' | 'login' | 'process';
   description: string;
   performed_by: string; // User Name
@@ -160,6 +182,7 @@ export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
 export interface Expense {
   id: string;
+  organization_id: string;
   officer_id: string;
   category: ExpenseCategory;
   amount: number;
@@ -200,6 +223,7 @@ export type EquipmentStatus =
 
 export interface Equipment {
   id: string;
+  organization_id: string;
   type: EquipmentType;
   name: string;
   identifier: string; // Serial number, asset tag, license plate
@@ -215,6 +239,7 @@ export interface Equipment {
 
 export interface MaintenanceRecord {
   id: string;
+  organization_id: string;
   equipment_id: string;
   type: 'routine' | 'repair' | 'inspection';
   description: string;
@@ -228,6 +253,7 @@ export interface MaintenanceRecord {
 
 export interface EquipmentLog {
   id: string;
+  organization_id: string;
   equipment_id: string;
   action: 'check_out' | 'check_in' | 'transfer' | 'damage' | 'loss';
   officer_id: string;
@@ -239,6 +265,7 @@ export interface EquipmentLog {
 
 export interface OfficerLocation {
   id: string;
+  organization_id: string;
   officer_id: string;
   lat: number;
   lng: number;
@@ -251,6 +278,7 @@ export interface OfficerLocation {
 
 export interface PanicAlert {
   id: string;
+  organization_id: string;
   officer_id: string;
   location: { lat: number; lng: number };
   timestamp: string;
@@ -263,6 +291,7 @@ export interface PanicAlert {
 
 export interface GeofenceEvent {
   id: string;
+  organization_id: string;
   officer_id: string;
   site_id: string;
   event_type: 'enter' | 'exit';
@@ -276,6 +305,7 @@ export interface GeofenceEvent {
 
 export interface Availability {
   id: string;
+  organization_id: string;
   officer_id: string;
   date: string; // YYYY-MM-DD
   available: boolean;
@@ -286,6 +316,7 @@ export interface Availability {
 
 export interface ShiftTemplate {
   id: string;
+  organization_id: string;
   name: string;
   site_id: string;
   start_time: string; // HH:mm
@@ -310,6 +341,7 @@ export type RealtimeEventType =
 
 export interface RealtimeEvent {
   id: string;
+  organization_id: string;
   type: RealtimeEventType;
   payload: any;
   timestamp: string;

@@ -47,7 +47,7 @@ const formatDate = (iso: string) => {
 };
 
 export default function Schedule() {
-  const { profile } = useAuth();
+  const { profile, organization } = useAuth();
   const { addToast } = useToast();
   const queryClient = useQueryClient();
   const canEdit = profile?.role === 'admin' || profile?.role === 'ops_manager' || profile?.role === 'owner';
@@ -59,34 +59,42 @@ export default function Schedule() {
 
   // --- QUERIES ---
   const { data: shifts = [] } = useQuery({
-    queryKey: ['schedule'],
+    queryKey: ['schedule', organization?.id],
+    enabled: !!organization,
     queryFn: async () => {
-      const { data, error } = await db.getFullSchedule();
+      if (!organization) return [];
+      const { data, error } = await db.getFullSchedule(organization.id);
       if (error) throw error;
       return (data as EnrichedShift[]) || [];
     }
   });
 
   const { data: officers = [] } = useQuery({
-    queryKey: ['officers'],
+    queryKey: ['officers', organization?.id],
+    enabled: !!organization,
     queryFn: async () => {
-      const { data } = await db.officers.select();
+      if (!organization) return [];
+      const { data } = await db.officers.select(organization.id);
       return data || [];
     }
   });
 
   const { data: sites = [] } = useQuery({
-    queryKey: ['sites'],
+    queryKey: ['sites', organization?.id],
+    enabled: !!organization,
     queryFn: async () => {
-      const { data } = await db.sites.select();
+      if (!organization) return [];
+      const { data } = await db.sites.select(organization.id);
       return data || [];
     }
   });
 
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients'],
+    queryKey: ['clients', organization?.id],
+    enabled: !!organization,
     queryFn: async () => {
-      const { data } = await db.clients.select();
+      if (!organization) return [];
+      const { data } = await db.clients.select(organization.id);
       return data || [];
     }
   });
@@ -128,6 +136,7 @@ export default function Schedule() {
 
       db.audit_logs.create({
         action: 'update',
+        organization_id: organization?.id || '',
         description: variables.officerId ? `Assigned officer ${offName} to shift.` : 'Unassigned officer from shift.',
         performed_by: profile?.full_name || 'System',
         performed_by_id: profile?.id || 'system',
@@ -161,6 +170,7 @@ export default function Schedule() {
 
         db.audit_logs.create({
           action: 'create',
+          organization_id: organization?.id || '',
           description: `Created ${data.length} new shifts.`,
           performed_by: profile?.full_name || 'System',
           performed_by_id: profile?.id || 'system',
@@ -190,6 +200,7 @@ export default function Schedule() {
 
       db.audit_logs.create({
         action: 'update',
+        organization_id: organization?.id || '',
         description: `Updated shift details (Time/Rate).`,
         performed_by: profile?.full_name || 'System',
         performed_by_id: profile?.id || 'system',
@@ -212,6 +223,7 @@ export default function Schedule() {
 
       db.audit_logs.create({
         action: 'delete',
+        organization_id: organization?.id || '',
         description: `Deleted shift.`,
         performed_by: profile?.full_name || 'System',
         performed_by_id: profile?.id || 'system',

@@ -66,14 +66,16 @@ function ExpensesTab() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<ExpenseStatus | 'all'>('all');
     const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
-    const { user, profile } = useAuth();
+    const { user, profile, organization } = useAuth();
     const queryClient = useQueryClient();
     const { addToast } = useToast();
 
     const { data: expensesData, isLoading } = useQuery({
-        queryKey: ['expenses'],
+        queryKey: ['expenses', organization?.id],
+        enabled: !!organization,
         queryFn: async () => {
-            const { data } = await db.getFullExpenses();
+            if (!organization) return [];
+            const { data } = await db.getFullExpenses(organization.id);
             return data || [];
         }
     });
@@ -97,6 +99,7 @@ function ExpensesTab() {
                 performed_by_id: user?.uid || 'system',
                 target_resource: 'Expense',
                 target_id: id,
+                organization_id: organization?.id || '',
                 timestamp: new Date().toISOString()
             });
             queryClient.invalidateQueries({ queryKey: ['expenses'] });
@@ -304,11 +307,14 @@ function ExpensesTab() {
 function EquipmentTab() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
+    const { organization } = useAuth();
 
     const { data: equipmentData, isLoading } = useQuery({
-        queryKey: ['equipment'],
+        queryKey: ['equipment', organization?.id],
+        enabled: !!organization,
         queryFn: async () => {
-            const { data } = await db.getFullEquipment();
+            if (!organization) return [];
+            const { data } = await db.getFullEquipment(organization.id);
             return data || [];
         }
     });
@@ -456,11 +462,14 @@ function EquipmentTab() {
 // --- MAINTENANCE TAB ---
 function MaintenanceTab() {
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const { organization } = useAuth();
 
     const { data: maintenanceData, isLoading } = useQuery({
-        queryKey: ['maintenance'],
+        queryKey: ['maintenance', organization?.id],
+        enabled: !!organization,
         queryFn: async () => {
-            const { data } = await db.getFullMaintenance();
+            if (!organization) return [];
+            const { data } = await db.getFullMaintenance(organization.id);
             return data || [];
         }
     });
@@ -527,7 +536,7 @@ function MaintenanceTab() {
 
 function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
     const { addToast } = useToast();
-    const { user, profile } = useAuth();
+    const { user, profile, organization } = useAuth();
     const queryClient = useQueryClient();
     const [category, setCategory] = useState<ExpenseCategory>('other');
     const [amount, setAmount] = useState('');
@@ -544,6 +553,7 @@ function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange:
             if (!user) throw new Error("You must be logged in to submit.");
 
             const expense: Omit<Expense, 'id'> = {
+                organization_id: organization?.id || '', // Added
                 officer_id: user.uid,
                 category,
                 amount: parseFloat(amount),
@@ -576,6 +586,7 @@ function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange:
                 performed_by_id: user?.uid || 'system',
                 target_resource: 'Expense',
                 target_id: data?.id,
+                organization_id: organization?.id || '', // Added
                 timestamp: new Date().toISOString()
             });
             queryClient.invalidateQueries({ queryKey: ['expenses'] });
@@ -717,10 +728,12 @@ function AddEquipmentDialog({ open, onOpenChange }: { open: boolean, onOpenChang
     const [purchasePrice, setPurchasePrice] = useState('');
     const [location, setLocation] = useState('');
     const [notes, setNotes] = useState('');
+    const { organization } = useAuth();
 
     const createMutation = useMutation({
         mutationFn: async () => {
             const equipment: Omit<Equipment, 'id'> = {
+                organization_id: organization?.id || '', // Added
                 type,
                 name,
                 identifier,
@@ -742,6 +755,7 @@ function AddEquipmentDialog({ open, onOpenChange }: { open: boolean, onOpenChang
                 performed_by_id: user?.uid || 'system',
                 target_resource: 'Equipment',
                 target_id: data?.id,
+                organization_id: organization?.id || '', // Added
                 timestamp: new Date().toISOString()
             });
             queryClient.invalidateQueries({ queryKey: ['equipment'] });
@@ -843,17 +857,20 @@ function AddEquipmentDialog({ open, onOpenChange }: { open: boolean, onOpenChang
 function AddMaintenanceDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
     const { addToast } = useToast();
     const queryClient = useQueryClient();
-    const { user, profile } = useAuth();
+    const { user, profile, organization } = useAuth();
     const [equipmentId, setEquipmentId] = useState('');
     const [type, setType] = useState<'routine' | 'repair' | 'inspection'>('routine');
     const [description, setDescription] = useState('');
     const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
     const [cost, setCost] = useState('');
+    // Removed useOrganization line
 
     const { data: equipmentList } = useQuery({
-        queryKey: ['equipment'],
+        queryKey: ['equipment', organization?.id],
+        enabled: !!organization,
         queryFn: async () => {
-            const { data } = await db.equipment.select();
+            if (!organization) return [];
+            const { data } = await db.equipment.select(organization.id);
             return data || [];
         }
     });
@@ -861,6 +878,7 @@ function AddMaintenanceDialog({ open, onOpenChange }: { open: boolean, onOpenCha
     const createMutation = useMutation({
         mutationFn: async () => {
             const record: Omit<MaintenanceRecord, 'id'> = {
+                organization_id: organization?.id || '', // Added
                 equipment_id: equipmentId,
                 type,
                 description,
@@ -880,6 +898,7 @@ function AddMaintenanceDialog({ open, onOpenChange }: { open: boolean, onOpenCha
                 performed_by_id: user?.uid || 'system',
                 target_resource: 'Maintenance',
                 target_id: data?.id,
+                organization_id: organization?.id || '', // Added
                 timestamp: new Date().toISOString()
             });
             queryClient.invalidateQueries({ queryKey: ['maintenance'] });

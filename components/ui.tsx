@@ -210,16 +210,16 @@ export function Dialog({ open, onOpenChange, children, className, overlayClassNa
         className={cn("relative bg-background w-full max-w-lg rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300", className)}
         onClick={(e) => e.stopPropagation()}
       >
+        {children}
         {showClose && (
           <button
-            className="absolute right-5 top-5 rounded-sm opacity-50 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
+            className="absolute right-4 top-4 rounded-lg p-2 opacity-50 ring-offset-background transition-all hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-20"
             onClick={() => onOpenChange?.(false)}
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </button>
         )}
-        {children}
       </div>
     </div>
   );
@@ -278,4 +278,38 @@ export function SheetContent({ className, children, ...props }: React.HTMLAttrib
 
 export function SheetFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-4 border-t border-border bg-muted/10", className)} {...props} />;
+}
+
+// --- TOOLTIP (Simple Pure CSS/React Implementation) ---
+export function Tooltip({ children, content, side = 'right' }: { children: React.ReactNode, content: string, side?: 'top' | 'right' | 'bottom' | 'left' }) {
+  const [isVisible, setIsVisible] = React.useState(false);
+
+  return (
+    <div
+      className="relative flex items-center justify-center"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+    >
+      {children}
+      {isVisible && (
+        <div className={cn(
+          "absolute z-50 px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-md shadow-lg whitespace-nowrap animate-in fade-in zoom-in-95 duration-200 pointer-events-none",
+          side === 'right' && "left-full ml-2",
+          side === 'left' && "right-full mr-2",
+          side === 'top' && "bottom-full mb-2 left-1/2 -translate-x-1/2",
+          side === 'bottom' && "top-full mt-2 left-1/2 -translate-x-1/2"
+        )}>
+          {content}
+          {/* Arrow */}
+          <div className={cn(
+            "absolute w-0 h-0 border-[5px] border-transparent",
+            side === 'right' && "border-r-slate-900 right-full top-1/2 -translate-y-1/2",
+            side === 'left' && "border-l-slate-900 left-full top-1/2 -translate-y-1/2",
+            side === 'top' && "border-t-slate-900 top-full left-1/2 -translate-x-1/2",
+            side === 'bottom' && "border-b-slate-900 bottom-full left-1/2 -translate-x-1/2"
+          )} />
+        </div>
+      )}
+    </div>
+  );
 }

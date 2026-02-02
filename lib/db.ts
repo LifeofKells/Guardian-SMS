@@ -17,7 +17,7 @@ import {
     onSnapshot,
     type QueryConstraint
 } from 'firebase/firestore';
-import { Client, Officer, Shift, Site, TimeEntry, User, Incident, PayrollRun, Invoice, Certification, Feedback, AuditLog, Expense, Equipment, MaintenanceRecord, EquipmentLog, Availability, ShiftTemplate, OfficerLocation, PanicAlert, GeofenceEvent } from './types';
+import { Client, Officer, Shift, Site, TimeEntry, User, Incident, PayrollRun, Invoice, Certification, Feedback, AuditLog, Expense, Equipment, MaintenanceRecord, EquipmentLog, Availability, ShiftTemplate, OfficerLocation, PanicAlert, GeofenceEvent, Organization } from './types';
 
 // --- HELPERS ---
 const generateId = () => Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
@@ -94,7 +94,7 @@ function generateCertifications(): Certification[] {
     return certs;
 }
 
-function generateOfficers(count: number): Officer[] {
+function generateOfficers(count: number, orgId: string): Officer[] {
     const officers: Officer[] = [];
     for (let i = 0; i < count; i++) {
         const first = pick(FIRST_NAMES);
@@ -103,6 +103,7 @@ function generateOfficers(count: number): Officer[] {
 
         officers.push({
             id: generateId(),
+            organization_id: orgId,
             full_name: `${first} ${last}`,
             email: `${first.toLowerCase()}.${last.toLowerCase()}${randomInt(1, 99)}@guardian.com`,
             badge_number: `${pick(['A', 'B', 'C', 'K9', 'S'])}-${randomInt(100, 9999)}`,
@@ -120,7 +121,7 @@ function generateOfficers(count: number): Officer[] {
     return officers;
 }
 
-function generateClientsAndSites(count: number): { clients: Client[], sites: Site[] } {
+function generateClientsAndSites(count: number, orgId: string): { clients: Client[], sites: Site[] } {
     const clients: Client[] = [];
     const sites: Site[] = [];
 
@@ -139,6 +140,7 @@ function generateClientsAndSites(count: number): { clients: Client[], sites: Sit
         const clientId = generateId();
         clients.push({
             id: clientId,
+            organization_id: orgId,
             name: name,
             status: Math.random() > 0.85 ? 'prospect' : 'active',
             contact_name: contact,
@@ -156,6 +158,7 @@ function generateClientsAndSites(count: number): { clients: Client[], sites: Sit
         for (let j = 0; j < numSites; j++) {
             sites.push({
                 id: generateId(),
+                organization_id: orgId,
                 client_id: clientId,
                 name: `${pick(SITE_NAMES)} ${j + 1}`,
                 address: `${address}, Unit ${j + 100}`,
@@ -170,7 +173,7 @@ function generateClientsAndSites(count: number): { clients: Client[], sites: Sit
     return { clients, sites };
 }
 
-function generateShifts(sites: Site[], officers: Officer[], daysBack: number, daysForward: number): { shifts: Shift[], timeEntries: TimeEntry[] } {
+function generateShifts(sites: Site[], officers: Officer[], daysBack: number, daysForward: number, orgId: string): { shifts: Shift[], timeEntries: TimeEntry[] } {
     const shifts: Shift[] = [];
     const entries: TimeEntry[] = [];
     const activeOfficers = officers.filter(o => o.employment_status === 'active');
@@ -212,6 +215,7 @@ function generateShifts(sites: Site[], officers: Officer[], daysBack: number, da
                     const shiftId = generateId();
                     shifts.push({
                         id: shiftId,
+                        organization_id: orgId,
                         site_id: site.id,
                         officer_id: officer ? officer.id : null,
                         start_time: startTime.toISOString(),
@@ -234,6 +238,7 @@ function generateShifts(sites: Site[], officers: Officer[], daysBack: number, da
 
                             entries.push({
                                 id: generateId(),
+                                organization_id: orgId,
                                 shift_id: shiftId,
                                 officer_id: officer.id,
                                 clock_in: clockIn.toISOString(),
@@ -255,7 +260,7 @@ function generateShifts(sites: Site[], officers: Officer[], daysBack: number, da
     return { shifts, timeEntries: entries };
 }
 
-function generateIncidents(sites: Site[], officers: Officer[], count: number): Incident[] {
+function generateIncidents(sites: Site[], officers: Officer[], count: number, orgId: string): Incident[] {
     const incidents: Incident[] = [];
     const activeOfficers = officers.filter(o => o.employment_status === 'active');
 
@@ -267,6 +272,7 @@ function generateIncidents(sites: Site[], officers: Officer[], count: number): I
 
         incidents.push({
             id: generateId(),
+            organization_id: orgId,
             site_id: site.id,
             officer_id: officer.id,
             type: pick(['theft', 'vandalism', 'injury', 'trespassing', 'other'] as const),
@@ -279,7 +285,7 @@ function generateIncidents(sites: Site[], officers: Officer[], count: number): I
     return incidents;
 }
 
-function generateAccountingData(clients: Client[]): { payrolls: PayrollRun[], invoices: Invoice[] } {
+function generateAccountingData(clients: Client[], orgId: string): { payrolls: PayrollRun[], invoices: Invoice[] } {
     const payrolls: PayrollRun[] = [];
     const invoices: Invoice[] = [];
 
@@ -292,6 +298,7 @@ function generateAccountingData(clients: Client[]): { payrolls: PayrollRun[], in
 
         payrolls.push({
             id: generateId(),
+            organization_id: orgId,
             period_start: startDate.toISOString(),
             period_end: endDate.toISOString(),
             total_amount: randomInt(25000, 45000),
@@ -316,6 +323,7 @@ function generateAccountingData(clients: Client[]): { payrolls: PayrollRun[], in
 
             invoices.push({
                 id: generateId(),
+                organization_id: orgId,
                 client_id: c.id,
                 invoice_number: `INV-${randomInt(10000, 99999)}`,
                 issue_date: issueDate.toISOString(),
@@ -336,9 +344,10 @@ function generateAccountingData(clients: Client[]): { payrolls: PayrollRun[], in
 }
 
 
-// --- HELPER: Fetch all docs from collection ---
-async function fetchCollection<T>(collectionName: string): Promise<T[]> {
-    const querySnapshot = await getDocs(collection(firestore, collectionName));
+// --- HELPER: Fetch all docs from collection (Org Filtered) ---
+async function fetchCollection<T>(collectionName: string, organizationId: string): Promise<T[]> {
+    const q = query(collection(firestore, collectionName), where('organization_id', '==', organizationId));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
         return { ...data, id: doc.id } as T;
@@ -387,10 +396,36 @@ export const db = {
             } catch (e: any) {
                 return { data: null, error: e };
             }
+        },
+        getByEmail: async (email: string) => {
+            try {
+                const q = query(collection(firestore, 'users'), where("email", "==", email), limit(1));
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) return { data: null, error: 'User not found' };
+                const user = { ...querySnapshot.docs[0].data(), id: querySnapshot.docs[0].id } as User;
+                return { data: user, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        }
+    },
+    organizations: {
+        get: async (id: string) => {
+            try {
+                const docRef = await getDoc(doc(firestore, 'organizations', id));
+                if (docRef.exists()) return { data: { ...docRef.data(), id: docRef.id } as Organization, error: null };
+                return { data: null, error: 'Organization not found' };
+            } catch (e: any) { return { data: null, error: e }; }
+        },
+        create: async (org: Organization) => {
+            try {
+                await setDoc(doc(firestore, 'organizations', org.id), org);
+                return { data: org, error: null };
+            } catch (e: any) { return { data: null, error: e }; }
         }
     },
     clients: {
-        select: async () => ({ data: await fetchCollection<Client>('clients') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Client>('clients', orgId) }),
         create: async (client: Omit<Client, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'clients'), client);
@@ -409,7 +444,7 @@ export const db = {
         }
     },
     sites: {
-        select: async () => ({ data: await fetchCollection<Site>('sites') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Site>('sites', orgId) }),
         create: async (site: Omit<Site, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'sites'), site);
@@ -420,7 +455,7 @@ export const db = {
         }
     },
     officers: {
-        select: async () => ({ data: await fetchCollection<Officer>('officers') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Officer>('officers', orgId) }),
         create: async (officer: Omit<Officer, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'officers'), officer);
@@ -439,7 +474,7 @@ export const db = {
         }
     },
     shifts: {
-        select: async () => ({ data: await fetchCollection<Shift>('shifts') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Shift>('shifts', orgId) }),
         create: async (shift: Omit<Shift, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'shifts'), shift);
@@ -466,7 +501,7 @@ export const db = {
         }
     },
     time_entries: {
-        select: async () => ({ data: await fetchCollection<TimeEntry>('time_entries') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<TimeEntry>('time_entries', orgId) }),
         create: async (entry: Omit<TimeEntry, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'time_entries'), entry);
@@ -485,10 +520,18 @@ export const db = {
         }
     },
     incidents: {
-        select: async () => ({ data: await fetchCollection<Incident>('incidents') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Incident>('incidents', orgId) }),
+        create: async (incident: Omit<Incident, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'incidents'), incident);
+                return { data: { ...incident, id: docRef.id } as Incident, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        }
     },
     payrolls: {
-        select: async () => ({ data: await fetchCollection<PayrollRun>('payrolls') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<PayrollRun>('payrolls', orgId) }),
         create: async (run: Omit<PayrollRun, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'payrolls'), run);
@@ -499,7 +542,7 @@ export const db = {
         }
     },
     invoices: {
-        select: async () => ({ data: await fetchCollection<Invoice>('invoices') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Invoice>('invoices', orgId) }),
         create: async (inv: Omit<Invoice, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'invoices'), inv);
@@ -510,7 +553,7 @@ export const db = {
         }
     },
     feedback: {
-        select: async () => ({ data: await fetchCollection<Feedback>('feedback') }),
+        select: async (orgId: string) => ({ data: await fetchCollection<Feedback>('feedback', orgId) }),
         create: async (fb: Omit<Feedback, 'id'>) => {
             try {
                 const docRef = await addDoc(collection(firestore, 'feedback'), fb);
@@ -521,9 +564,9 @@ export const db = {
         }
     },
     audit_logs: {
-        select: async () => {
+        select: async (orgId: string) => {
             try {
-                const logs = await fetchCollection<AuditLog>('audit_logs');
+                const logs = await fetchCollection<AuditLog>('audit_logs', orgId);
                 logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
                 return { data: logs, error: null };
             } catch (e: any) {
@@ -539,9 +582,10 @@ export const db = {
                 return { data: null, error: e };
             }
         },
-        subscribe: (callback: (data: AuditLog[]) => void) => {
+        subscribe: (orgId: string, callback: (data: AuditLog[]) => void) => {
             try {
-                const unsubscribe = onSnapshot(collection(firestore, 'audit_logs'), (snapshot) => {
+                const q = query(collection(firestore, 'audit_logs'), where('organization_id', '==', orgId));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
                     const logs = snapshot.docs.map(doc => {
                         const data = doc.data();
                         return { ...data, id: doc.id } as AuditLog;
@@ -556,15 +600,261 @@ export const db = {
             }
         }
     },
+    expenses: {
+        select: async (orgId: string) => ({ data: await fetchCollection<Expense>('expenses', orgId) }),
+        create: async (expense: Omit<Expense, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'expenses'), expense);
+                return { data: { ...expense, id: docRef.id } as Expense, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        update: async (id: string, data: Partial<Expense>) => {
+            try {
+                await updateDoc(doc(firestore, 'expenses', id), data);
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'expenses', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        query: async (constraints: QueryConstraint[]) => {
+            try {
+                const q = query(collection(firestore, 'expenses'), ...constraints);
+                const snapshot = await getDocs(q);
+                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Expense));
+                return { data, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        }
+    },
+    equipment: {
+        select: async (orgId: string) => ({ data: await fetchCollection<Equipment>('equipment', orgId) }),
+        create: async (item: Omit<Equipment, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'equipment'), item);
+                return { data: { ...item, id: docRef.id } as Equipment, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        update: async (id: string, data: Partial<Equipment>) => {
+            try {
+                await updateDoc(doc(firestore, 'equipment', id), data);
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'equipment', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        query: async (constraints: QueryConstraint[]) => {
+            try {
+                const q = query(collection(firestore, 'equipment'), ...constraints);
+                const snapshot = await getDocs(q);
+                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Equipment));
+                return { data, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        }
+    },
+    maintenance: {
+        select: async (orgId: string) => ({ data: await fetchCollection<MaintenanceRecord>('maintenance_records', orgId) }),
+        create: async (record: Omit<MaintenanceRecord, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'maintenance_records'), record);
+                return { data: { ...record, id: docRef.id } as MaintenanceRecord, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        update: async (id: string, data: Partial<MaintenanceRecord>) => {
+            try {
+                await updateDoc(doc(firestore, 'maintenance_records', id), data);
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'maintenance_records', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        }
+    },
+    equipmentLogs: {
+        select: async (orgId: string) => ({ data: await fetchCollection<EquipmentLog>('equipment_logs', orgId) }),
+        create: async (log: Omit<EquipmentLog, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'equipment_logs'), log);
+                return { data: { ...log, id: docRef.id } as EquipmentLog, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        }
+    },
+    availability: {
+        select: async (orgId: string) => ({ data: await fetchCollection<Availability>('availability', orgId) }),
+        getByOfficer: async (officerId: string) => {
+            try {
+                const q = query(collection(firestore, 'availability'), where('officer_id', '==', officerId));
+                const snapshot = await getDocs(q);
+                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Availability));
+                return { data, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        getByDateRange: async (startDate: string, endDate: string) => {
+            try {
+                const q = query(
+                    collection(firestore, 'availability'),
+                    where('date', '>=', startDate),
+                    where('date', '<=', endDate)
+                );
+                const snapshot = await getDocs(q);
+                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Availability));
+                return { data, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        upsert: async (availability: Availability) => {
+            try {
+                const docId = availability.id || `${availability.officer_id}_${availability.date}`;
+                await setDoc(doc(firestore, 'availability', docId), { ...availability, id: docId });
+                return { data: { ...availability, id: docId }, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        bulkUpsert: async (items: Availability[]) => {
+            try {
+                const batch = writeBatch(firestore);
+                items.forEach(item => {
+                    const docId = item.id || `${item.officer_id}_${item.date}`;
+                    batch.set(doc(firestore, 'availability', docId), { ...item, id: docId });
+                });
+                await batch.commit();
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'availability', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        }
+    },
+    shiftTemplates: {
+        select: async (orgId: string) => ({ data: await fetchCollection<ShiftTemplate>('shift_templates', orgId) }),
+        create: async (template: Omit<ShiftTemplate, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'shift_templates'), template);
+                return { data: { ...template, id: docRef.id } as ShiftTemplate, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        update: async (id: string, data: Partial<ShiftTemplate>) => {
+            try {
+                await updateDoc(doc(firestore, 'shift_templates', id), data);
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'shift_templates', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        applyTemplate: async (templateId: string, startDate: string, endDate: string, orgId: string) => {
+            try {
+                const templateDoc = await getDoc(doc(firestore, 'shift_templates', templateId));
+                if (!templateDoc.exists()) {
+                    return { data: null, error: 'Template not found' };
+                }
+                const template = { ...templateDoc.data(), id: templateDoc.id } as ShiftTemplate;
+
+                const shifts: Omit<Shift, 'id'>[] = [];
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    if (template.days_of_week.includes(d.getDay())) {
+                        const shiftDate = d.toISOString().split('T')[0];
+                        const startDateTime = new Date(`${shiftDate}T${template.start_time}:00`);
+                        const endDateTime = new Date(`${shiftDate}T${template.end_time}:00`);
+
+                        if (endDateTime <= startDateTime) {
+                            endDateTime.setDate(endDateTime.getDate() + 1);
+                        }
+
+                        shifts.push({
+                            organization_id: orgId,
+                            site_id: template.site_id,
+                            officer_id: null,
+                            start_time: startDateTime.toISOString(),
+                            end_time: endDateTime.toISOString(),
+                            status: 'draft',
+                            pay_rate: template.pay_rate || null,
+                            bill_rate: template.bill_rate || null
+                        });
+                    }
+                }
+
+                const batch = writeBatch(firestore);
+                const createdShifts: Shift[] = [];
+
+                shifts.forEach(shift => {
+                    const docRef = doc(collection(firestore, 'shifts'));
+                    batch.set(docRef, shift);
+                    createdShifts.push({ ...shift, id: docRef.id } as Shift);
+                });
+
+                await batch.commit();
+                return { data: createdShifts, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        }
+    },
 
     // Relational Queries (Manual Joins)
-    getFullSchedule: async () => {
+    getFullSchedule: async (orgId: string) => {
         try {
             const [shifts, sites, clients, officers] = await Promise.all([
-                fetchCollection<Shift>('shifts'),
-                fetchCollection<Site>('sites'),
-                fetchCollection<Client>('clients'),
-                fetchCollection<Officer>('officers')
+                fetchCollection<Shift>('shifts', orgId),
+                fetchCollection<Site>('sites', orgId),
+                fetchCollection<Client>('clients', orgId),
+                fetchCollection<Officer>('officers', orgId)
             ]);
             const clientMap = createLookup(clients);
             const siteMap = createLookup(sites);
@@ -585,14 +875,14 @@ export const db = {
         }
     },
 
-    getFullTimeEntries: async () => {
+    getFullTimeEntries: async (orgId: string) => {
         try {
             const [entries, shifts, sites, clients, officers] = await Promise.all([
-                fetchCollection<TimeEntry>('time_entries'),
-                fetchCollection<Shift>('shifts'),
-                fetchCollection<Site>('sites'),
-                fetchCollection<Client>('clients'),
-                fetchCollection<Officer>('officers')
+                fetchCollection<TimeEntry>('time_entries', orgId),
+                fetchCollection<Shift>('shifts', orgId),
+                fetchCollection<Site>('sites', orgId),
+                fetchCollection<Client>('clients', orgId),
+                fetchCollection<Officer>('officers', orgId)
             ]);
             const clientMap = createLookup(clients);
             const siteMap = createLookup(sites);
@@ -619,13 +909,13 @@ export const db = {
         }
     },
 
-    getFullIncidents: async () => {
+    getFullIncidents: async (orgId: string) => {
         try {
             const [incidents, sites, clients, officers] = await Promise.all([
-                fetchCollection<Incident>('incidents'),
-                fetchCollection<Site>('sites'),
-                fetchCollection<Client>('clients'),
-                fetchCollection<Officer>('officers')
+                fetchCollection<Incident>('incidents', orgId),
+                fetchCollection<Site>('sites', orgId),
+                fetchCollection<Client>('clients', orgId),
+                fetchCollection<Officer>('officers', orgId)
             ]);
             const clientMap = createLookup(clients);
             const siteMap = createLookup(sites);
@@ -688,17 +978,17 @@ export const db = {
             );
             const snapshot = await getDocs(q);
             const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as OfficerLocation));
-            return { data: data.reverse(), error: null }; // Sort chronologically for path drawing
+            return { data: data.reverse(), error: null };
         } catch (e) {
             return { data: null, error: e };
         }
     },
 
-    getFullInvoices: async () => {
+    getFullInvoices: async (orgId: string) => {
         try {
             const [invoices, clients] = await Promise.all([
-                fetchCollection<Invoice>('invoices'),
-                fetchCollection<Client>('clients')
+                fetchCollection<Invoice>('invoices', orgId),
+                fetchCollection<Client>('clients', orgId)
             ]);
             const clientMap = createLookup(clients);
             const data = invoices.map(inv => ({
@@ -712,24 +1002,123 @@ export const db = {
         }
     },
 
-    // UTILITY: Connection Check
+    getFullExpenses: async (orgId: string, constraints: QueryConstraint[] = []) => {
+        try {
+            // Combine org filter with other constraints
+            const q = query(collection(firestore, 'expenses'), where('organization_id', '==', orgId), ...constraints);
+            const [expensesSnapshot, officers] = await Promise.all([
+                getDocs(q),
+                fetchCollection<Officer>('officers', orgId)
+            ]);
+
+            const expenses = expensesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Expense));
+            const officerMap = createLookup(officers);
+
+            const data = expenses.map(exp => ({
+                ...exp,
+                officer: officerMap[exp.officer_id]
+            }));
+            data.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+            return { data, error: null };
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
+    getFullEquipment: async (orgId: string, constraints: QueryConstraint[] = []) => {
+        try {
+            const q = query(collection(firestore, 'equipment'), where('organization_id', '==', orgId), ...constraints);
+            const [equipmentSnapshot, officers] = await Promise.all([
+                getDocs(q),
+                fetchCollection<Officer>('officers', orgId)
+            ]);
+
+            const equipment = equipmentSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Equipment));
+            const officerMap = createLookup(officers);
+            const data = equipment.map(eq => ({
+                ...eq,
+                assigned_officer: eq.assigned_to ? officerMap[eq.assigned_to] : null
+            }));
+            return { data, error: null };
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
+    getFullMaintenance: async (orgId: string) => {
+        try {
+            const [maintenance, equipment] = await Promise.all([
+                fetchCollection<MaintenanceRecord>('maintenance_records', orgId),
+                fetchCollection<Equipment>('equipment', orgId)
+            ]);
+            const equipmentMap = createLookup(equipment);
+            const data = maintenance.map(m => ({
+                ...m,
+                equipment: equipmentMap[m.equipment_id]
+            }));
+            data.sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
+            return { data, error: null };
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
+    getFullEquipmentLogs: async (orgId: string) => {
+        try {
+            const [logs, equipment, officers] = await Promise.all([
+                fetchCollection<EquipmentLog>('equipment_logs', orgId),
+                fetchCollection<Equipment>('equipment', orgId),
+                fetchCollection<Officer>('officers', orgId)
+            ]);
+            const equipmentMap = createLookup(equipment);
+            const officerMap = createLookup(officers);
+            const data = logs.map(log => ({
+                ...log,
+                equipment: equipmentMap[log.equipment_id],
+                officer: officerMap[log.officer_id]
+            }));
+            data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            return { data, error: null };
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
     checkConnection: async () => {
         try {
-            await getDocs(collection(firestore, 'clients'));
+            await getDocs(collection(firestore, 'clients')); // Just a ping
             return { success: true };
         } catch (error: any) {
             return { success: false, error };
         }
     },
 
-    // UTILITY: Seed Function (Supports Standard and Massive modes)
     seed: async (onLog?: (msg: string) => void, massive: boolean = false) => {
         const log = (msg: string) => {
             console.log(msg);
             if (onLog) onLog(msg);
         };
         log(massive ? 'Starting MASSIVE seed operation...' : 'Starting standard seed...');
-        log(massive ? 'Targets: 30 Clients, 60 Officers, 300 Incidents, 3 Months of Shifts' : 'Targets: 8 Clients, 25 Officers, 15 Incidents, 3 Weeks of Shifts');
+
+        // 1. Create Default Organization
+        const orgId = 'org_asorock_001';
+        const organization: Organization = {
+            id: orgId,
+            name: 'AsoRock Security Services',
+            owner_id: 'demo_admin_user',
+            created_at: new Date().toISOString(),
+            settings: {
+                timezone: 'UTC-8',
+                currency: 'USD'
+            }
+        };
+
+        try {
+            log('Creating Default Organization: AsoRock Security Services');
+            await setDoc(doc(firestore, 'organizations', orgId), organization);
+        } catch (e) {
+            log('Error creating org: ' + e);
+        }
 
         // Config based on mode
         const config = massive ? {
@@ -748,24 +1137,25 @@ export const db = {
 
         // Generate Data
         log('Generating clients and sites...');
-        const { clients, sites } = generateClientsAndSites(config.clientCount);
+        const { clients, sites } = generateClientsAndSites(config.clientCount, orgId);
 
         log('Generating officers with certifications...');
-        const officers = generateOfficers(config.officerCount);
+        const officers = generateOfficers(config.officerCount, orgId);
 
         log('Generating shift schedule...');
-        const { shifts, timeEntries } = generateShifts(sites, officers, config.daysBack, config.daysForward);
+        const { shifts, timeEntries } = generateShifts(sites, officers, config.daysBack, config.daysForward, orgId);
 
         log('Generating incidents...');
-        const incidents = generateIncidents(sites, officers, config.incidentCount);
+        const incidents = generateIncidents(sites, officers, config.incidentCount, orgId);
 
         log('Generating accounting data...');
-        const { payrolls, invoices } = generateAccountingData(clients);
+        const { payrolls, invoices } = generateAccountingData(clients, orgId);
 
         // Create Default Users (Profiles)
         // 1. Admin
         const adminUser: User = {
             id: 'demo_admin_user',
+            organization_id: orgId,
             full_name: 'Alex Mercer (Admin)',
             email: 'admin@guardian.com',
             role: 'ops_manager',
@@ -775,6 +1165,7 @@ export const db = {
         // 2. Demo Officer (Link to one of the generated officers for realism, or create new)
         const demoOfficer: User = {
             id: 'demo_officer_user',
+            organization_id: orgId,
             full_name: 'John Spartan (Officer)',
             email: 'officer@guardian.com',
             role: 'officer',
@@ -785,6 +1176,7 @@ export const db = {
         const demoClientId = clients[0].id; // Assign first generated client
         const demoClientUser: User = {
             id: 'demo_client_user',
+            organization_id: orgId,
             full_name: 'Sarah Connor (Client)',
             email: 'client@guardian.com',
             role: 'client',
@@ -796,6 +1188,7 @@ export const db = {
         // Ensure the generated officer list includes this demo officer so linking works
         officers.push({
             id: 'demo_officer_user',
+            organization_id: orgId,
             full_name: 'John Spartan',
             email: 'officer@guardian.com',
             badge_number: 'DEMO-001',
@@ -835,6 +1228,7 @@ export const db = {
         pastShifts.forEach(s => {
             feedback.push({
                 id: generateId(),
+                organization_id: orgId,
                 client_id: demoClientId,
                 shift_id: s.id,
                 rating: randomInt(3, 5),
@@ -891,349 +1285,6 @@ export const db = {
             log(`Seed errors: ${e.message}`);
             console.error('Seed errors:', e);
             return { success: false, errors: [{ table: 'ALL', error: e }] };
-        }
-    },
-
-    // --- EXPENSE MANAGEMENT ---
-    expenses: {
-        select: async () => ({ data: await fetchCollection<Expense>('expenses') }),
-        create: async (expense: Omit<Expense, 'id'>) => {
-            try {
-                const docRef = await addDoc(collection(firestore, 'expenses'), expense);
-                return { data: { ...expense, id: docRef.id } as Expense, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        update: async (id: string, data: Partial<Expense>) => {
-            try {
-                await updateDoc(doc(firestore, 'expenses', id), data);
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        delete: async (id: string) => {
-            try {
-                await deleteDoc(doc(firestore, 'expenses', id));
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        query: async (constraints: QueryConstraint[]) => {
-            try {
-                const q = query(collection(firestore, 'expenses'), ...constraints);
-                const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Expense));
-                return { data, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        }
-    },
-
-    getFullExpenses: async (constraints: QueryConstraint[] = []) => {
-        try {
-            const expenseQuery = query(collection(firestore, 'expenses'), ...constraints);
-            const [expensesSnapshot, officers] = await Promise.all([
-                getDocs(expenseQuery),
-                fetchCollection<Officer>('officers')
-            ]);
-
-            const expenses = expensesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Expense));
-            const officerMap = createLookup(officers);
-
-            const data = expenses.map(exp => ({
-                ...exp,
-                officer: officerMap[exp.officer_id]
-            }));
-            data.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
-            return { data, error: null };
-        } catch (e) {
-            return { data: null, error: e };
-        }
-    },
-
-    // --- EQUIPMENT MANAGEMENT ---
-    equipment: {
-        select: async () => ({ data: await fetchCollection<Equipment>('equipment') }),
-        create: async (item: Omit<Equipment, 'id'>) => {
-            try {
-                const docRef = await addDoc(collection(firestore, 'equipment'), item);
-                return { data: { ...item, id: docRef.id } as Equipment, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        update: async (id: string, data: Partial<Equipment>) => {
-            try {
-                await updateDoc(doc(firestore, 'equipment', id), data);
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        delete: async (id: string) => {
-            try {
-                await deleteDoc(doc(firestore, 'equipment', id));
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        query: async (constraints: QueryConstraint[]) => {
-            try {
-                const q = query(collection(firestore, 'equipment'), ...constraints);
-                const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Equipment));
-                return { data, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        }
-    },
-
-    getFullEquipment: async (constraints: QueryConstraint[] = []) => {
-        try {
-            const equipmentQuery = query(collection(firestore, 'equipment'), ...constraints);
-            const [equipmentSnapshot, officers] = await Promise.all([
-                getDocs(equipmentQuery),
-                fetchCollection<Officer>('officers')
-            ]);
-
-            const equipment = equipmentSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Equipment));
-            const officerMap = createLookup(officers);
-            const data = equipment.map(eq => ({
-                ...eq,
-                assigned_officer: eq.assigned_to ? officerMap[eq.assigned_to] : null
-            }));
-            return { data, error: null };
-        } catch (e) {
-            return { data: null, error: e };
-        }
-    },
-
-    // --- MAINTENANCE RECORDS ---
-    maintenance: {
-        select: async () => ({ data: await fetchCollection<MaintenanceRecord>('maintenance_records') }),
-        create: async (record: Omit<MaintenanceRecord, 'id'>) => {
-            try {
-                const docRef = await addDoc(collection(firestore, 'maintenance_records'), record);
-                return { data: { ...record, id: docRef.id } as MaintenanceRecord, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        update: async (id: string, data: Partial<MaintenanceRecord>) => {
-            try {
-                await updateDoc(doc(firestore, 'maintenance_records', id), data);
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        delete: async (id: string) => {
-            try {
-                await deleteDoc(doc(firestore, 'maintenance_records', id));
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        }
-    },
-
-    getFullMaintenance: async () => {
-        try {
-            const [maintenance, equipment] = await Promise.all([
-                fetchCollection<MaintenanceRecord>('maintenance_records'),
-                fetchCollection<Equipment>('equipment')
-            ]);
-            const equipmentMap = createLookup(equipment);
-            const data = maintenance.map(m => ({
-                ...m,
-                equipment: equipmentMap[m.equipment_id]
-            }));
-            data.sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
-            return { data, error: null };
-        } catch (e) {
-            return { data: null, error: e };
-        }
-    },
-
-    // --- EQUIPMENT LOGS ---
-    equipmentLogs: {
-        select: async () => ({ data: await fetchCollection<EquipmentLog>('equipment_logs') }),
-        create: async (log: Omit<EquipmentLog, 'id'>) => {
-            try {
-                const docRef = await addDoc(collection(firestore, 'equipment_logs'), log);
-                return { data: { ...log, id: docRef.id } as EquipmentLog, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        }
-    },
-
-    getFullEquipmentLogs: async () => {
-        try {
-            const [logs, equipment, officers] = await Promise.all([
-                fetchCollection<EquipmentLog>('equipment_logs'),
-                fetchCollection<Equipment>('equipment'),
-                fetchCollection<Officer>('officers')
-            ]);
-            const equipmentMap = createLookup(equipment);
-            const officerMap = createLookup(officers);
-            const data = logs.map(log => ({
-                ...log,
-                equipment: equipmentMap[log.equipment_id],
-                officer: officerMap[log.officer_id]
-            }));
-            data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            return { data, error: null };
-        } catch (e) {
-            return { data: null, error: e };
-        }
-    },
-
-    // --- PHASE 1: AVAILABILITY ---
-    availability: {
-        select: async () => ({ data: await fetchCollection<Availability>('availability') }),
-        getByOfficer: async (officerId: string) => {
-            try {
-                const q = query(collection(firestore, 'availability'), where('officer_id', '==', officerId));
-                const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Availability));
-                return { data, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        getByDateRange: async (startDate: string, endDate: string) => {
-            try {
-                const q = query(
-                    collection(firestore, 'availability'),
-                    where('date', '>=', startDate),
-                    where('date', '<=', endDate)
-                );
-                const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Availability));
-                return { data, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        upsert: async (availability: Availability) => {
-            try {
-                // Use composite key: officer_id + date
-                const docId = availability.id || `${availability.officer_id}_${availability.date}`;
-                await setDoc(doc(firestore, 'availability', docId), { ...availability, id: docId });
-                return { data: { ...availability, id: docId }, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        bulkUpsert: async (items: Availability[]) => {
-            try {
-                const batch = writeBatch(firestore);
-                items.forEach(item => {
-                    const docId = item.id || `${item.officer_id}_${item.date}`;
-                    batch.set(doc(firestore, 'availability', docId), { ...item, id: docId });
-                });
-                await batch.commit();
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        delete: async (id: string) => {
-            try {
-                await deleteDoc(doc(firestore, 'availability', id));
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        }
-    },
-
-    // --- PHASE 1: SHIFT TEMPLATES ---
-    shiftTemplates: {
-        select: async () => ({ data: await fetchCollection<ShiftTemplate>('shift_templates') }),
-        create: async (template: Omit<ShiftTemplate, 'id'>) => {
-            try {
-                const docRef = await addDoc(collection(firestore, 'shift_templates'), template);
-                return { data: { ...template, id: docRef.id } as ShiftTemplate, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
-        },
-        update: async (id: string, data: Partial<ShiftTemplate>) => {
-            try {
-                await updateDoc(doc(firestore, 'shift_templates', id), data);
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        delete: async (id: string) => {
-            try {
-                await deleteDoc(doc(firestore, 'shift_templates', id));
-                return { error: null };
-            } catch (e: any) {
-                return { error: e };
-            }
-        },
-        applyTemplate: async (templateId: string, startDate: string, endDate: string) => {
-            try {
-                // Fetch template
-                const templateDoc = await getDoc(doc(firestore, 'shift_templates', templateId));
-                if (!templateDoc.exists()) {
-                    return { data: null, error: 'Template not found' };
-                }
-                const template = { ...templateDoc.data(), id: templateDoc.id } as ShiftTemplate;
-
-                // Generate shifts for date range
-                const shifts: Omit<Shift, 'id'>[] = [];
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-
-                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                    if (template.days_of_week.includes(d.getDay())) {
-                        const shiftDate = d.toISOString().split('T')[0];
-                        const startDateTime = new Date(`${shiftDate}T${template.start_time}:00`);
-                        const endDateTime = new Date(`${shiftDate}T${template.end_time}:00`);
-
-                        // Handle overnight shifts
-                        if (endDateTime <= startDateTime) {
-                            endDateTime.setDate(endDateTime.getDate() + 1);
-                        }
-
-                        shifts.push({
-                            site_id: template.site_id,
-                            officer_id: null,
-                            start_time: startDateTime.toISOString(),
-                            end_time: endDateTime.toISOString(),
-                            status: 'draft',
-                            pay_rate: template.pay_rate || null,
-                            bill_rate: template.bill_rate || null
-                        });
-                    }
-                }
-
-                // Batch create shifts
-                const batch = writeBatch(firestore);
-                const createdShifts: Shift[] = [];
-
-                shifts.forEach(shift => {
-                    const docRef = doc(collection(firestore, 'shifts'));
-                    batch.set(docRef, shift);
-                    createdShifts.push({ ...shift, id: docRef.id } as Shift);
-                });
-
-                await batch.commit();
-                return { data: createdShifts, error: null };
-            } catch (e: any) {
-                return { data: null, error: e };
-            }
         }
     }
 };

@@ -20,9 +20,12 @@ import {
   ChevronDown,
   Search,
   Command,
-  Package
+  Package,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronLeft
 } from 'lucide-react';
-import { Avatar, Button, cn } from './ui';
+import { Avatar, Button, cn, Tooltip } from './ui';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
@@ -33,26 +36,57 @@ interface NavItemProps {
   label: string;
   active?: boolean;
   onClick: () => void;
+  collapsed?: boolean;
 }
 
-function NavItem({ icon: Icon, label, active, onClick }: NavItemProps) {
-  return (
+function NavItem({ icon: Icon, label, active, onClick, collapsed }: NavItemProps) {
+  const content = (
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+        "flex items-center rounded-xl transition-all duration-200 group relative",
+        collapsed
+          ? "w-10 h-10 justify-center mx-auto hover:bg-muted"
+          : "w-full gap-3 px-3 py-2.5 hover:bg-muted/50",
         active
-          ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          ? collapsed
+            ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+            : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground font-semibold"
+          : "text-muted-foreground hover:text-foreground"
       )}
     >
-      <Icon className={cn("h-4 w-4", active && "text-primary dark:text-primary-foreground")} />
-      {label}
+      <Icon className={cn(
+        "shrink-0 transition-all duration-200",
+        collapsed ? "h-5 w-5" : "h-4 w-4",
+        active && !collapsed && "text-primary dark:text-primary-foreground"
+      )} />
+
+      {!collapsed && (
+        <span className="truncate">{label}</span>
+      )}
+
+      {/* Active Indicator (Left Bar) for Expanded/Collapsed or Pill? 
+          Modern style usually is huge pill for expanded, square for collapsed. 
+          We already did that with rounded-xl above.
+      */}
+      {active && !collapsed && (
+        <div className="absolute left-0 h-6 w-1 rounded-r-full bg-primary opacity-0" /> // Optional accent
+      )}
     </button>
   );
+
+  if (collapsed) {
+    return (
+      <Tooltip content={label} side="right">
+        {content}
+      </Tooltip>
+    );
+  }
+
+  return content;
 }
 
-function NavMenu({ currentPage, setPage, onItemClick }: { currentPage: string, setPage: (p: string) => void, onItemClick?: () => void }) {
+function NavMenu({ currentPage, setPage, onItemClick, collapsed }: { currentPage: string, setPage: (p: string) => void, onItemClick?: () => void, collapsed?: boolean }) {
   const { profile } = useAuth();
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'ops_manager' || profile?.role === 'owner';
@@ -71,22 +105,22 @@ function NavMenu({ currentPage, setPage, onItemClick }: { currentPage: string, s
   };
 
   return (
-    <nav className="grid items-start px-3 text-sm font-medium lg:px-4 gap-1 pb-4">
-      <NavItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => handleClick('dashboard')} />
-      <NavItem icon={CalendarDays} label="Schedule" active={currentPage === 'schedule'} onClick={() => handleClick('schedule')} />
-      {!isClient && <NavItem icon={Clock} label="Timesheets" active={currentPage === 'timesheets'} onClick={() => handleClick('timesheets')} />}
+    <nav className={cn("grid items-start text-sm font-medium gap-1 pb-4 transition-all duration-300", collapsed ? "px-2" : "px-3 lg:px-4")}>
+      <NavItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => handleClick('dashboard')} collapsed={collapsed} />
+      <NavItem icon={CalendarDays} label="Schedule" active={currentPage === 'schedule'} onClick={() => handleClick('schedule')} collapsed={collapsed} />
+      {!isClient && <NavItem icon={Clock} label="Timesheets" active={currentPage === 'timesheets'} onClick={() => handleClick('timesheets')} collapsed={collapsed} />}
 
-      {showOfficers && <NavItem icon={Users} label="Officers" active={currentPage === 'officers'} onClick={() => handleClick('officers')} />}
-      {showClients && <NavItem icon={Building2} label="Clients & Sites" active={currentPage === 'clients'} onClick={() => handleClick('clients')} />}
-      {showAccounting && <NavItem icon={Banknote} label="Accounting" active={currentPage === 'accounting'} onClick={() => handleClick('accounting')} />}
-      {showAccounting && <NavItem icon={Package} label="Resources" active={currentPage === 'resources'} onClick={() => handleClick('resources')} />}
+      {showOfficers && <NavItem icon={Users} label="Officers" active={currentPage === 'officers'} onClick={() => handleClick('officers')} collapsed={collapsed} />}
+      {showClients && <NavItem icon={Building2} label="Clients & Sites" active={currentPage === 'clients'} onClick={() => handleClick('clients')} collapsed={collapsed} />}
+      {showAccounting && <NavItem icon={Banknote} label="Accounting" active={currentPage === 'accounting'} onClick={() => handleClick('accounting')} collapsed={collapsed} />}
+      {showAccounting && <NavItem icon={Package} label="Resources" active={currentPage === 'resources'} onClick={() => handleClick('resources')} collapsed={collapsed} />}
 
-      <NavItem icon={FileText} label="Reports" active={currentPage === 'reports'} onClick={() => handleClick('reports')} />
+      <NavItem icon={FileText} label="Reports" active={currentPage === 'reports'} onClick={() => handleClick('reports')} collapsed={collapsed} />
 
-      {showFeedback && <NavItem icon={MessageSquare} label="Feedback" active={currentPage === 'feedback'} onClick={() => handleClick('feedback')} />}
-      {showAudit && <NavItem icon={Activity} label="Audit Logs" active={currentPage === 'audit'} onClick={() => handleClick('audit')} />}
+      {showFeedback && <NavItem icon={MessageSquare} label="Feedback" active={currentPage === 'feedback'} onClick={() => handleClick('feedback')} collapsed={collapsed} />}
+      {showAudit && <NavItem icon={Activity} label="Audit Logs" active={currentPage === 'audit'} onClick={() => handleClick('audit')} collapsed={collapsed} />}
 
-      {showSettings && <NavItem icon={Settings} label="Settings" active={currentPage === 'settings'} onClick={() => handleClick('settings')} />}
+      {showSettings && <NavItem icon={Settings} label="Settings" active={currentPage === 'settings'} onClick={() => handleClick('settings')} collapsed={collapsed} />}
     </nav>
   );
 }
@@ -182,6 +216,10 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
   const { user, profile, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    return saved === 'true';
+  });
   const [isCommandOpen, setIsCommandOpen] = useState(false);
 
   useEffect(() => {
@@ -203,8 +241,19 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
     }
   };
 
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const newState = !prev;
+      localStorage.setItem('sidebar_collapsed', String(newState));
+      return newState;
+    });
+  };
+
   return (
-    <div className="grid h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[260px_1fr] overflow-hidden bg-background transition-colors duration-300">
+    <div className={cn(
+      "grid h-screen w-full overflow-hidden bg-background transition-all duration-300 ease-in-out",
+      isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[240px_1fr] lg:grid-cols-[260px_1fr]"
+    )}>
 
       {/* COMMAND PALETTE */}
       <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} onNavigate={setPage} />
@@ -213,28 +262,52 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       <ToastContainer />
 
       {/* DESKTOP SIDEBAR */}
-      <div className="hidden border-r bg-card md:block h-full overflow-hidden border-border flex-col shadow-sm z-20">
+      <div className={cn(
+        "hidden border-r bg-card md:block h-full border-border flex-col shadow-sm z-20 transition-all duration-300 ease-in-out relative group/sidebar",
+        isCollapsed ? "w-[80px]" : "w-[260px]"
+      )}>
+        {/* Toggle Button - Floating on Border */}
+        <button
+          onClick={toggleCollapse}
+          className={cn(
+            "absolute -right-3 top-9 z-50 h-6 w-6 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md flex items-center justify-center text-primary hover:text-primary hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring hover:scale-110",
+          )}
+        >
+          <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-300", isCollapsed && "rotate-180")} />
+        </button>
+
         <div className="flex h-full flex-col gap-2">
-          <div className="flex h-16 items-center border-b px-6 shrink-0 bg-card border-border">
-            <div className="flex items-center gap-2.5 font-bold text-primary">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+          <div className={cn(
+            "flex h-16 items-center border-b shrink-0 bg-card border-border transition-all duration-300 overflow-hidden",
+            isCollapsed ? "justify-center px-0" : "px-6"
+          )}>
+            <div className="flex items-center gap-3 font-bold text-primary">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shrink-0">
                 <ShieldCheck className="h-5 w-5" />
               </div>
-              <span className="text-xl tracking-tight text-foreground">Guardian</span>
+              <span className={cn(
+                "text-xl tracking-tight text-foreground transition-all duration-300 whitespace-nowrap",
+                isCollapsed ? "w-0 opacity-0 scale-95" : "w-auto opacity-100 scale-100"
+              )}>
+                Guardian
+              </span>
             </div>
           </div>
 
-          <ScrollableMenu className="py-6">
-            <div className="px-6 mb-4">
+          <ScrollableMenu className="py-4">
+            <div className={cn("transition-all duration-300 px-6 mb-2 overflow-hidden", isCollapsed ? "h-0 opacity-0" : "h-auto opacity-100")}>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main Menu</p>
             </div>
-            <NavMenu currentPage={currentPage} setPage={setPage} />
+            <NavMenu currentPage={currentPage} setPage={setPage} collapsed={isCollapsed} />
           </ScrollableMenu>
 
           <div className="mt-auto p-4 shrink-0 border-t border-border bg-card">
-            <div className="flex items-center gap-3 rounded-xl p-3 hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border">
-              <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-9 w-9" />
-              <div className="flex flex-col overflow-hidden">
+            <div className={cn(
+              "flex items-center gap-3 rounded-xl transition-all cursor-pointer border border-transparent hover:border-border hover:bg-muted/50",
+              isCollapsed ? "p-0 justify-center h-10 w-10 mx-auto" : "p-3"
+            )}>
+              <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-9 w-9 shrink-0" />
+              <div className={cn("flex flex-col overflow-hidden transition-all duration-300", isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100")}>
                 <span className="truncate text-sm font-semibold text-foreground">{profile?.full_name || user?.displayName || 'User'}</span>
                 <span className="truncate text-xs text-muted-foreground capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
               </div>
@@ -281,11 +354,13 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
 
       {/* MAIN CONTENT AREA */}
       <div className="flex flex-col h-full overflow-hidden relative">
-        <header className="flex h-16 items-center gap-4 border-b border-border bg-background/80 backdrop-blur-md px-6 shrink-0 z-10 transition-colors duration-300 sticky top-0">
+        <header className="flex h-16 items-center gap-4 border-b border-border bg-background/80 backdrop-blur-md px-6 shrink-0 z-10 transition-all duration-300 sticky top-0">
           <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setIsMobileMenuOpen(true)}>
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle Menu</span>
           </Button>
+
+          {/* SIDEBAR TOGGLE (DESKTOP) - Removed from here, moved to sidebar border */}
           <div className="w-full flex-1 flex items-center gap-2">
             <h1 className="text-xl font-bold capitalize tracking-tight text-foreground">{currentPage.replace('_', ' ')}</h1>
             <div className="hidden md:flex items-center ml-4">
