@@ -24,6 +24,10 @@ export default function Clients() {
     const [isAddSiteOpen, setIsAddSiteOpen] = useState(false);
     const [newSite, setNewSite] = useState({ name: '', address: '', risk_level: 'low' as const });
 
+    // Edit Client State
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editClientData, setEditClientData] = useState<Partial<Client>>({});
+
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [newUser, setNewUser] = useState({ email: '', name: '', password: '' });
 
@@ -210,7 +214,7 @@ export default function Clients() {
             // Audit Log
             db.audit_logs.create({
                 action: 'update',
-                description: `Updated client details/rates.`,
+                description: `Updated client details.`,
                 performed_by: profile?.full_name || 'System',
                 performed_by_id: profile?.id || 'system',
                 target_resource: 'Client',
@@ -218,6 +222,10 @@ export default function Clients() {
                 organization_id: organization?.id || '',
                 timestamp: new Date().toISOString()
             });
+
+            setIsEditOpen(false);
+            // Update selected client view if it's the one edited (though query invalidation should handle it, explicit set helps flicker)
+            // But since selectedClient is derived from clientsWithSites which comes from query, invalidation is enough.
         }
     });
 
@@ -330,7 +338,22 @@ export default function Clients() {
                                     <Badge variant={selectedClient.status === 'active' ? 'success' : 'secondary'} className="px-3 py-1 text-sm uppercase tracking-wide">
                                         {selectedClient.status}
                                     </Badge>
-                                    <Button variant="outline" className="bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800 hover:text-white">Edit Profile</Button>
+                                    <Button
+                                        variant="outline"
+                                        className="bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800 hover:text-white"
+                                        onClick={() => {
+                                            setEditClientData({
+                                                name: selectedClient.name,
+                                                contact_name: selectedClient.contact_name,
+                                                email: selectedClient.email,
+                                                address: selectedClient.address,
+                                                status: selectedClient.status
+                                            });
+                                            setIsEditOpen(true);
+                                        }}
+                                    >
+                                        Edit Profile
+                                    </Button>
                                 </div>
                             </div>
                         </CardContent>
@@ -376,6 +399,62 @@ export default function Clients() {
                         </Card>
                     </div>
                 </div>
+
+                {/* EDIT CLIENT DIALOG */}
+                <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Client Profile</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Client Name</Label>
+                                <Input
+                                    value={editClientData.name || ''}
+                                    onChange={(e) => setEditClientData(prev => ({ ...prev, name: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Contact Person</Label>
+                                <Input
+                                    value={editClientData.contact_name || ''}
+                                    onChange={(e) => setEditClientData(prev => ({ ...prev, contact_name: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Email</Label>
+                                <Input
+                                    value={editClientData.email || ''}
+                                    onChange={(e) => setEditClientData(prev => ({ ...prev, email: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Address</Label>
+                                <Input
+                                    value={editClientData.address || ''}
+                                    onChange={(e) => setEditClientData(prev => ({ ...prev, address: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Status</Label>
+                                <select
+                                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                    value={editClientData.status || 'active'}
+                                    onChange={(e) => setEditClientData(prev => ({ ...prev, status: e.target.value as any }))}
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                            <Button onClick={() => selectedClient && updateClientMutation.mutate({ id: selectedClient.id, data: editClientData })}>
+                                Save Changes
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* 360 VIEW TABS */}
                 <Tabs defaultValue="overview" className="space-y-4">

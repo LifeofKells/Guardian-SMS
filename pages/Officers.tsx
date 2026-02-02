@@ -35,6 +35,10 @@ export default function Officers() {
 
     const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
 
+    // Edit Officer State
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editOfficerData, setEditOfficerData] = useState<Partial<Officer>>({});
+
     // Financial State (Local Editing)
     const [financials, setFinancials] = useState({
         base_rate: 0,
@@ -160,6 +164,12 @@ export default function Officers() {
                 target_id: variables.id,
                 timestamp: new Date().toISOString()
             });
+
+            setIsEditOpen(false);
+            // Updating selected officer locally to reflect changes immediately in the view
+            if (selectedOfficer && selectedOfficer.id === variables.id) {
+                setSelectedOfficer(prev => prev ? ({ ...prev, ...variables.updates }) : null);
+            }
         }
     });
 
@@ -333,7 +343,21 @@ export default function Officers() {
                                     <Button variant="outline" size="sm" className="gap-2">
                                         <Printer className="h-4 w-4" /> Print
                                     </Button>
-                                    <Button size="sm" className="gap-2">
+                                    <Button
+                                        size="sm"
+                                        className="gap-2"
+                                        onClick={() => {
+                                            setEditOfficerData({
+                                                full_name: selectedOfficer.full_name,
+                                                email: selectedOfficer.email,
+                                                phone: selectedOfficer.phone,
+                                                badge_number: selectedOfficer.badge_number,
+                                                employment_status: selectedOfficer.employment_status,
+                                                skills: selectedOfficer.skills.join(', ') as any // Temporary cast for editing
+                                            });
+                                            setIsEditOpen(true);
+                                        }}
+                                    >
                                         <Edit className="h-4 w-4" /> Edit Profile
                                     </Button>
                                 </div>
@@ -359,6 +383,88 @@ export default function Officers() {
                             </div>
                         </div>
                     </Card>
+
+                    {/* EDIT OFFICER DIALOG */}
+                    <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Edit Officer Profile</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label>Full Name</Label>
+                                    <Input
+                                        value={editOfficerData.full_name || ''}
+                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, full_name: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Badge Number</Label>
+                                        <Input
+                                            value={editOfficerData.badge_number || ''}
+                                            onChange={(e) => setEditOfficerData(prev => ({ ...prev, badge_number: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Status</Label>
+                                        <select
+                                            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                            value={editOfficerData.employment_status || 'active'}
+                                            onChange={(e) => setEditOfficerData(prev => ({ ...prev, employment_status: e.target.value as any }))}
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="onboarding">Onboarding</option>
+                                            <option value="terminated">Terminated</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Email</Label>
+                                    <Input
+                                        value={editOfficerData.email || ''}
+                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, email: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Phone</Label>
+                                    <Input
+                                        value={editOfficerData.phone || ''}
+                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, phone: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Skills (Comma separated)</Label>
+                                    <Input
+                                        value={editOfficerData.skills as any || ''}
+                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, skills: e.target.value as any }))}
+                                        placeholder="First Aid, K9, Armed"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                                <Button onClick={() => {
+                                    if (!selectedOfficer) return;
+
+                                    // Process skills back to array
+                                    const skillsString = editOfficerData.skills as unknown as string;
+                                    const skillsArray = skillsString && typeof skillsString === 'string'
+                                        ? skillsString.split(',').map(s => s.trim()).filter(s => s.length > 0)
+                                        : selectedOfficer.skills;
+
+                                    const updates = {
+                                        ...editOfficerData,
+                                        skills: skillsArray
+                                    };
+
+                                    updateOfficerMutation.mutate({ id: selectedOfficer.id, updates });
+                                }}>
+                                    Save Changes
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     <Tabs defaultValue="overview" className="space-y-4">
                         <TabsList className="bg-white border p-1 h-auto gap-2">
