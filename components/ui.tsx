@@ -136,7 +136,7 @@ const TabsContext = React.createContext<{
 
 export function Tabs({ className, defaultValue, children }: { className?: string, defaultValue: string, children?: React.ReactNode }) {
   const [activeTab, setActiveTab] = React.useState(defaultValue);
-  
+
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>
       <div className={cn("", className)}>
@@ -157,10 +157,10 @@ export function TabsList({ className, children }: React.HTMLAttributes<HTMLDivEl
 export function TabsTrigger({ className, value, children }: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) {
   const context = React.useContext(TabsContext);
   if (!context) throw new Error("TabsTrigger must be used within Tabs");
-  
+
   const { activeTab, setActiveTab } = context;
   const isActive = activeTab === value;
-  
+
   return (
     <button
       className={cn(
@@ -178,11 +178,11 @@ export function TabsTrigger({ className, value, children }: React.ButtonHTMLAttr
 export function TabsContent({ className, value, children }: React.HTMLAttributes<HTMLDivElement> & { value: string }) {
   const context = React.useContext(TabsContext);
   if (!context) throw new Error("TabsContent must be used within Tabs");
-  
+
   const { activeTab } = context;
-  
+
   if (activeTab !== value) return null;
-  
+
   return (
     <div className={cn("mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
       {children}
@@ -191,22 +191,34 @@ export function TabsContent({ className, value, children }: React.HTMLAttributes
 }
 
 // --- DIALOG (MODAL) ---
-export function Dialog({ open, onOpenChange, children }: { open?: boolean, onOpenChange?: (open: boolean) => void, children?: React.ReactNode }) {
+export function Dialog({ open, onOpenChange, children, className, overlayClassName, showClose = true }: {
+  open?: boolean,
+  onOpenChange?: (open: boolean) => void,
+  children?: React.ReactNode,
+  className?: string,
+  overlayClassName?: string,
+  showClose?: boolean
+}) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div 
-        className="relative bg-background w-full max-w-lg rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300"
+    <div
+      className={cn("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200", overlayClassName)}
+      onClick={() => onOpenChange?.(false)}
+    >
+      <div
+        className={cn("relative bg-background w-full max-w-lg rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300", className)}
         onClick={(e) => e.stopPropagation()}
       >
-        <button 
-          className="absolute right-5 top-5 rounded-sm opacity-50 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-          onClick={() => onOpenChange?.(false)}
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </button>
+        {showClose && (
+          <button
+            className="absolute right-5 top-5 rounded-sm opacity-50 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
+            onClick={() => onOpenChange?.(false)}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+        )}
         {children}
       </div>
     </div>
@@ -235,11 +247,11 @@ export function Sheet({ open, onOpenChange, children }: { open?: boolean, onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => onOpenChange?.(false)}>
-      <div 
+      <div
         className="relative w-full max-w-md bg-background border-l border-border shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        <button 
+        <button
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10 bg-muted/50 p-1"
           onClick={() => onOpenChange?.(false)}
         >

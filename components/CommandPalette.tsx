@@ -208,46 +208,49 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
     }, [open]);
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <div className="flex flex-col h-full max-h-[500px]">
-                {/* Search Input Area */}
-                <div className="relative p-4 border-b border-border/50">
-                    <Search className="absolute left-7 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <Dialog
+            open={open}
+            onOpenChange={onOpenChange}
+            showClose={false}
+            overlayClassName="items-start pt-[12vh]"
+            className="max-w-md overflow-hidden border-border/50 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)]"
+        >
+            <div className="flex flex-col h-full max-h-[460px] overflow-hidden">
+                {/* Search Input Area - Refined */}
+                <div className="relative p-3 border-b border-border/40 bg-background/50 backdrop-blur-md">
+                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
                     <input
                         ref={inputRef}
                         type="text"
-                        className="w-full bg-muted/50 dark:bg-slate-900 border-none rounded-xl pl-12 pr-4 py-3 text-lg focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                        placeholder="Search for anything... (officers, sites, pages)"
+                        className="w-full bg-transparent border-none pl-10 pr-12 py-2.5 text-[15px] focus:ring-0 outline-none placeholder:text-muted-foreground/50 transition-all font-medium"
+                        placeholder="Search Guardian..."
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
                             setSelectedIndex(0);
                         }}
                     />
-                    <div className="absolute right-7 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                        <Badge variant="outline" className="text-[10px] font-mono py-0 px-1.5 opacity-60">ESC</Badge>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                        <Badge variant="outline" className="text-[10px] font-mono py-0 px-1.5 h-5 bg-muted/40 text-muted-foreground/70 border-none">ESC</Badge>
                     </div>
                 </div>
 
-                {/* Results Area */}
-                <div className="flex-1 overflow-y-auto p-2 no-scrollbar">
+                {/* Results Area - More Compact */}
+                <div className="flex-1 overflow-y-auto p-1.5 no-scrollbar bg-background/30">
                     {results.length === 0 ? (
-                        <div className="py-12 text-center">
-                            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                                <Search className="h-6 w-6 text-muted-foreground/50" />
-                            </div>
-                            <p className="text-sm text-muted-foreground">No matches found for "{query}"</p>
+                        <div className="py-10 text-center">
+                            <p className="text-[13px] text-muted-foreground/60 px-4">No results found for {query ? `"${query}"` : 'your search'}.</p>
                         </div>
                     ) : (
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                             {results.map((result, idx) => (
                                 <button
                                     key={`${result.type}-${result.id}`}
                                     className={cn(
-                                        "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-150",
+                                        "w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-all duration-100",
                                         idx === selectedIndex
-                                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                                            : "hover:bg-muted/80 text-foreground"
+                                            ? "bg-primary/10 text-primary"
+                                            : "hover:bg-muted/50 text-foreground/80"
                                     )}
                                     onClick={() => {
                                         result.action();
@@ -256,36 +259,33 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                                     onMouseEnter={() => setSelectedIndex(idx)}
                                 >
                                     <div className={cn(
-                                        "p-2 rounded-md shrink-0",
-                                        idx === selectedIndex ? "bg-white/20" : "bg-muted"
+                                        "p-1.5 rounded-md shrink-0 transition-colors",
+                                        idx === selectedIndex ? "bg-primary text-white" : "bg-muted/70 text-muted-foreground"
                                     )}>
                                         <result.icon className="h-4 w-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between">
-                                            <p className="font-semibold text-sm truncate">{result.title}</p>
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-[10px] uppercase h-4 px-1 leading-none border-none",
-                                                    idx === selectedIndex ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
-                                                )}
-                                            >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className={cn(
+                                                "font-medium text-[13px] truncate",
+                                                idx === selectedIndex ? "text-primary" : "text-foreground"
+                                            )}>{result.title}</p>
+                                            <span className="text-[10px] uppercase font-bold tracking-tight text-muted-foreground/40 shrink-0">
                                                 {result.type}
-                                            </Badge>
+                                            </span>
                                         </div>
                                         {result.subtitle && (
                                             <p className={cn(
                                                 "text-[11px] truncate mt-0.5",
-                                                idx === selectedIndex ? "text-primary-foreground/80" : "text-muted-foreground"
+                                                idx === selectedIndex ? "text-primary/60" : "text-muted-foreground/60"
                                             )}>
                                                 {result.subtitle}
                                             </p>
                                         )}
                                     </div>
                                     <ChevronRight className={cn(
-                                        "h-4 w-4 shrink-0 transition-transform",
-                                        idx === selectedIndex ? "translate-x-0.5 opacity-100" : "opacity-0"
+                                        "h-3.5 w-3.5 shrink-0 transition-all ml-auto",
+                                        idx === selectedIndex ? "translate-x-0 opacity-40" : "opacity-0"
                                     )} />
                                 </button>
                             ))}
@@ -293,19 +293,16 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                     )}
                 </div>
 
-                {/* Footer / Hints */}
-                <div className="p-3 border-t border-border/50 bg-muted/20 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                {/* Footer - Minimalist */}
+                <div className="px-4 py-2 border-t border-border/30 bg-muted/10 flex items-center justify-between">
+                    <p className="text-[10px] text-muted-foreground/50 font-medium">GUARDIAN COMMAND</p>
+                    <div className="flex items-center gap-4 opacity-50">
                         <div className="flex items-center gap-1.5">
-                            <Key className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Shortcuts</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                                <Badge variant="outline" className="px-1 py-0 h-4 min-w-4 text-center">↑↓</Badge> Navigate
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+                                <Badge variant="outline" className="px-1 py-0 h-4 border-none bg-muted/60 text-[9px]">↑↓</Badge> Navigate
                             </span>
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                                <Badge variant="outline" className="px-1 py-0 h-4 min-w-4 text-center">↵</Badge> Select
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+                                <Badge variant="outline" className="px-1 py-0 h-4 border-none bg-muted/60 text-[9px]">ENTER</Badge> Select
                             </span>
                         </div>
                     </div>
