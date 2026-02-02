@@ -26,6 +26,7 @@ import { Avatar, Button, cn } from './ui';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
+import { CommandPalette } from './CommandPalette';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -149,74 +150,6 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
   );
 }
 
-// --- COMMAND PALETTE ---
-function CommandPalette({ isOpen, onClose, setPage }: { isOpen: boolean, onClose: () => void, setPage: (p: string) => void }) {
-  const { profile } = useAuth();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [isOpen]);
-
-  const navItems = [
-    { label: 'Dashboard', page: 'dashboard', icon: LayoutDashboard },
-    { label: 'Schedule', page: 'schedule', icon: CalendarDays },
-    { label: 'Timesheets', page: 'timesheets', icon: Clock },
-    { label: 'Officers', page: 'officers', icon: Users, role: 'admin' },
-    { label: 'Clients & Sites', page: 'clients', icon: Building2, role: 'admin' },
-    { label: 'Reports', page: 'reports', icon: FileText },
-    { label: 'Settings', page: 'settings', icon: Settings },
-  ];
-
-  const filteredItems = navItems.filter(item => {
-    if (item.role === 'admin' && profile?.role !== 'admin' && profile?.role !== 'ops_manager' && profile?.role !== 'owner') return false;
-    return item.label.toLowerCase().includes(search.toLowerCase());
-  });
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" />
-      <div
-        className="relative w-full max-w-lg bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center border-b border-border px-4">
-          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-          <input
-            ref={inputRef}
-            className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Type a command or search..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-            <span className="text-xs">ESC</span>
-          </kbd>
-        </div>
-        <div className="max-h-[300px] overflow-y-auto p-2">
-          {filteredItems.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No results found.</p>}
-          <div className="text-xs font-medium text-muted-foreground px-2 py-1.5 mb-1">Navigation</div>
-          {filteredItems.map((item, idx) => (
-            <button
-              key={idx}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors group"
-              onClick={() => { setPage(item.page); onClose(); }}
-            >
-              <item.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // --- TOAST CONTAINER ---
 function ToastContainer() {
   const { toasts, removeToast } = useToast();
@@ -274,7 +207,7 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
     <div className="grid h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[260px_1fr] overflow-hidden bg-background transition-colors duration-300">
 
       {/* COMMAND PALETTE */}
-      <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} setPage={setPage} />
+      <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} onNavigate={setPage} />
 
       {/* TOASTS */}
       <ToastContainer />
