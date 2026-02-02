@@ -170,6 +170,7 @@ export default function Officers() {
         }
         const officerData = {
             ...newOfficer,
+            organization_id: organization?.id,
             skills: newOfficer.skills.split(',').map(s => s.trim()).filter(s => s.length > 0)
         };
         createOfficerMutation.mutate(officerData);

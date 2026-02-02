@@ -252,7 +252,7 @@ export default function Clients() {
     // --- HANDLERS ---
     const handleAddClient = () => {
         if (!newClient.name) return;
-        createClientMutation.mutate(newClient);
+        createClientMutation.mutate({ ...newClient, organization_id: organization?.id });
     };
 
     const handleAddSite = () => {
@@ -261,6 +261,7 @@ export default function Clients() {
 
         const siteData = {
             ...newSite,
+            organization_id: organization?.id,
             client_id: selectedClientId,
             lat: 34.0522, // Default to LA for demo
             lng: -118.2437,
