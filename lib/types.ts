@@ -86,8 +86,8 @@ export interface TimeEntry {
   status: 'pending' | 'approved' | 'rejected';
   notes?: string;
   financial_snapshot?: {
-      pay_rate: number;
-      bill_rate: number;
+    pay_rate: number;
+    bill_rate: number;
   };
 }
 
@@ -139,8 +139,180 @@ export interface AuditLog {
   description: string;
   performed_by: string; // User Name
   performed_by_id: string; // User ID
-  target_resource: 'Shift' | 'Officer' | 'Client' | 'Site' | 'User' | 'TimeEntry' | 'Incident' | 'Payroll' | 'Invoice';
+  target_resource: 'Shift' | 'Officer' | 'Client' | 'Site' | 'User' | 'TimeEntry' | 'Incident' | 'Payroll' | 'Invoice' | 'Expense' | 'Equipment' | 'Maintenance';
   target_id?: string;
   timestamp: string;
   metadata?: any;
+}
+
+// --- EXPENSE & EQUIPMENT TRACKING ---
+
+export type ExpenseCategory =
+  | 'mileage'
+  | 'fuel'
+  | 'parking'
+  | 'supplies'
+  | 'uniform'
+  | 'training'
+  | 'other';
+
+export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
+export interface Expense {
+  id: string;
+  officer_id: string;
+  category: ExpenseCategory;
+  amount: number;
+  description: string;
+  date: string; // ISO string
+  receipt_url?: string;
+  status: ExpenseStatus;
+  submitted_at: string;
+  reviewed_by?: string; // User ID
+  reviewed_at?: string;
+  notes?: string; // Admin notes
+  // For mileage tracking
+  mileage?: {
+    start_odometer: number;
+    end_odometer: number;
+    distance: number;
+    rate_per_mile: number;
+  };
+}
+
+export type EquipmentType =
+  | 'radio'
+  | 'vehicle'
+  | 'uniform'
+  | 'firearm'
+  | 'baton'
+  | 'flashlight'
+  | 'body_camera'
+  | 'other';
+
+export type EquipmentStatus =
+  | 'available'
+  | 'assigned'
+  | 'maintenance'
+  | 'damaged'
+  | 'lost'
+  | 'retired';
+
+export interface Equipment {
+  id: string;
+  type: EquipmentType;
+  name: string;
+  identifier: string; // Serial number, asset tag, license plate
+  purchase_date: string;
+  purchase_price: number;
+  current_value?: number;
+  status: EquipmentStatus;
+  assigned_to?: string; // Officer ID
+  assigned_at?: string;
+  location?: string;
+  notes?: string;
+}
+
+export interface MaintenanceRecord {
+  id: string;
+  equipment_id: string;
+  type: 'routine' | 'repair' | 'inspection';
+  description: string;
+  scheduled_date: string;
+  completed_date?: string;
+  cost?: number;
+  performed_by?: string;
+  notes?: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+}
+
+export interface EquipmentLog {
+  id: string;
+  equipment_id: string;
+  action: 'check_out' | 'check_in' | 'transfer' | 'damage' | 'loss';
+  officer_id: string;
+  timestamp: string;
+  notes?: string;
+}
+
+// --- PHASE 1: REAL-TIME OPERATIONS ---
+
+export interface OfficerLocation {
+  id: string;
+  officer_id: string;
+  lat: number;
+  lng: number;
+  accuracy: number;
+  timestamp: string;
+  battery_level?: number;
+  is_moving: boolean;
+  shift_id?: string;
+}
+
+export interface PanicAlert {
+  id: string;
+  officer_id: string;
+  location: { lat: number; lng: number };
+  timestamp: string;
+  status: 'active' | 'acknowledged' | 'resolved';
+  acknowledged_by?: string;
+  acknowledged_at?: string;
+  resolved_at?: string;
+  notes?: string;
+}
+
+export interface GeofenceEvent {
+  id: string;
+  officer_id: string;
+  site_id: string;
+  event_type: 'enter' | 'exit';
+  location: { lat: number; lng: number };
+  distance_from_center: number;
+  timestamp: string;
+  acknowledged?: boolean;
+}
+
+// --- PHASE 1: ADVANCED SCHEDULING ---
+
+export interface Availability {
+  id: string;
+  officer_id: string;
+  date: string; // YYYY-MM-DD
+  available: boolean;
+  start_time?: string; // HH:mm
+  end_time?: string;   // HH:mm
+  notes?: string;
+}
+
+export interface ShiftTemplate {
+  id: string;
+  name: string;
+  site_id: string;
+  start_time: string; // HH:mm
+  end_time: string;   // HH:mm
+  days_of_week: number[]; // 0=Sun, 6=Sat
+  required_skills?: string[];
+  bill_rate?: number;
+  pay_rate?: number;
+  is_active: boolean;
+}
+
+// --- REALTIME EVENT TYPES ---
+
+export type RealtimeEventType =
+  | 'officer_location'
+  | 'clock_in'
+  | 'clock_out'
+  | 'panic_alert'
+  | 'geofence_breach'
+  | 'incident_reported'
+  | 'shift_assigned';
+
+export interface RealtimeEvent {
+  id: string;
+  type: RealtimeEventType;
+  payload: any;
+  timestamp: string;
+  officer_id?: string;
+  site_id?: string;
 }

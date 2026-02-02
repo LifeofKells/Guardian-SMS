@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import Accounting from './pages/Accounting';
 import Feedback from './pages/Feedback';
 import AuditLogs from './pages/AuditLogs';
+import Resources from './pages/Resources';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label } from './components/ui';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -41,56 +42,56 @@ function AuthenticatedApp() {
 
   // Force Password Change Screen
   if (mustChangePassword) {
-      const handleChangePassword = async (e: React.FormEvent) => {
-          e.preventDefault();
-          if (newPassword.length < 6) {
-              alert("Password must be at least 6 characters.");
-              return;
-          }
-          setLoading(true);
-          try {
-              await changePassword(newPassword);
-          } catch (e: any) {
-              alert("Error: " + e.message);
-          }
-          setLoading(false);
-      };
+    const handleChangePassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newPassword.length < 6) {
+        alert("Password must be at least 6 characters.");
+        return;
+      }
+      setLoading(true);
+      try {
+        await changePassword(newPassword);
+      } catch (e: any) {
+        alert("Error: " + e.message);
+      }
+      setLoading(false);
+    };
 
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-              <Card className="w-full max-w-md shadow-xl">
-                  <CardHeader className="text-center pb-2">
-                      <div className="mx-auto bg-amber-100 p-3 rounded-full w-fit mb-3">
-                          <ShieldCheck className="h-8 w-8 text-amber-600" />
-                      </div>
-                      <CardTitle>Security Update Required</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <p className="text-sm text-center text-slate-500 mb-6">
-                          For your security, you must update your temporary password before accessing the system.
-                      </p>
-                      <form onSubmit={handleChangePassword} className="space-y-4">
-                          <div className="space-y-2">
-                              <Label>New Password</Label>
-                              <Input 
-                                  type="password" 
-                                  value={newPassword} 
-                                  onChange={e => setNewPassword(e.target.value)} 
-                                  placeholder="Min 6 characters" 
-                                  required
-                              />
-                          </div>
-                          <Button type="submit" className="w-full" disabled={loading}>
-                              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Update Password
-                          </Button>
-                          <div className="text-center pt-2">
-                              <button type="button" onClick={logout} className="text-xs text-muted-foreground hover:underline">Cancel & Sign Out</button>
-                          </div>
-                      </form>
-                  </CardContent>
-              </Card>
-          </div>
-      );
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto bg-amber-100 p-3 rounded-full w-fit mb-3">
+              <ShieldCheck className="h-8 w-8 text-amber-600" />
+            </div>
+            <CardTitle>Security Update Required</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-center text-slate-500 mb-6">
+              For your security, you must update your temporary password before accessing the system.
+            </p>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label>New Password</Label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Update Password
+              </Button>
+              <div className="text-center pt-2">
+                <button type="button" onClick={logout} className="text-xs text-muted-foreground hover:underline">Cancel & Sign Out</button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const renderPage = () => {
@@ -101,6 +102,7 @@ function AuthenticatedApp() {
       case 'timesheets': return <Timesheets />;
       case 'clients': return <Clients />;
       case 'accounting': return <Accounting />;
+      case 'resources': return <Resources />;
       case 'reports': return <Reports />;
       case 'settings': return <Settings />;
       case 'feedback': return <Feedback />;
