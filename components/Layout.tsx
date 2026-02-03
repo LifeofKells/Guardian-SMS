@@ -282,9 +282,7 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
             isCollapsed ? "justify-center px-0" : "px-6"
           )}>
             <div className="flex items-center gap-3 font-bold text-primary">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shrink-0">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
+              <img src="/favicon.svg" className="h-9 w-9 shrink-0" alt="Guardian Logo" />
               <span className={cn(
                 "text-xl tracking-tight text-foreground transition-all duration-300 whitespace-nowrap",
                 isCollapsed ? "w-0 opacity-0 scale-95" : "w-auto opacity-100 scale-100"
@@ -325,9 +323,7 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           >
             <div className="flex h-16 items-center justify-between border-b px-4 shrink-0 bg-card">
               <div className="flex items-center gap-2 font-bold text-primary">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
+                <img src="/favicon.svg" className="h-8 w-8 shrink-0" alt="Guardian Logo" />
                 <span className="text-lg tracking-tight text-foreground">Guardian</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
