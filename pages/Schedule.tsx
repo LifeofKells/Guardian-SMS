@@ -386,6 +386,7 @@ export default function Schedule() {
       if (endDateTime <= startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
 
       shiftsToCreate.push({
+        organization_id: organization?.id || '',
         site_id: newShift.site_id,
         officer_id: newShift.officer_id || null,
         start_time: startDateTime.toISOString(),
