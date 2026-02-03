@@ -493,6 +493,11 @@ export default function Schedule() {
         )} />
 
         <div className="pl-2">
+          {shift.site?.client && (
+            <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider mb-0.5 truncate max-w-[120px]">
+              {shift.site.client.name}
+            </p>
+          )}
           <div className="flex justify-between items-start mb-0.5">
             <p className={clsx("font-bold text-foreground truncate max-w-[120px]", fontSizeClass)} title={shift.site?.name}>{shift.site?.name}</p>
             {shift.break_duration && shift.break_duration > 0 && !isCompact ? (
@@ -626,7 +631,14 @@ export default function Schedule() {
             {shiftsBySite.map(({ site, items }) => (
               <Card key={site.id} className={clsx("h-fit transition-all hover:border-primary/30", items.length === 0 ? "opacity-60 grayscale" : "")}>
                 <div className="p-4 border-b border-border bg-card flex justify-between items-start">
-                  <div><h4 className="font-bold text-sm tracking-tight">{site.name}</h4><div className="flex items-center gap-1 text-xs text-muted-foreground mt-1"><MapPin className="h-3 w-3" /> {site.address}</div></div>
+                  <div>
+                    {(() => {
+                      const client = clients.find(c => c.id === site.client_id);
+                      return client ? <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1 tracking-wider">{client.name}</div> : null;
+                    })()}
+                    <h4 className="font-bold text-sm tracking-tight">{site.name}</h4>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1"><MapPin className="h-3 w-3" /> {site.address}</div>
+                  </div>
                   <Badge variant={items.length > 0 ? "default" : "secondary"} className="text-[10px] h-5">{items.length}</Badge>
                 </div>
                 <CardContent className="p-3 space-y-3 bg-muted/20 min-h-[100px]">
@@ -698,7 +710,35 @@ export default function Schedule() {
     return (
       <Card className="flex-1 overflow-hidden flex flex-col border-none shadow-none bg-transparent">
         <div className="overflow-auto flex-1 rounded-xl border border-border bg-card">
-          <table className="w-full text-sm"><thead className="bg-muted/50 border-b border-border sticky top-0 z-10"><tr><th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Date</th><th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Time</th><th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Site</th><th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Officer</th><th className="p-4 text-right">Action</th></tr></thead><tbody className="divide-y divide-border">{listShifts.map(shift => (<tr key={shift.id} className="hover:bg-muted/30 transition-colors"><td className="p-4">{new Date(shift.start_time).toLocaleDateString()}</td><td className="p-4">{formatTime(shift.start_time)}</td><td className="p-4">{shift.site?.name}</td><td className="p-4">{shift.officer?.full_name || 'Unassigned'}</td><td className="p-4 text-right"><Button variant="ghost" size="sm" onClick={() => handleEditOpen(shift)}>Edit</Button></td></tr>))}</tbody></table>
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 border-b border-border sticky top-0 z-10">
+              <tr>
+                <th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Date</th>
+                <th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Time</th>
+                <th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Site</th>
+                <th className="p-4 text-left font-semibold text-muted-foreground uppercase tracking-wider text-xs">Officer</th>
+                <th className="p-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {listShifts.map(shift => (
+                <tr key={shift.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="p-4">{new Date(shift.start_time).toLocaleDateString()}</td>
+                  <td className="p-4">{formatTime(shift.start_time)}</td>
+                  <td className="p-4">
+                    <div className="flex flex-col">
+                      {shift.site?.client && (
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-0.5">{shift.site.client.name}</span>
+                      )}
+                      <span className="font-medium">{shift.site?.name}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">{shift.officer?.full_name || 'Unassigned'}</td>
+                  <td className="p-4 text-right"><Button variant="ghost" size="sm" onClick={() => handleEditOpen(shift)}>Edit</Button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
     );
