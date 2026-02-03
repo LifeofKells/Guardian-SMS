@@ -39,6 +39,9 @@ export default function Officers() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editOfficerData, setEditOfficerData] = useState<Partial<Officer>>({});
 
+    // Delete Officer State
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
     // Financial State (Local Editing)
     const [financials, setFinancials] = useState({
         base_rate: 0,
@@ -170,6 +173,31 @@ export default function Officers() {
             if (selectedOfficer && selectedOfficer.id === variables.id) {
                 setSelectedOfficer(prev => prev ? ({ ...prev, ...variables.updates }) : null);
             }
+        }
+    });
+
+    const deleteOfficerMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await db.officers.delete(id);
+        },
+        onSuccess: (data, id) => {
+            queryClient.invalidateQueries({ queryKey: ['officers'] });
+
+            // Audit Log
+            db.audit_logs.create({
+                action: 'delete',
+                description: `Deleted officer: ${officers.find(o => o.id === id)?.full_name || id}`,
+                performed_by: profile?.full_name || 'System',
+                performed_by_id: profile?.id || 'system',
+                target_resource: 'Officer',
+                target_id: id,
+                organization_id: organization?.id || '',
+                timestamp: new Date().toISOString()
+            });
+
+            setIsDeleteConfirmOpen(false);
+            setSelectedOfficer(null); // Return to directory
+            addToast({ type: 'info', title: "Officer Deleted", description: "Officer removed from system." });
         }
     });
 
@@ -360,6 +388,13 @@ export default function Officers() {
                                     >
                                         <Edit className="h-4 w-4" /> Edit Profile
                                     </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="bg-transparent border-red-900/50 text-red-400 hover:bg-red-950/50 hover:text-red-300 hover:border-red-900"
+                                        onClick={() => setIsDeleteConfirmOpen(true)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </div>
 
@@ -461,6 +496,39 @@ export default function Officers() {
                                     updateOfficerMutation.mutate({ id: selectedOfficer.id, updates });
                                 }}>
                                     Save Changes
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* DELETE CONFIRM DIALOG */}
+                    <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Delete Officer</DialogTitle>
+                            </DialogHeader>
+                            <div className="py-4 text-center space-y-2">
+                                <div className="flex justify-center mb-4">
+                                    <div className="p-3 bg-red-100 rounded-full animate-bounce">
+                                        <AlertCircle className="h-6 w-6 text-red-600" />
+                                    </div>
+                                </div>
+                                <p className="font-semibold text-lg">{selectedOfficer.full_name}</p>
+                                <p className="text-muted-foreground text-sm">
+                                    Are you sure you want to delete this officer? This action cannot be undone.
+                                </p>
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 text-left mt-4">
+                                    <strong>Warning:</strong> Deleting an officer does not delete their past history in shifts/reports,
+                                    but they will no longer be assignable.
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button variant="ghost" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={() => selectedOfficer && deleteOfficerMutation.mutate(selectedOfficer.id)}
+                                >
+                                    Delete Permanently
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

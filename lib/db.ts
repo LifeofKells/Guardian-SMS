@@ -479,6 +479,14 @@ export const db = {
             } catch (e: any) {
                 return { error: e };
             }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'officers', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
         }
     },
     shifts: {
