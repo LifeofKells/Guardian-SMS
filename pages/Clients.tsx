@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Label } from '../components/ui';
 import { db } from '../lib/db';
 import { Client, Site, Invoice, Shift, Incident } from '../lib/types';
-import { Building2, MapPin, Search, Plus, ExternalLink, ArrowLeft, Phone, Mail, Globe, TrendingUp, AlertTriangle, FileText, Clock, ShieldCheck, Calendar, DollarSign, CheckCircle2, Loader2, Briefcase, User, Save, Activity, Siren, FileCheck, History, Lock, UserPlus, LayoutGrid, List } from 'lucide-react';
+import { Building2, MapPin, Search, Plus, ExternalLink, ArrowLeft, Phone, Mail, Globe, TrendingUp, AlertTriangle, FileText, Clock, ShieldCheck, Calendar, DollarSign, CheckCircle2, Loader2, Briefcase, User, Save, Activity, Siren, FileCheck, History, Lock, UserPlus, LayoutGrid, List, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -27,6 +27,9 @@ export default function Clients() {
     // Edit Client State
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editClientData, setEditClientData] = useState<Partial<Client>>({});
+
+    // Delete Client State
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [newUser, setNewUser] = useState({ email: '', name: '', password: '' });
@@ -229,6 +232,30 @@ export default function Clients() {
         }
     });
 
+    const deleteClientMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await db.clients.delete(id);
+        },
+        onSuccess: (data, id) => {
+            queryClient.invalidateQueries({ queryKey: ['clients'] });
+
+            // Audit Log
+            db.audit_logs.create({
+                action: 'delete',
+                description: `Deleted client: ${clientsWithSites.find(c => c.id === id)?.name || id}`,
+                performed_by: profile?.full_name || 'System',
+                performed_by_id: profile?.id || 'system',
+                target_resource: 'Client',
+                target_id: id,
+                organization_id: organization?.id || '',
+                timestamp: new Date().toISOString()
+            });
+
+            setIsDeleteConfirmOpen(false);
+            setSelectedClientId(null); // Return to directory
+        }
+    });
+
     const createUserMutation = useMutation({
         mutationFn: async () => {
             if (!selectedClientId) return;
@@ -354,6 +381,13 @@ export default function Clients() {
                                     >
                                         Edit Profile
                                     </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="bg-transparent border-red-900/50 text-red-400 hover:bg-red-950/50 hover:text-red-300 hover:border-red-900"
+                                        onClick={() => setIsDeleteConfirmOpen(true)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </div>
                         </CardContent>
@@ -451,6 +485,39 @@ export default function Clients() {
                             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
                             <Button onClick={() => selectedClient && updateClientMutation.mutate({ id: selectedClient.id, data: editClientData })}>
                                 Save Changes
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* DELETE CONFIRM DIALOG */}
+                <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Client</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-4 text-center space-y-2">
+                            <div className="flex justify-center mb-4">
+                                <div className="p-3 bg-red-100 rounded-full animate-bounce">
+                                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                                </div>
+                            </div>
+                            <p className="font-semibold text-lg">{selectedClient.name}</p>
+                            <p className="text-muted-foreground text-sm">
+                                Are you sure you want to delete this client? This action cannot be undone.
+                            </p>
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 text-left mt-4">
+                                <strong>Warning:</strong> Deleting a client will not automatically delete their sites or history.
+                                Ensure you have archived necessary data.
+                            </div>
+                        </div>
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button variant="ghost" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                            <Button
+                                variant="destructive"
+                                onClick={() => selectedClient && deleteClientMutation.mutate(selectedClient.id)}
+                            >
+                                Delete Permanently
                             </Button>
                         </DialogFooter>
                     </DialogContent>

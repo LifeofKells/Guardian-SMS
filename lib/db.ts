@@ -441,6 +441,14 @@ export const db = {
             } catch (e: any) {
                 return { error: e };
             }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'clients', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
         }
     },
     sites: {
