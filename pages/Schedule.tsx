@@ -313,8 +313,10 @@ export default function Schedule() {
     start_time: '09:00',
     end_time: '17:00',
     isRecurring: false,
-    frequency: 'weekly',
+    frequency: 'weekly' as 'daily' | 'weekly',
     occurrences: 4,
+    endType: 'occurrences' as 'occurrences' | 'date',
+    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     daysOfWeek: [new Date().getDay()], // Default to current day's index (0-6)
     pay_rate: '',
     bill_rate: '',
@@ -386,10 +388,15 @@ export default function Schedule() {
       });
     } else {
       const occurrences = Number(newShift.occurrences);
+      const endOnDate = new Date(newShift.endDate + 'T23:59:59');
+      const isEndAfterOccurrences = newShift.endType === 'occurrences';
 
       if (newShift.frequency === 'daily') {
-        for (let i = 0; i < occurrences; i++) {
+        const loopLimit = isEndAfterOccurrences ? occurrences : 365; // Safeguard for date mode
+        for (let i = 0; i < loopLimit; i++) {
           const shiftDate = addDays(baseDate, i);
+          if (!isEndAfterOccurrences && shiftDate > endOnDate) break;
+
           const dateIso = formatDateKey(shiftDate);
           const startDateTime = new Date(`${dateIso}T${newShift.start_time}`);
           const endDateTime = new Date(`${dateIso}T${newShift.end_time}`);
@@ -409,19 +416,19 @@ export default function Schedule() {
         }
       } else if (newShift.frequency === 'weekly') {
         const selectedDays = newShift.daysOfWeek;
-        // occurrences here means "number of weeks"
-        for (let week = 0; week < occurrences; week++) {
+        const weekLimit = isEndAfterOccurrences ? occurrences : 52; // Safeguard for date mode
+
+        for (let week = 0; week < weekLimit; week++) {
+          let shiftsInWeekCreated = 0;
           for (const dayIdx of selectedDays) {
-            // Find the date for this day of week in the current week loop
-            // Day indexes: 0=Sun, 1=Mon, ..., 6=Sat
-            // We need to calculate how many days to add to baseDate to get to this day index
             const baseDayIdx = baseDate.getDay();
             let daysToAdd = (dayIdx - baseDayIdx) + (week * 7);
 
-            // If the day is in the past of the start week relative to the start date, we skip it
             if (daysToAdd < 0) continue;
 
             const shiftDate = addDays(baseDate, daysToAdd);
+            if (!isEndAfterOccurrences && shiftDate > endOnDate) break;
+
             const dateIso = formatDateKey(shiftDate);
             const startDateTime = new Date(`${dateIso}T${newShift.start_time}`);
             const endDateTime = new Date(`${dateIso}T${newShift.end_time}`);
@@ -438,7 +445,9 @@ export default function Schedule() {
               bill_rate: newShift.bill_rate ? Number(newShift.bill_rate) : null,
               break_duration: newShift.break_duration ? Number(newShift.break_duration) : 0,
             });
+            shiftsInWeekCreated++;
           }
+          // No break needed here, the outer loop handles it
         }
       }
     }
@@ -453,6 +462,8 @@ export default function Schedule() {
       isRecurring: false,
       frequency: 'weekly',
       occurrences: 4,
+      endType: 'occurrences',
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       daysOfWeek: [new Date().getDay()],
       pay_rate: '',
       bill_rate: '',
@@ -957,14 +968,40 @@ export default function Schedule() {
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <Label>{newShift.frequency === 'weekly' ? 'Weeks' : 'Occurrences'}</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={newShift.occurrences}
-                        onChange={(e) => setNewShift(p => ({ ...p, occurrences: parseInt(e.target.value) || 1 }))}
-                      />
+                      <Label>End condition</Label>
+                      <select
+                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={newShift.endType}
+                        onChange={(e) => setNewShift(p => ({ ...p, endType: e.target.value as any }))}
+                      >
+                        <option value="occurrences">
+                          After {newShift.frequency === 'weekly' ? 'weeks' : 'occurrences'}
+                        </option>
+                        <option value="date">On specific date</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      {newShift.endType === 'occurrences' ? (
+                        <>
+                          <Label>{newShift.frequency === 'weekly' ? 'Weeks' : 'Occurrences'}</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="30"
+                            value={newShift.occurrences}
+                            onChange={(e) => setNewShift(p => ({ ...p, occurrences: parseInt(e.target.value) || 1 }))}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Label>Ending date</Label>
+                          <Input
+                            type="date"
+                            value={newShift.endDate}
+                            onChange={(e) => setNewShift(p => ({ ...p, endDate: e.target.value }))}
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
 
