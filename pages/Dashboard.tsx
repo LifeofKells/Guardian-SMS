@@ -13,12 +13,12 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '../contexts/ToastContext';
 import { useCommandCenter } from '../hooks/useRealtime';
-import { AlertBanner } from '../components/AlertBanner';
+import { AlertBanner, AlertStack } from '../components/AlertBanner';
 import { PanicAlertModal } from '../components/PanicAlertModal';
 import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 
 // --- OPERATIONAL COMMAND WALL ---
-const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site[], locations: any[], panicAlerts: any[] }) => {
+const OperationalStatusBoard = ({ sites, locations, panicAlerts, geofenceEvents = [] }: { sites: Site[], locations: any[], panicAlerts: any[], geofenceEvents?: any[] }) => {
     const [search, setSearch] = useState('');
     const [breadcrumbOfficer, setBreadcrumbOfficer] = useState<{ id: string, name: string } | null>(null);
 
@@ -59,17 +59,21 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site
                             Math.sqrt(Math.pow(p.location.lat - site.lat, 2) + Math.pow(p.location.lng - site.lng, 2)) < 0.005
                         );
 
+                        const siteBreach = geofenceEvents.find(e => !e.acknowledged && e.site_id === site.id && e.event_type === 'exit');
+
                         return (
                             <Card key={site.id} className={cn(
                                 "border-l-4 transition-all hover:shadow-md h-32 flex flex-col overflow-hidden",
                                 sitePanic ? "border-l-red-500 bg-red-50/30 dark:bg-red-950/20" :
-                                    officerAtSite ? "border-l-emerald-500" : "border-l-slate-300 dark:border-l-slate-800"
+                                    siteBreach ? "border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20" :
+                                        officerAtSite ? "border-l-emerald-500" : "border-l-slate-300 dark:border-l-slate-800"
                             )}>
                                 <CardContent className="p-3 flex items-start gap-3 h-full">
                                     <div className={cn(
                                         "h-10 w-10 shrink-0 rounded-lg flex items-center justify-center",
                                         sitePanic ? "bg-red-100 text-red-600 animate-pulse" :
-                                            officerAtSite ? "bg-emerald-100 text-emerald-600" : "bg-muted text-muted-foreground"
+                                            siteBreach ? "bg-amber-100 text-amber-600 animate-pulse" :
+                                                officerAtSite ? "bg-emerald-100 text-emerald-600" : "bg-muted text-muted-foreground"
                                     )}>
                                         <MapPin className="h-5 w-5" />
                                     </div>
@@ -116,6 +120,12 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts }: { sites: Site
                                                         <Battery className="h-3 w-3 text-emerald-500" />
                                                         88%
                                                     </div>
+                                                </div>
+                                            )}
+                                            {siteBreach && (
+                                                <div className="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold">
+                                                    <ShieldAlert className="h-3 w-3" />
+                                                    BREACH
                                                 </div>
                                             )}
                                         </div>
@@ -249,8 +259,9 @@ export default function Dashboard() {
     const [shiftDuration, setShiftDuration] = useState(0); // seconds
 
     // --- COMMAND CENTER REAL-TIME HOOK ---
-    const { locations, panicAlerts, hasActiveAlert } = useCommandCenter();
+    const { locations, panicAlerts, hasActiveAlert, geofenceEvents, acknowledgeGeofenceEvent } = useCommandCenter();
     const [activeEmergency, setActiveEmergency] = useState<any>(null);
+    const [acknowledgedAlerts, setAcknowledgedAlerts] = useState<Set<string>>(new Set());
 
     // Auto-set active emergency for modal
     useEffect(() => {
@@ -434,6 +445,37 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
+            <AlertStack>
+                {/* Panic Alerts */}
+                {panicAlerts.filter(p => p.status === 'active').map(alert => (
+                    <AlertBanner
+                        key={alert.id}
+                        type="panic"
+                        title="PANIC ALERT"
+                        message="Officer distress signal received."
+                        officerName={dashboardData?.officers.find(o => o.id === alert.officer_id)?.full_name || 'Unknown Officer'}
+                        timestamp={alert.timestamp}
+                        onAction={() => setActiveEmergency(alert)}
+                        actionLabel="View Details"
+                    />
+                ))}
+
+                {/* Geofence Alerts */}
+                {geofenceEvents.filter(e => !e.acknowledged && e.event_type === 'exit' && !acknowledgedAlerts.has(e.id)).map(event => (
+                    <AlertBanner
+                        key={event.id}
+                        type="geofence"
+                        title="GEOFENCE BREACH"
+                        message={`${dashboardData?.officers.find(o => o.id === event.officer_id)?.full_name || 'Officer'} left ${sites.find(s => s.id === event.site_id)?.name || 'site'} perimeter.`}
+                        timestamp={event.timestamp}
+                        onDismiss={() => {
+                            setAcknowledgedAlerts(prev => new Set(prev).add(event.id));
+                            acknowledgeGeofenceEvent(event.id);
+                        }}
+                        autoPlaySound={false}
+                    />
+                ))}
+            </AlertStack>
             {(isAdmin || isClient) && dashboardData ? (
                 // --- ADMIN & CLIENT COMMAND CENTER (TABBED) ---
                 <Tabs defaultValue="overview" className="space-y-6 animate-in fade-in duration-500">
@@ -479,18 +521,6 @@ export default function Dashboard() {
                         </div>
 
                         {/* Emergency Alert Banner */}
-                        {hasActiveAlert && (
-                            <AlertBanner
-                                type="panic"
-                                title="EMERGENCY PANIC ALERT DETECTED"
-                                message="One of your officers has triggered a distress signal. Immediate intervention required."
-                                onAction={() => {
-                                    const active = panicAlerts.find(p => p.status === 'active');
-                                    if (active) setActiveEmergency(active);
-                                }}
-                                actionLabel="View Emergency Details"
-                            />
-                        )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[550px]">
                             {/* Operational Wall */}
@@ -504,7 +534,7 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-hidden bg-slate-50/50 dark:bg-slate-900/10">
-                                        <OperationalStatusBoard sites={sites} locations={locations} panicAlerts={panicAlerts} />
+                                        <OperationalStatusBoard sites={sites} locations={locations} panicAlerts={panicAlerts} geofenceEvents={geofenceEvents} />
                                     </div>
                                 </Card>
                             </div>

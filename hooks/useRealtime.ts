@@ -9,7 +9,9 @@ import {
     subscribeToPanicAlerts,
     subscribeToGeofenceEvents,
     subscribeToActivityFeed,
-    onRealtimeEvent
+    onRealtimeEvent,
+    acknowledgeGeofenceEvent,
+    resolvePanicAlert
 } from '../lib/realtime';
 import type {
     OfficerLocation,
@@ -165,6 +167,8 @@ export function useCommandCenter() {
         activityFeed,
         hasActiveAlert,
         unacknowledgedGeofence: unacknowledgedCount,
-        criticalAlertCount
+        criticalAlertCount,
+        acknowledgeGeofenceEvent,
+        resolvePanicAlert
     };
 }
