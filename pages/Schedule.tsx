@@ -6,6 +6,7 @@ import { Officer, Shift, Site, Client } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, ChevronLeft, ChevronRight, GripVertical, AlertCircle, X, CheckCircle2, Loader2, Repeat, DollarSign, Pencil, Trash2, CalendarDays, Calendar as CalendarIcon, List as ListIcon, Columns, MapPin, Coffee, Clock, Maximize2, Minimize2 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { cn } from '../components/ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../contexts/ToastContext';
 
@@ -314,6 +315,7 @@ export default function Schedule() {
     isRecurring: false,
     frequency: 'weekly',
     occurrences: 4,
+    daysOfWeek: [new Date().getDay()], // Default to current day's index (0-6)
     pay_rate: '',
     bill_rate: '',
     break_duration: 0
@@ -363,26 +365,12 @@ export default function Schedule() {
 
     const shiftsToCreate: Partial<Shift>[] = [];
     const [year, month, day] = newShift.date.split('-').map(Number);
-    const baseDate = new Date(year, month - 1, day);
+    const baseDate = new Date(newShift.date + 'T00:00:00');
 
-    const loopCount = newShift.isRecurring ? Number(newShift.occurrences) : 1;
-
-    for (let i = 0; i < loopCount; i++) {
-      const shiftDate = new Date(baseDate);
-
-      if (newShift.isRecurring) {
-        if (newShift.frequency === 'daily') shiftDate.setDate(shiftDate.getDate() + i);
-        else if (newShift.frequency === 'weekly') shiftDate.setDate(shiftDate.getDate() + (i * 7));
-      }
-
-      const y = shiftDate.getFullYear();
-      const m = String(shiftDate.getMonth() + 1).padStart(2, '0');
-      const d = String(shiftDate.getDate()).padStart(2, '0');
-      const dateIso = `${y}-${m}-${d}`;
-
+    if (!newShift.isRecurring) {
+      const dateIso = newShift.date;
       const startDateTime = new Date(`${dateIso}T${newShift.start_time}`);
       const endDateTime = new Date(`${dateIso}T${newShift.end_time}`);
-
       if (endDateTime <= startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
 
       shiftsToCreate.push({
@@ -396,6 +384,63 @@ export default function Schedule() {
         bill_rate: newShift.bill_rate ? Number(newShift.bill_rate) : null,
         break_duration: newShift.break_duration ? Number(newShift.break_duration) : 0,
       });
+    } else {
+      const occurrences = Number(newShift.occurrences);
+
+      if (newShift.frequency === 'daily') {
+        for (let i = 0; i < occurrences; i++) {
+          const shiftDate = addDays(baseDate, i);
+          const dateIso = formatDateKey(shiftDate);
+          const startDateTime = new Date(`${dateIso}T${newShift.start_time}`);
+          const endDateTime = new Date(`${dateIso}T${newShift.end_time}`);
+          if (endDateTime <= startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
+
+          shiftsToCreate.push({
+            organization_id: organization?.id || '',
+            site_id: newShift.site_id,
+            officer_id: newShift.officer_id || null,
+            start_time: startDateTime.toISOString(),
+            end_time: endDateTime.toISOString(),
+            status: newShift.officer_id ? 'assigned' : 'published',
+            pay_rate: newShift.pay_rate ? Number(newShift.pay_rate) : null,
+            bill_rate: newShift.bill_rate ? Number(newShift.bill_rate) : null,
+            break_duration: newShift.break_duration ? Number(newShift.break_duration) : 0,
+          });
+        }
+      } else if (newShift.frequency === 'weekly') {
+        const selectedDays = newShift.daysOfWeek;
+        // occurrences here means "number of weeks"
+        for (let week = 0; week < occurrences; week++) {
+          for (const dayIdx of selectedDays) {
+            // Find the date for this day of week in the current week loop
+            // Day indexes: 0=Sun, 1=Mon, ..., 6=Sat
+            // We need to calculate how many days to add to baseDate to get to this day index
+            const baseDayIdx = baseDate.getDay();
+            let daysToAdd = (dayIdx - baseDayIdx) + (week * 7);
+
+            // If the day is in the past of the start week relative to the start date, we skip it
+            if (daysToAdd < 0) continue;
+
+            const shiftDate = addDays(baseDate, daysToAdd);
+            const dateIso = formatDateKey(shiftDate);
+            const startDateTime = new Date(`${dateIso}T${newShift.start_time}`);
+            const endDateTime = new Date(`${dateIso}T${newShift.end_time}`);
+            if (endDateTime <= startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
+
+            shiftsToCreate.push({
+              organization_id: organization?.id || '',
+              site_id: newShift.site_id,
+              officer_id: newShift.officer_id || null,
+              start_time: startDateTime.toISOString(),
+              end_time: endDateTime.toISOString(),
+              status: newShift.officer_id ? 'assigned' : 'published',
+              pay_rate: newShift.pay_rate ? Number(newShift.pay_rate) : null,
+              bill_rate: newShift.bill_rate ? Number(newShift.bill_rate) : null,
+              break_duration: newShift.break_duration ? Number(newShift.break_duration) : 0,
+            });
+          }
+        }
+      }
     }
 
     createShiftMutation.mutate(shiftsToCreate);
@@ -408,6 +453,7 @@ export default function Schedule() {
       isRecurring: false,
       frequency: 'weekly',
       occurrences: 4,
+      daysOfWeek: [new Date().getDay()],
       pay_rate: '',
       bill_rate: '',
       break_duration: 0
@@ -881,34 +927,79 @@ export default function Schedule() {
                   id="isRecurring"
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                   checked={newShift.isRecurring}
-                  onChange={(e) => setNewShift(p => ({ ...p, isRecurring: e.target.checked }))}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setNewShift(p => {
+                      const baseDate = new Date(p.date + 'T00:00:00');
+                      return {
+                        ...p,
+                        isRecurring: checked,
+                        daysOfWeek: checked ? [baseDate.getDay()] : p.daysOfWeek
+                      };
+                    });
+                  }}
                 />
                 <Label htmlFor="isRecurring" className="cursor-pointer mb-0">Recurring Shift</Label>
               </div>
 
               {newShift.isRecurring && (
-                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-1">
-                    <Label>Frequency</Label>
-                    <select
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={newShift.frequency}
-                      onChange={(e) => setNewShift(p => ({ ...p, frequency: e.target.value as any }))}
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                    </select>
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>Frequency</Label>
+                      <select
+                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={newShift.frequency}
+                        onChange={(e) => setNewShift(p => ({ ...p, frequency: e.target.value as any }))}
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>{newShift.frequency === 'weekly' ? 'Weeks' : 'Occurrences'}</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={newShift.occurrences}
+                        onChange={(e) => setNewShift(p => ({ ...p, occurrences: parseInt(e.target.value) || 1 }))}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label>Occurrences</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={newShift.occurrences}
-                      onChange={(e) => setNewShift(p => ({ ...p, occurrences: parseInt(e.target.value) || 1 }))}
-                    />
-                  </div>
+
+                  {newShift.frequency === 'weekly' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Repeat on</Label>
+                      <div className="flex justify-between gap-1">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => {
+                          const isSelected = newShift.daysOfWeek.includes(idx);
+                          return (
+                            <button
+                              key={`${day}-${idx}`}
+                              type="button"
+                              onClick={() => {
+                                setNewShift(p => ({
+                                  ...p,
+                                  daysOfWeek: p.daysOfWeek.includes(idx)
+                                    ? p.daysOfWeek.length > 1 ? p.daysOfWeek.filter(d => d !== idx) : p.daysOfWeek
+                                    : [...p.daysOfWeek, idx].sort()
+                                }));
+                              }}
+                              className={cn(
+                                "flex-1 h-9 rounded-md text-xs font-bold transition-all border",
+                                isSelected
+                                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                  : "bg-background text-muted-foreground border-input hover:bg-muted"
+                              )}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
