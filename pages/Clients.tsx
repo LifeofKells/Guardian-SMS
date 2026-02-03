@@ -980,38 +980,38 @@ export default function Clients() {
             {isLoading && <div className="text-center py-8 text-muted-foreground">Loading clients...</div>}
 
             {viewMode === 'grid' ? (
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
                     {filteredData.map(client => (
                         <Card key={client.id} className="flex flex-col group hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleViewClient(client)}>
-                            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 bg-muted/30 border-b">
+                            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 px-4 pt-4 bg-muted/30 border-b">
                                 <div>
-                                    <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
-                                        <Building2 className="h-5 w-5" />
+                                    <CardTitle className="text-base flex items-center gap-2 group-hover:text-primary transition-colors">
+                                        <Building2 className="h-4 w-4" />
                                         {client.name}
                                     </CardTitle>
-                                    <p className="text-sm text-muted-foreground mt-1">{client.address}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{client.address}</p>
                                 </div>
-                                <Badge variant={client.status === 'active' ? 'success' : 'secondary'}>{client.status}</Badge>
+                                <Badge className="text-[10px] h-5 px-1.5" variant={client.status === 'active' ? 'success' : 'secondary'}>{client.status}</Badge>
                             </CardHeader>
-                            <CardContent className="pt-4 flex-1">
-                                <div className="text-sm space-y-1 mb-4">
+                            <CardContent className="p-4 pt-3 flex-1">
+                                <div className="text-xs space-y-1 mb-3">
                                     <p><span className="text-muted-foreground">Contact:</span> {client.contact_name}</p>
                                     <p><span className="text-muted-foreground">Email:</span> {client.email}</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase">Locations ({client.sites.length})</p>
-                                    <div className="flex flex-wrap gap-2">
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase">Locations ({client.sites.length})</p>
+                                    <div className="flex flex-wrap gap-1.5">
                                         {client.sites.slice(0, 3).map(site => (
-                                            <Badge key={site.id} variant="outline" className="text-xs flex items-center gap-1">
-                                                <MapPin className="h-3 w-3" /> {site.name}
+                                            <Badge key={site.id} variant="outline" className="text-[10px] px-1.5 h-5 flex items-center gap-1">
+                                                <MapPin className="h-2.5 w-2.5" /> {site.name}
                                             </Badge>
                                         ))}
-                                        {client.sites.length > 3 && <Badge variant="outline" className="text-xs">+{client.sites.length - 3} more</Badge>}
-                                        {client.sites.length === 0 && <span className="text-xs text-muted-foreground italic">No sites added</span>}
+                                        {client.sites.length > 3 && <Badge variant="outline" className="text-[10px] px-1.5 h-5">+{client.sites.length - 3}</Badge>}
+                                        {client.sites.length === 0 && <span className="text-[10px] text-muted-foreground italic">No sites</span>}
                                     </div>
                                 </div>
-                                <div className="mt-4 pt-4 border-t flex justify-end">
-                                    <span className="text-xs font-medium text-primary flex items-center gap-1">View 360° Profile <ArrowLeft className="h-3 w-3 rotate-180" /></span>
+                                <div className="mt-3 pt-3 border-t flex justify-end">
+                                    <span className="text-[10px] font-medium text-primary flex items-center gap-1">View 360° <ArrowLeft className="h-2.5 w-2.5 rotate-180" /></span>
                                 </div>
                             </CardContent>
                         </Card>
