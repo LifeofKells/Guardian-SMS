@@ -830,10 +830,7 @@ export default function Schedule() {
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader><DialogTitle>Create New Shift</DialogTitle></DialogHeader>
-          {/* ... existing form content ... */}
-          <div className="py-4 space-y-4">
-            {/* ... Form inputs ... */}
-            {/* Simplified for brevity in this output block, assume same as before */}
+          <div className="py-4 space-y-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
             <div className="space-y-1">
               <Label>Site Location</Label>
               <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={newShift.site_id} onChange={handleSiteChange}>
@@ -844,11 +841,76 @@ export default function Schedule() {
                 })}
               </select>
             </div>
-            {/* ... other inputs ... */}
+
+            <div className="space-y-1">
+              <Label>Assigned Officer (Optional)</Label>
+              <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={newShift.officer_id} onChange={handleOfficerChange}>
+                <option value="">Open Shift</option>
+                {officers.filter(o => o.employment_status === 'active').map(o => <option key={o.id} value={o.id}>{o.full_name}</option>)}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Pay Rate ($/hr)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input type="number" className="pl-9" value={newShift.pay_rate} onChange={(e) => setNewShift(p => ({ ...p, pay_rate: e.target.value }))} placeholder="0.00" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Bill Rate ($/hr)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input type="number" className="pl-9" value={newShift.bill_rate} onChange={(e) => setNewShift(p => ({ ...p, bill_rate: e.target.value }))} placeholder="0.00" />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-1"><Label>Date</Label><Input type="date" value={newShift.date} onChange={(e) => setNewShift(p => ({ ...p, date: e.target.value }))} /></div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1"><Label>Start Time</Label><Input type="time" value={newShift.start_time} onChange={(e) => setNewShift(p => ({ ...p, start_time: e.target.value }))} /></div>
               <div className="space-y-1"><Label>End Time</Label><Input type="time" value={newShift.end_time} onChange={(e) => setNewShift(p => ({ ...p, end_time: e.target.value }))} /></div>
+            </div>
+
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center space-x-2 mb-4">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  checked={newShift.isRecurring}
+                  onChange={(e) => setNewShift(p => ({ ...p, isRecurring: e.target.checked }))}
+                />
+                <Label htmlFor="isRecurring" className="cursor-pointer mb-0">Recurring Shift</Label>
+              </div>
+
+              {newShift.isRecurring && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="space-y-1">
+                    <Label>Frequency</Label>
+                    <select
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={newShift.frequency}
+                      onChange={(e) => setNewShift(p => ({ ...p, frequency: e.target.value as any }))}
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Occurrences</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={newShift.occurrences}
+                      onChange={(e) => setNewShift(p => ({ ...p, occurrences: parseInt(e.target.value) || 1 }))}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
