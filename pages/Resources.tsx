@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Package, DollarSign, Wrench, Plus, Check, X,
     AlertCircle, Search, Filter, Calendar, TrendingUp, CreditCard,
-    Briefcase, FileText, Download, Eye, MoreHorizontal
+    Briefcase, FileText, Download, Eye, MoreHorizontal, Upload, Loader2
 } from 'lucide-react';
 import { db } from '../lib/db';
+import { storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '../contexts/ToastContext';
 import {
     Button,
@@ -542,6 +544,8 @@ function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange:
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [receiptFile, setReceiptFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Mileage specific fields
     const [startOdometer, setStartOdometer] = useState('');
@@ -562,6 +566,21 @@ function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange:
                 status: 'pending',
                 submitted_at: new Date().toISOString()
             };
+
+            // Receipt Upload
+            if (receiptFile) {
+                setIsUploading(true);
+                try {
+                    const storageRef = ref(storage, `receipts/${user.uid}/${Date.now()}_${receiptFile.name}`);
+                    await uploadBytes(storageRef, receiptFile);
+                    const url = await getDownloadURL(storageRef);
+                    expense.receipt_url = url;
+                } catch (e: any) {
+                    setIsUploading(false);
+                    throw new Error("Failed to upload receipt: " + e.message);
+                }
+                setIsUploading(false);
+            }
 
             if (category === 'mileage' && startOdometer && endOdometer) {
                 const distance = parseFloat(endOdometer) - parseFloat(startOdometer);
@@ -596,6 +615,8 @@ function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange:
             setDescription('');
             setStartOdometer('');
             setEndOdometer('');
+            setReceiptFile(null);
+            setIsUploading(false);
         },
         onError: (err: any) => {
             addToast({ type: 'error', title: 'Failed', description: err.message });
@@ -702,14 +723,31 @@ function AddExpenseDialog({ open, onOpenChange }: { open: boolean, onOpenChange:
                             placeholder="Describe the business purpose..."
                         />
                     </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Receipt / Attachment</label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setReceiptFile(e.target.files[0]);
+                                    }
+                                }}
+                                className="cursor-pointer"
+                            />
+                        </div>
+                        {receiptFile && <p className="text-xs text-muted-foreground flex items-center gap-1"><Check className="h-3 w-3 text-emerald-500" /> Selected: {receiptFile.name}</p>}
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button
                         onClick={() => createMutation.mutate()}
-                        disabled={createMutation.isPending || !description || (category !== 'mileage' && !amount) || (category === 'mileage' && (!startOdometer || !endOdometer))}
+                        disabled={createMutation.isPending || isUploading || !description || (category !== 'mileage' && !amount) || (category === 'mileage' && (!startOdometer || !endOdometer))}
                     >
-                        {createMutation.isPending ? 'Submitting...' : 'Submit Expense'}
+                        {createMutation.isPending || isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : 'Submit Expense'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

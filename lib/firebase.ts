@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 // --- CONFIGURATION ---
 // 1. Go to Firebase Console -> Project Settings
@@ -35,3 +36,4 @@ export const firestore = getFirestore(app as any, FIREBASE_DB_ID);
 export const defaultFirestore = getFirestore(app as any);
 
 export const auth = getAuth(app as any);
+export const storage = getStorage(app);
