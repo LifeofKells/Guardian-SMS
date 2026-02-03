@@ -838,7 +838,10 @@ export default function Schedule() {
               <Label>Site Location</Label>
               <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={newShift.site_id} onChange={handleSiteChange}>
                 <option value="">Select Site...</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sites.map(s => {
+                  const client = clients.find(c => c.id === s.client_id);
+                  return <option key={s.id} value={s.id}>{client ? `${client.name} - ` : ''}{s.name}</option>
+                })}
               </select>
             </div>
             {/* ... other inputs ... */}
@@ -867,7 +870,10 @@ export default function Schedule() {
               <Label>Site Location</Label>
               <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={editData.site_id} onChange={(e) => setEditData(p => ({ ...p, site_id: e.target.value }))}>
                 <option value="">Select Site...</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sites.map(s => {
+                  const client = clients.find(c => c.id === s.client_id);
+                  return <option key={s.id} value={s.id}>{client ? `${client.name} - ` : ''}{s.name}</option>
+                })}
               </select>
             </div>
 
