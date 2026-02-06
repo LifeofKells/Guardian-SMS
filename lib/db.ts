@@ -422,6 +422,12 @@ export const db = {
                 await setDoc(doc(firestore, 'organizations', org.id), org);
                 return { data: org, error: null };
             } catch (e: any) { return { data: null, error: e }; }
+        },
+        update: async (id: string, data: Partial<Organization>) => {
+            try {
+                await updateDoc(doc(firestore, 'organizations', id), data);
+                return { error: null };
+            } catch (e: any) { return { error: e }; }
         }
     },
     clients: {
@@ -459,6 +465,22 @@ export const db = {
                 return { data: { ...site, id: docRef.id } as Site, error: null };
             } catch (e: any) {
                 return { data: null, error: e };
+            }
+        },
+        update: async (id: string, data: Partial<Site>) => {
+            try {
+                await updateDoc(doc(firestore, 'sites', id), data);
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'sites', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
             }
         }
     },
@@ -501,7 +523,55 @@ export const db = {
         },
         update: async (id: string, data: Partial<Shift>) => {
             try {
+                // Fetch the existing shift to handle side effects
+                const shiftDoc = await getDoc(doc(firestore, 'shifts', id));
+                if (!shiftDoc.exists()) throw new Error("Shift not found");
+                const currentShift = { id: shiftDoc.id, ...shiftDoc.data() } as Shift;
+
                 await updateDoc(doc(firestore, 'shifts', id), data);
+
+                // Side Effect: If shift is being marked as completed, create a time entry if none exists
+                if (data.status === 'completed' && currentShift.status !== 'completed' && currentShift.officer_id) {
+                    // Check if a time entry already exists for this shift
+                    const q = query(collection(firestore, 'time_entries'), where('shift_id', '==', id));
+                    const entrySnap = await getDocs(q);
+
+                    if (entrySnap.empty) {
+                        const start = new Date(currentShift.start_time);
+                        const end = new Date(currentShift.end_time);
+                        const durationMs = end.getTime() - start.getTime();
+                        const breakMins = currentShift.break_duration || 0;
+                        const totalHours = (durationMs / (1000 * 60 * 60)) - (breakMins / 60);
+
+                        const newEntry = {
+                            organization_id: currentShift.organization_id,
+                            shift_id: id,
+                            officer_id: currentShift.officer_id,
+                            clock_in: currentShift.start_time,
+                            clock_out: currentShift.end_time,
+                            total_hours: Math.max(0, totalHours),
+                            status: 'approved' as const,
+                            financial_snapshot: {
+                                pay_rate: currentShift.pay_rate || 20,
+                                bill_rate: currentShift.bill_rate || 45
+                            }
+                        };
+
+                        await addDoc(collection(firestore, 'time_entries'), newEntry);
+
+                        // Audit Log for automatic entry
+                        await addDoc(collection(firestore, 'audit_logs'), {
+                            action: 'create',
+                            organization_id: currentShift.organization_id,
+                            description: `Automatic Time Entry created from Completed Shift.`,
+                            performed_by: 'System (Sync)',
+                            performed_by_id: 'system',
+                            target_resource: 'TimeEntry',
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                }
+
                 return { error: null };
             } catch (e: any) {
                 return { error: e };
@@ -513,6 +583,35 @@ export const db = {
                 return { error: null };
             } catch (e: any) {
                 return { error: e };
+            }
+        },
+        autoCompleteExpiredShifts: async (orgId: string) => {
+            try {
+                const now = new Date().toISOString();
+                // Query for shifts that have ended but are not marked as completed
+                const q = query(
+                    collection(firestore, 'shifts'),
+                    where('organization_id', '==', orgId),
+                    where('end_time', '<=', now)
+                );
+
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) return { count: 0, error: null };
+
+                let count = 0;
+                for (const docSnap of snapshot.docs) {
+                    const shiftData = docSnap.data() as Shift;
+                    // Only complete shifts that aren't already completed/draft
+                    if (shiftData.status === 'published' || shiftData.status === 'assigned') {
+                        await db.shifts.update(docSnap.id, { status: 'completed' });
+                        count++;
+                    }
+                }
+
+                return { count, error: null };
+            } catch (e: any) {
+                console.error("Auto-complete shifts error:", e);
+                return { count: 0, error: e };
             }
         }
     },
@@ -1123,6 +1222,9 @@ export const db = {
             name: 'AsoRock Security Services',
             owner_id: 'demo_admin_user',
             created_at: new Date().toISOString(),
+            subscription_tier: 'professional',
+            subscription_status: 'active',
+            portal_enabled: true,
             settings: {
                 timezone: 'UTC-8',
                 currency: 'USD'

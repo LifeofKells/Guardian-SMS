@@ -3,9 +3,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Label } from '../components/ui';
 import { db } from '../lib/db';
 import { Client, Site, Invoice, Shift, Incident } from '../lib/types';
-import { Building2, MapPin, Search, Plus, ExternalLink, ArrowLeft, Phone, Mail, Globe, TrendingUp, AlertTriangle, FileText, Clock, ShieldCheck, Calendar, DollarSign, CheckCircle2, Loader2, Briefcase, User, Save, Activity, Siren, FileCheck, History, Lock, UserPlus, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { Building2, MapPin, Search, Plus, ExternalLink, ArrowLeft, Phone, Mail, Globe, TrendingUp, AlertTriangle, FileText, Clock, ShieldCheck, Calendar, DollarSign, CheckCircle2, Loader2, Briefcase, User as UserIcon, Save, Activity, Siren, FileCheck, History, Lock, UserPlus, LayoutGrid, List, Trash2, Key, Pencil, Inbox } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { EmptyState } from '../components/EmptyState';
 
 interface ClientWithSites extends Client {
     sites: Site[];
@@ -23,6 +24,11 @@ export default function Clients() {
 
     const [isAddSiteOpen, setIsAddSiteOpen] = useState(false);
     const [newSite, setNewSite] = useState({ name: '', address: '', risk_level: 'low' as const });
+
+    const [isEditSiteOpen, setIsEditSiteOpen] = useState(false);
+    const [editSiteData, setEditSiteData] = useState<Partial<Site>>({});
+    const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
+    const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
     // Edit Client State
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -207,6 +213,53 @@ export default function Clients() {
         }
     });
 
+    const updateSiteMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string, data: Partial<Site> }) => {
+            await db.sites.update(id, data);
+        },
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['sites'] });
+
+            db.audit_logs.create({
+                action: 'update',
+                description: `Updated site: ${variables.data.name || variables.id}`,
+                performed_by: profile?.full_name || 'System',
+                performed_by_id: profile?.id || 'system',
+                target_resource: 'Site',
+                target_id: variables.id,
+                organization_id: organization?.id || '',
+                timestamp: new Date().toISOString()
+            });
+
+            setIsEditSiteOpen(false);
+            setEditSiteData({});
+            setSelectedSiteId(null);
+        }
+    });
+
+    const deleteSiteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await db.sites.delete(id);
+        },
+        onSuccess: (data, id) => {
+            queryClient.invalidateQueries({ queryKey: ['sites'] });
+
+            db.audit_logs.create({
+                action: 'delete',
+                description: `Deleted site ID: ${id}`,
+                performed_by: profile?.full_name || 'System',
+                performed_by_id: profile?.id || 'system',
+                target_resource: 'Site',
+                target_id: id,
+                organization_id: organization?.id || '',
+                timestamp: new Date().toISOString()
+            });
+
+            setIsDeleteSiteConfirmOpen(false);
+            setSelectedSiteId(null);
+        }
+    });
+
     const updateClientMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string, data: Partial<Client> }) => {
             await db.clients.update(id, data);
@@ -258,8 +311,29 @@ export default function Clients() {
 
     const createUserMutation = useMutation({
         mutationFn: async () => {
-            if (!selectedClientId) return;
-            await createClientUser(newUser.email, newUser.password, newUser.name, selectedClientId);
+            if (!selectedClientId) throw new Error("No client selected");
+
+            // Domain Validation
+            if (organization?.white_label?.custom_domain || organization?.name) {
+                const currentUserEmail = profile?.email || '';
+                const orgDomain = currentUserEmail.split('@')[1];
+                const newEmailDomain = newUser.email.split('@')[1];
+
+                if (orgDomain && newEmailDomain !== orgDomain) {
+                    throw new Error(`Security Requirement: Client user emails must match the organization domain (@${orgDomain}).`);
+                }
+            }
+
+            const newUserId = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+            await db.users.create({
+                id: newUserId,
+                email: newUser.email,
+                full_name: newUser.name,
+                role: 'client',
+                organization_id: organization?.id || '',
+                client_id: selectedClientId,
+                is_temporary_password: true
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['clientDetails'] });
@@ -267,7 +341,7 @@ export default function Clients() {
             // Audit Log
             db.audit_logs.create({
                 action: 'create',
-                description: `Created new client user: ${newUser.name}`,
+                description: `Created new client user: ${newUser.name} (${newUser.email})`,
                 performed_by: profile?.full_name || 'System',
                 performed_by_id: profile?.id || 'system',
                 target_resource: 'User',
@@ -277,7 +351,7 @@ export default function Clients() {
 
             setIsAddUserOpen(false);
             setNewUser({ email: '', name: '', password: '' });
-            alert("User created successfully. They can login with the temporary password.");
+            // alert("User created successfully.");
         },
         onError: (err: any) => {
             alert("Failed to create user: " + err.message);
@@ -357,7 +431,7 @@ export default function Clients() {
                                         <div className="flex items-center gap-3 mt-1 text-slate-300 text-sm">
                                             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {selectedClient.address}</span>
                                             <span className="h-1 w-1 rounded-full bg-slate-500"></span>
-                                            <span className="flex items-center gap-1"><User className="h-3 w-3" /> {selectedClient.contact_name}</span>
+                                            <span className="flex items-center gap-1"><UserIcon className="h-3 w-3" /> {selectedClient.contact_name}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -523,14 +597,63 @@ export default function Clients() {
                     </DialogContent>
                 </Dialog>
 
+                {/* ADD USER DIALOG */}
+                <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add Client Portal User</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="p-3 bg-blue-50 text-blue-800 text-xs rounded-md flex items-start gap-2 border border-blue-100">
+                                <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
+                                <div>
+                                    <strong>Access Control:</strong> This user will have access to the Client Portal for {selectedClient.name}.
+                                    Emails must match your organization's domain (@{profile?.email.split('@')[1] || '...'}) for security verification.
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Full Name</Label>
+                                <Input
+                                    placeholder="e.g. John Doe"
+                                    value={newUser.name}
+                                    onChange={(e) => setNewUser(p => ({ ...p, name: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Email Address</Label>
+                                <Input
+                                    type="email"
+                                    placeholder={`e.g. user@${profile?.email.split('@')[1] || 'company.com'}`}
+                                    value={newUser.email}
+                                    onChange={(e) => setNewUser(p => ({ ...p, email: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Temporary Password</Label>
+                                <Input
+                                    type="password"
+                                    value={newUser.password}
+                                    onChange={(e) => setNewUser(p => ({ ...p, password: e.target.value }))}
+                                    placeholder="Leave blank to auto-generate"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
+                            <Button onClick={() => createUserMutation.mutate()}>Create User</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 {/* 360 VIEW TABS */}
                 <Tabs defaultValue="overview" className="space-y-4">
-                    <TabsList className="bg-white border p-1 h-auto gap-2">
-                        <TabsTrigger value="overview" className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 h-9">Overview</TabsTrigger>
-                        <TabsTrigger value="operations" className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 h-9">Operations</TabsTrigger>
-                        <TabsTrigger value="financials" className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 h-9">Financials</TabsTrigger>
-                        <TabsTrigger value="users" className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 h-9">Users</TabsTrigger>
+                    <TabsList className="bg-card border border-border p-1 h-auto gap-2">
+                        <TabsTrigger value="overview" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Overview</TabsTrigger>
+                        <TabsTrigger value="operations" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Operations</TabsTrigger>
+                        <TabsTrigger value="financials" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Financials</TabsTrigger>
+                        <TabsTrigger value="users" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Users</TabsTrigger>
                     </TabsList>
+
 
                     {/* 1. OVERVIEW TAB */}
                     <TabsContent value="overview" className="space-y-6">
@@ -541,7 +664,7 @@ export default function Clients() {
                                     <CardHeader><CardTitle className="text-base">Contact Information</CardTitle></CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-100 rounded-full"><User className="h-4 w-4 text-slate-600" /></div>
+                                            <div className="p-2 bg-slate-100 rounded-full"><UserIcon className="h-4 w-4 text-slate-600" /></div>
                                             <div><p className="text-xs text-muted-foreground">Primary Contact</p><p className="font-medium text-sm">{selectedClient.contact_name}</p></div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -601,19 +724,43 @@ export default function Clients() {
                                         <div className="divide-y max-h-[250px] overflow-y-auto">
                                             {selectedClient.sites.length === 0 && <p className="p-6 text-muted-foreground text-sm">No sites configured.</p>}
                                             {selectedClient.sites.map(site => (
-                                                <div key={site.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                                    <div className="flex items-start gap-3">
+                                                <div key={site.id} className="p-4 flex items-center justify-between hover:bg-muted transition-colors group/site">
+                                                    <div className="flex items-start gap-3 text-sm">
                                                         <div className="mt-1"><MapPin className="h-4 w-4 text-blue-500" /></div>
                                                         <div>
-                                                            <p className="font-medium text-sm text-slate-900">{site.name}</p>
+                                                            <p className="font-semibold text-foreground">{site.name}</p>
                                                             <p className="text-xs text-muted-foreground">{site.address}</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-xs text-muted-foreground">{site.radius}m Geofence</span>
-                                                        <Badge variant={site.risk_level === 'high' ? 'destructive' : site.risk_level === 'medium' ? 'warning' : 'outline'} className="capitalize">
+                                                        <Badge variant={site.risk_level === 'high' ? 'destructive' : site.risk_level === 'medium' ? 'warning' : 'outline'} className="capitalize h-5 text-[10px]">
                                                             {site.risk_level} Risk
                                                         </Badge>
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover/site:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 w-7 p-0"
+                                                                onClick={() => {
+                                                                    setEditSiteData(site);
+                                                                    setSelectedSiteId(site.id);
+                                                                    setIsEditSiteOpen(true);
+                                                                }}
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                onClick={() => {
+                                                                    setSelectedSiteId(site.id);
+                                                                    setIsDeleteSiteConfirmOpen(true);
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -628,9 +775,16 @@ export default function Clients() {
                                     </CardHeader>
                                     <CardContent className="p-0">
                                         <div className="divide-y max-h-[400px] overflow-y-auto">
-                                            {recentActivity.length === 0 && <p className="p-6 text-muted-foreground text-sm">No recent activity.</p>}
+                                            {recentActivity.length === 0 && (
+                                                <EmptyState
+                                                    icon={Inbox}
+                                                    title="No Recent Activity"
+                                                    description="Recent shifts, incidents, and invoices will appear here."
+                                                    size="md"
+                                                />
+                                            )}
                                             {recentActivity.map((item: any, i) => (
-                                                <div key={i} className="p-4 flex gap-3 text-sm hover:bg-slate-50 transition-colors">
+                                                <div key={i} className="p-4 flex gap-3 text-sm hover:bg-muted transition-colors">
                                                     <div className="mt-0.5 shrink-0">
                                                         {item.activityType === 'shift' && <Calendar className="h-4 w-4 text-blue-500" />}
                                                         {item.activityType === 'incident' && <Siren className="h-4 w-4 text-red-500" />}
@@ -638,7 +792,7 @@ export default function Clients() {
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="flex justify-between">
-                                                            <p className="font-medium text-slate-900">
+                                                            <p className="font-medium text-foreground">
                                                                 {item.activityType === 'shift' && `Shift at ${item.site?.name || 'Site'}`}
                                                                 {item.activityType === 'incident' && `${item.type} Incident Reported`}
                                                                 {item.activityType === 'invoice' && `Invoice Generated #${item.invoice_number}`}
@@ -686,7 +840,7 @@ export default function Clients() {
                                                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                                                             <span>{new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                             <span>•</span>
-                                                            <span className="flex items-center gap-1"><User className="h-3 w-3" /> {shift.officer?.full_name || 'Unassigned'}</span>
+                                                            <span className="flex items-center gap-1"><UserIcon className="h-3 w-3" /> {shift.officer?.full_name || 'Unassigned'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -702,6 +856,61 @@ export default function Clients() {
                                         )}
                                     </div>
                                 )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* 4. USERS TAB */}
+                    <TabsContent value="users">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base">Portal Users</CardTitle>
+                                    <p className="text-sm text-muted-foreground">Manage access for this client's portal.</p>
+                                </div>
+                                <Button size="sm" onClick={() => setIsAddUserOpen(true)} className="gap-2">
+                                    <UserPlus className="h-4 w-4" /> Add User
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-md border">
+                                    <div className="grid grid-cols-12 bg-slate-50 p-3 text-xs font-semibold uppercase text-muted-foreground border-b">
+                                        <div className="col-span-4">User</div>
+                                        <div className="col-span-4">Email</div>
+                                        <div className="col-span-2">Role</div>
+                                        <div className="col-span-2 text-right">Actions</div>
+                                    </div>
+                                    {details.users.length === 0 ? (
+                                        <div className="p-8 text-center text-muted-foreground text-sm">
+                                            No users created for this client yet.
+                                        </div>
+                                    ) : (
+                                        <div className="divide-y relative max-h-[400px] overflow-y-auto">
+                                            {details.users.map((u: any) => (
+                                                <div key={u.id} className="grid grid-cols-12 p-3 items-center text-sm hover:bg-slate-50 transition-colors">
+                                                    <div className="col-span-4 font-medium flex items-center gap-2">
+                                                        <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">
+                                                            {u.full_name?.substring(0, 2).toUpperCase() || 'U'}
+                                                        </div>
+                                                        {u.full_name}
+                                                    </div>
+                                                    <div className="col-span-4 text-muted-foreground">{u.email}</div>
+                                                    <div className="col-span-2">
+                                                        <Badge variant="outline" className="capitalize">{u.role}</Badge>
+                                                    </div>
+                                                    <div className="col-span-2 text-right flex justify-end gap-2">
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600">
+                                                            <Key className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -863,27 +1072,40 @@ export default function Clients() {
                     </TabsContent>
                 </Tabs>
 
-                {/* ADD SITE DIALOG (Scoped to Client View) */}
-                <Dialog open={isAddSiteOpen} onOpenChange={setIsAddSiteOpen}>
+                {/* ADD / EDIT SITE DIALOG (Scoped to Client View) */}
+                <Dialog open={isAddSiteOpen || isEditSiteOpen} onOpenChange={(val) => {
+                    if (!val) {
+                        setIsAddSiteOpen(false);
+                        setIsEditSiteOpen(false);
+                    }
+                }}>
                     <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden">
                         <DialogHeader className="px-6 py-6 border-b">
-                            <DialogTitle className="text-xl">Add New Site Location</DialogTitle>
+                            <DialogTitle className="text-xl">{isEditSiteOpen ? 'Edit Site Location' : 'Add New Site Location'}</DialogTitle>
                         </DialogHeader>
                         <div className="p-6 space-y-4">
                             <div className="space-y-1">
                                 <Label>Site Name</Label>
-                                <Input value={newSite.name} onChange={e => setNewSite(p => ({ ...p, name: e.target.value }))} placeholder="e.g. North Warehouse" />
+                                <Input
+                                    value={isEditSiteOpen ? (editSiteData.name || '') : newSite.name}
+                                    onChange={e => isEditSiteOpen ? setEditSiteData(p => ({ ...p, name: e.target.value })) : setNewSite(p => ({ ...p, name: e.target.value }))}
+                                    placeholder="e.g. North Warehouse"
+                                />
                             </div>
                             <div className="space-y-1">
                                 <Label>Full Address</Label>
-                                <Input value={newSite.address} onChange={e => setNewSite(p => ({ ...p, address: e.target.value }))} placeholder="123 Industrial Rd" />
+                                <Input
+                                    value={isEditSiteOpen ? (editSiteData.address || '') : newSite.address}
+                                    onChange={e => isEditSiteOpen ? setEditSiteData(p => ({ ...p, address: e.target.value })) : setNewSite(p => ({ ...p, address: e.target.value }))}
+                                    placeholder="123 Industrial Rd"
+                                />
                             </div>
                             <div className="space-y-1">
                                 <Label>Risk Level</Label>
                                 <select
                                     className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                                    value={newSite.risk_level}
-                                    onChange={(e) => setNewSite(p => ({ ...p, risk_level: e.target.value as any }))}
+                                    value={isEditSiteOpen ? (editSiteData.risk_level || 'low') : newSite.risk_level}
+                                    onChange={(e) => isEditSiteOpen ? setEditSiteData(p => ({ ...p, risk_level: e.target.value as any })) : setNewSite(p => ({ ...p, risk_level: e.target.value as any }))}
                                 >
                                     <option value="low">Low Risk</option>
                                     <option value="medium">Medium Risk</option>
@@ -892,10 +1114,47 @@ export default function Clients() {
                             </div>
                         </div>
                         <DialogFooter className="px-6 py-4 bg-slate-50 border-t">
-                            <Button variant="outline" onClick={() => setIsAddSiteOpen(false)}>Cancel</Button>
-                            <Button onClick={handleAddSite} disabled={createSiteMutation.isPending}>
-                                {createSiteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Location
+                            <Button variant="outline" onClick={() => {
+                                setIsAddSiteOpen(false);
+                                setIsEditSiteOpen(false);
+                            }}>Cancel</Button>
+                            <Button
+                                onClick={() => {
+                                    if (isEditSiteOpen && selectedSiteId) {
+                                        updateSiteMutation.mutate({ id: selectedSiteId, data: editSiteData });
+                                    } else {
+                                        handleAddSite();
+                                    }
+                                }}
+                                disabled={createSiteMutation.isPending || updateSiteMutation.isPending}
+                            >
+                                {(createSiteMutation.isPending || updateSiteMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isEditSiteOpen ? 'Save Changes' : 'Save Location'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* DELETE SITE CONFIRM DIALOG */}
+                <Dialog open={isDeleteSiteConfirmOpen} onOpenChange={setIsDeleteSiteConfirmOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Site Location</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-4 text-center space-y-2">
+                            <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+                            <p className="font-semibold">Are you sure you want to delete this site?</p>
+                            <p className="text-sm text-muted-foreground">This will permanently remove the location. Past shift data associated with this site may be affected.</p>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setIsDeleteSiteConfirmOpen(false)}>Cancel</Button>
+                            <Button
+                                variant="destructive"
+                                onClick={() => selectedSiteId && deleteSiteMutation.mutate(selectedSiteId)}
+                                disabled={deleteSiteMutation.isPending}
+                            >
+                                {deleteSiteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Delete Site
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -947,12 +1206,12 @@ export default function Clients() {
                     <p className="text-sm text-muted-foreground">Manage client contracts and site locations.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="relative w-64">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search clients..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                    <div className="relative w-full max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search clients by name, contact or address..." className="pl-10 h-11 bg-card/50 border-border/50 rounded-2xl" value={filter} onChange={(e) => setFilter(e.target.value)} />
                     </div>
 
-                    <div className="flex items-center bg-white dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg p-1">
+                    <div className="flex items-center bg-card border border-border/50 rounded-2xl p-1 shadow-sm">
                         <Button
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
                             size="sm"
@@ -982,16 +1241,16 @@ export default function Clients() {
             {viewMode === 'grid' ? (
                 <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredData.map(client => (
-                        <Card key={client.id} className="flex flex-col group hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleViewClient(client)}>
-                            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 px-5 pt-5 bg-muted/30 border-b">
-                                <div>
-                                    <CardTitle className="text-base flex items-center gap-2 group-hover:text-primary transition-colors">
-                                        <Building2 className="h-4 w-4" />
+                        <Card key={client.id} className="flex flex-col group hover:shadow-xl hover:shadow-primary/5 transition-all duration-300" onClick={() => handleViewClient(client)}>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-6 pt-6 border-b">
+                                <div className="space-y-1">
+                                    <CardTitle className="text-lg font-bold flex items-center gap-2 group-hover:text-primary transition-colors">
+                                        <Building2 className="h-5 w-5 text-primary/70" />
                                         {client.name}
                                     </CardTitle>
-                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{client.address}</p>
+                                    <p className="text-xs text-muted-foreground font-medium line-clamp-1">{client.address}</p>
                                 </div>
-                                <Badge className="text-xs h-5 px-2" variant={client.status === 'active' ? 'success' : 'secondary'}>{client.status}</Badge>
+                                <Badge className="text-[10px] h-5 px-2" variant={client.status === 'active' ? 'success' : 'secondary'}>{client.status}</Badge>
                             </CardHeader>
                             <CardContent className="p-5 pt-4 flex-1">
                                 <div className="text-sm space-y-1.5 mb-4">
@@ -999,7 +1258,7 @@ export default function Clients() {
                                     <p><span className="text-muted-foreground">Email:</span> {client.email}</p>
                                 </div>
                                 <div className="space-y-2">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase">Locations ({client.sites.length})</p>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Locations ({client.sites.length})</p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {client.sites.slice(0, 3).map(site => (
                                             <Badge key={site.id} variant="outline" className="text-xs px-2 h-6 flex items-center gap-1">
@@ -1010,15 +1269,15 @@ export default function Clients() {
                                         {client.sites.length === 0 && <span className="text-xs text-muted-foreground italic">No sites</span>}
                                     </div>
                                 </div>
-                                <div className="mt-4 pt-3 border-t flex justify-end">
-                                    <span className="text-xs font-medium text-primary flex items-center gap-1">View 360° <ArrowLeft className="h-3 w-3 rotate-180" /></span>
+                                <div className="mt-4 pt-4 border-t flex justify-end">
+                                    <span className="text-xs font-bold text-primary flex items-center gap-1 group-hover:gap-2 transition-all">View 360° <ArrowLeft className="h-3 w-3 rotate-180" /></span>
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             ) : (
-                <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-hidden shadow-sm">
+                <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50 border-b">
@@ -1035,7 +1294,7 @@ export default function Clients() {
                                     <tr key={client.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => handleViewClient(client)}>
                                         <td className="p-4 align-middle">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                                <div className="h-8 w-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
                                                     {client.name.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div className="flex flex-col">

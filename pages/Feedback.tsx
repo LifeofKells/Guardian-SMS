@@ -90,11 +90,11 @@ export default function Feedback() {
             </div>
 
             {isClient && recentShifts.length > 0 && (
-                <Card className="bg-blue-50 border-blue-100">
-                    <CardHeader><CardTitle className="text-base text-blue-900">Pending Reviews</CardTitle></CardHeader>
+                <Card className="bg-primary/5 border-primary/20">
+                    <CardHeader><CardTitle className="text-base text-primary">Pending Reviews</CardTitle></CardHeader>
                     <CardContent className="space-y-3">
                         {recentShifts.map(shift => (
-                            <div key={shift.id} className="bg-white p-4 rounded-lg border border-blue-100 flex items-center justify-between">
+                            <div key={shift.id} className="bg-card p-4 rounded-lg border border-border flex items-center justify-between">
                                 <div>
                                     <p className="font-semibold text-sm">{new Date(shift.start_time).toLocaleDateString()} at {shift.site?.name}</p>
                                     <p className="text-xs text-muted-foreground">Officer: {shift.officer?.full_name || 'Unassigned'}</p>
@@ -107,12 +107,12 @@ export default function Feedback() {
             )}
 
             <div className="grid gap-4">
-                {feedbackList.length === 0 && <div className="p-8 text-center text-muted-foreground border rounded-lg bg-white">No feedback history found.</div>}
+                {feedbackList.length === 0 && <div className="p-8 text-center text-muted-foreground border border-border rounded-lg bg-card">No feedback history found.</div>}
                 {feedbackList.map(item => (
                     <Card key={item.id}>
                         <CardContent className="p-4">
                             <div className="flex gap-4">
-                                <div className="flex flex-col items-center justify-center p-3 bg-yellow-50 rounded-lg min-w-[60px]">
+                                <div className="flex flex-col items-center justify-center p-3 bg-amber-500/10 rounded-lg min-w-[60px]">
                                     <span className="text-2xl font-bold text-yellow-600">{item.rating}</span>
                                     <div className="flex"><Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /></div>
                                 </div>
@@ -121,7 +121,7 @@ export default function Feedback() {
                                         <p className="font-semibold text-sm">Shift Review</p>
                                         <span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</span>
                                     </div>
-                                    <p className="text-sm text-slate-700 italic">"{item.comments}"</p>
+                                    <p className="text-sm text-muted-foreground italic">"{item.comments}"</p>
                                     {!isClient && (
                                         <div className="flex items-center gap-2 mt-2 pt-2 border-t text-xs text-muted-foreground">
                                             <Badge variant="outline">Client ID: {item.client_id.substring(0, 8)}</Badge>
@@ -146,7 +146,7 @@ export default function Feedback() {
                                     <button
                                         key={star}
                                         onClick={() => setRating(star)}
-                                        className={`p-2 rounded-full transition-all ${rating >= star ? 'bg-yellow-100 text-yellow-500 scale-110' : 'bg-slate-50 text-slate-300'}`}
+                                        className={`p-2 rounded-full transition-all ${rating >= star ? 'bg-amber-500/20 text-amber-500 scale-110' : 'bg-muted text-muted-foreground'}`}
                                     >
                                         <Star className={`h-8 w-8 ${rating >= star ? 'fill-current' : ''}`} />
                                     </button>
@@ -156,7 +156,7 @@ export default function Feedback() {
                         <div className="space-y-2">
                             <Label>Comments (Optional)</Label>
                             <textarea
-                                className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 placeholder="Officer was professional..."
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}

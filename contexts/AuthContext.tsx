@@ -165,7 +165,17 @@ export function AuthProvider({ children }: { children?: React.ReactNode }) {
             name: 'AsoRock Security Services (Demo)',
             owner_id: 'demo_admin_user',
             created_at: new Date().toISOString(),
-            settings: { timezone: 'UTC-8', currency: 'USD' }
+            settings: { timezone: 'UTC-8', currency: 'USD' },
+            subscription_tier: 'professional',
+            subscription_status: 'active',
+            portal_enabled: true,
+            white_label: {
+              company_name: 'AsoRock Security',
+              // Using a placeholder or the AsoRock specific branding if we had one. 
+              // For demo purposes, we'll stick to a generic but distinct name to show it works.
+              primary_color: '#10b981', // Emerald green to distinguish from Guardian blue
+              logo_url: undefined // Will fallback to favicon, but name will change
+            }
           });
         }
       }
@@ -187,7 +197,10 @@ export function AuthProvider({ children }: { children?: React.ReactNode }) {
       name: companyName,
       owner_id: res.user.uid,
       created_at: new Date().toISOString(),
-      settings: { timezone: 'UTC', currency: 'USD' }
+      settings: { timezone: 'UTC', currency: 'USD' },
+      subscription_tier: 'basic',
+      subscription_status: 'trial',
+      portal_enabled: false
     };
     await db.organizations.create(newOrg);
 
@@ -283,8 +296,12 @@ export function AuthProvider({ children }: { children?: React.ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      const { data } = await db.users.get(user.uid);
+    // Get the user ID from either the Firebase user or the profile (demo mode)
+    const userId = user?.uid || profile?.id;
+    const orgId = profile?.organization_id;
+
+    if (userId) {
+      const { data } = await db.users.get(userId);
       if (data) {
         setProfile(data);
         setMustChangePassword(!!data.is_temporary_password);
@@ -293,6 +310,10 @@ export function AuthProvider({ children }: { children?: React.ReactNode }) {
           if (org) setOrganization(org);
         }
       }
+    } else if (orgId) {
+      // Fallback: just refresh the organization if we have an org ID
+      const { data: org } = await db.organizations.get(orgId);
+      if (org) setOrganization(org);
     }
   };
 

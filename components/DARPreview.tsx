@@ -16,10 +16,12 @@ import {
     Building2,
     Calendar,
     Phone,
-    Mail
+    Mail,
+    CalendarDays
 } from 'lucide-react';
 import { Dialog, Button, Badge, Avatar, cn } from './ui';
 import type { Shift, Site, Client, Officer, Incident, TimeEntry } from '../lib/types';
+import { EmptyState } from './EmptyState';
 
 interface DARData {
     shift: Shift;
@@ -263,9 +265,12 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
                                     </div>
                                 ))}
                                 {incidents.length === 0 && (
-                                    <div className="py-8 text-center border font-medium border-dashed border-border rounded-xl text-slate-400">
-                                        No incidents reported during this shift.
-                                    </div>
+                                    <EmptyState
+                                        icon={ShieldCheck}
+                                        title="No Incidents"
+                                        description="No incidents were reported during this shift."
+                                        size="sm"
+                                    />
                                 )}
                             </div>
                         </div>

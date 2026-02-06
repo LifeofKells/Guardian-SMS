@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Tabs, TabsList, TabsTrigger, TabsContent, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui';
 import { db } from '../lib/db';
 import { Incident } from '../lib/types';
-import { AlertTriangle, FileText, Download, TrendingUp, DollarSign, Loader2, Calendar, Mail } from 'lucide-react';
+import { AlertTriangle, FileText, Download, TrendingUp, DollarSign, Loader2, Calendar, Mail, ShieldCheck, CalendarDays } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { EmptyState } from '../components/EmptyState';
 
 export default function Reports() {
     const { profile, organization } = useAuth();
@@ -124,10 +125,10 @@ export default function Reports() {
                         <Card>
                             <CardHeader><CardTitle>Daily Activity Report (DAR)</CardTitle></CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="p-4 bg-slate-50 border rounded-lg max-w-lg">
+                                <div className="p-4 bg-muted/50 border border-border rounded-lg max-w-lg">
                                     <Label className="mb-2 block">Select Report Date</Label>
                                     <div className="flex gap-2">
-                                        <Input type="date" value={darDate} onChange={(e) => setDarDate(e.target.value)} className="bg-white" />
+                                        <Input type="date" value={darDate} onChange={(e) => setDarDate(e.target.value)} className="bg-background" />
                                         <Button onClick={handleGenerateDar}>Generate Preview</Button>
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-2">
@@ -147,7 +148,14 @@ export default function Reports() {
                         <CardContent>
                             {isLoading ? <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
                                 <div className="space-y-4">
-                                    {incidents.length === 0 && <p className="text-muted-foreground">No incidents reported.</p>}
+                                    {incidents.length === 0 && (
+                                        <EmptyState
+                                            icon={ShieldCheck}
+                                            title="No Incidents Reported"
+                                            description="Great news! No incidents have been reported in this period."
+                                            size="md"
+                                        />
+                                    )}
                                     {incidents.map(inc => (
                                         <div key={inc.id} className="flex flex-col sm:flex-row gap-4 p-4 border rounded-lg items-start">
                                             <div className={`p-2 rounded-full shrink-0 ${inc.severity === 'high' || inc.severity === 'critical' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
@@ -237,7 +245,7 @@ export default function Reports() {
                     <DialogHeader>
                         <DialogTitle>Daily Activity Report: {darData?.date}</DialogTitle>
                     </DialogHeader>
-                    <div className="border p-6 rounded-md bg-white text-sm space-y-4 max-h-[60vh] overflow-y-auto">
+                    <div className="border border-border p-6 rounded-md bg-card text-sm space-y-4 max-h-[60vh] overflow-y-auto">
                         <div className="flex justify-between border-b pb-4">
                             <div>
                                 <h3 className="font-bold text-lg">Guardian Security</h3>
@@ -250,7 +258,7 @@ export default function Reports() {
                         </div>
 
                         {/* Summary */}
-                        <div className="grid grid-cols-3 gap-4 text-center py-2 bg-slate-50 rounded">
+                        <div className="grid grid-cols-3 gap-4 text-center py-2 bg-muted/50 rounded">
                             <div>
                                 <p className="text-xs uppercase text-muted-foreground">Total Shifts</p>
                                 <p className="font-bold text-lg">{darData?.shifts.length}</p>
@@ -268,7 +276,14 @@ export default function Reports() {
                         {/* Incident Section */}
                         <div>
                             <h4 className="font-bold border-b mb-2 pb-1">Incident Log</h4>
-                            {darData?.incidents.length === 0 ? <p className="italic text-muted-foreground">No incidents reported.</p> : (
+                            {darData?.incidents.length === 0 ? (
+                                <EmptyState
+                                    icon={ShieldCheck}
+                                    title="No Incidents"
+                                    description="No incidents were reported on this day."
+                                    size="sm"
+                                />
+                            ) : (
                                 <div className="space-y-2">
                                     {darData?.incidents.map((inc: any) => (
                                         <div key={inc.id} className="p-2 border rounded bg-red-50/50 border-red-100">
@@ -287,9 +302,16 @@ export default function Reports() {
                         {/* Shift Log Section */}
                         <div>
                             <h4 className="font-bold border-b mb-2 pb-1">Shift Activity</h4>
-                            {darData?.shifts.length === 0 ? <p className="italic text-muted-foreground">No shifts recorded.</p> : (
+                            {darData?.shifts.length === 0 ? (
+                                <EmptyState
+                                    icon={CalendarDays}
+                                    title="No Shifts Recorded"
+                                    description="No shift activity was recorded on this day."
+                                    size="sm"
+                                />
+                            ) : (
                                 <table className="w-full text-left">
-                                    <thead className="text-xs text-muted-foreground bg-slate-50">
+                                    <thead className="text-xs text-muted-foreground bg-muted/50">
                                         <tr>
                                             <th className="p-2">Site</th>
                                             <th className="p-2">Officer</th>

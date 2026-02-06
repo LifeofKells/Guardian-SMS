@@ -19,6 +19,15 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ShieldCheck, Loader2 } from 'lucide-react';
+import { ClientPortalAuthProvider, useClientPortalAuth } from './contexts/ClientPortalAuthContext';
+import { ClientPortalLogin } from './pages/portal/ClientPortalLogin';
+import { ClientDashboard } from './pages/portal/ClientDashboard';
+import { ServiceRequests } from './pages/portal/ServiceRequests';
+import { ClientReportsHub } from './pages/portal/ClientReportsHub';
+import { SiteInstructions } from './pages/portal/SiteInstructions';
+import { ClientProfile } from './pages/portal/ClientProfile';
+import { ClientPortalLayout } from './components/ClientPortalLayout';
+import { useAutoShiftCompletion } from './hooks/useAutoShiftCompletion';
 
 // Initialize Query Client
 const queryClient = new QueryClient({
@@ -35,6 +44,9 @@ function AuthenticatedApp() {
   const { user, mustChangePassword, changePassword, logout } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Background Tasks
+  useAutoShiftCompletion();
 
   if (!user) {
     return <Login />;
@@ -127,14 +139,76 @@ function AuthenticatedApp() {
   );
 }
 
+function PortalApp() {
+  const { user, isLoading } = useClientPortalAuth();
+  const [portalPage, setPortalPage] = React.useState(() => {
+    const path = window.location.pathname;
+    if (path === '/portal/requests') return 'requests';
+    if (path === '/portal/reports') return 'reports';
+    if (path === '/portal/instructions') return 'instructions';
+    if (path === '/portal/profile') return 'profile';
+    return 'dashboard';
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <ClientPortalLogin />;
+  }
+
+  // Handle navigation within portal
+  const handleNavigate = (page: string) => {
+    setPortalPage(page);
+    const newPath = page === 'dashboard' ? '/portal' : `/portal/${page}`;
+    window.history.pushState({}, '', newPath);
+  };
+
+  // Simple routing for portal
+  if (portalPage === 'requests') {
+    return <ClientPortalLayout currentPage="requests" onNavigate={handleNavigate}><ServiceRequests /></ClientPortalLayout>;
+  }
+
+  if (portalPage === 'reports') {
+    return <ClientPortalLayout currentPage="reports" onNavigate={handleNavigate}><ClientReportsHub /></ClientPortalLayout>;
+  }
+
+  if (portalPage === 'instructions') {
+    return <ClientPortalLayout currentPage="instructions" onNavigate={handleNavigate}><SiteInstructions /></ClientPortalLayout>;
+  }
+
+  if (portalPage === 'profile') {
+    return <ClientPortalLayout currentPage="profile" onNavigate={handleNavigate}><ClientProfile /></ClientPortalLayout>;
+  }
+
+  return (
+    <ClientPortalLayout currentPage="dashboard" onNavigate={handleNavigate}>
+      <ClientDashboard />
+    </ClientPortalLayout>
+  );
+}
+
 export default function App() {
+  const isPortal = window.location.pathname.startsWith('/portal');
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="guardian-theme">
         <ToastProvider>
-          <AuthProvider>
-            <AuthenticatedApp />
-          </AuthProvider>
+          {isPortal ? (
+            <ClientPortalAuthProvider>
+              <PortalApp />
+            </ClientPortalAuthProvider>
+          ) : (
+            <AuthProvider>
+              <AuthenticatedApp />
+            </AuthProvider>
+          )}
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>

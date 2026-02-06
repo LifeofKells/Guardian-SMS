@@ -30,6 +30,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { CommandPalette } from './CommandPalette';
+import { OnboardingFlow, useOnboarding } from './OnboardingFlow';
+import { KeyboardShortcutsHelp, useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import { AnimatedDarkModeToggle } from './AnimatedDarkModeToggle';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -105,7 +108,7 @@ function NavMenu({ currentPage, setPage, onItemClick, collapsed }: { currentPage
   };
 
   return (
-    <nav className={cn("grid items-start text-sm font-medium gap-1 pb-4 transition-all duration-300", collapsed ? "px-2" : "px-3 lg:px-4")}>
+    <nav className={cn("grid items-start text-sm font-medium gap-1 pb-12 transition-all duration-300", collapsed ? "px-2" : "px-3 lg:px-4")}>
       <NavItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => handleClick('dashboard')} collapsed={collapsed} />
       <NavItem icon={CalendarDays} label="Schedule" active={currentPage === 'schedule'} onClick={() => handleClick('schedule')} collapsed={collapsed} />
       {!isClient && <NavItem icon={Clock} label="Timesheets" active={currentPage === 'timesheets'} onClick={() => handleClick('timesheets')} collapsed={collapsed} />}
@@ -114,6 +117,21 @@ function NavMenu({ currentPage, setPage, onItemClick, collapsed }: { currentPage
       {showClients && <NavItem icon={Building2} label="Clients & Sites" active={currentPage === 'clients'} onClick={() => handleClick('clients')} collapsed={collapsed} />}
       {showAccounting && <NavItem icon={Banknote} label="Accounting" active={currentPage === 'accounting'} onClick={() => handleClick('accounting')} collapsed={collapsed} />}
       {showAccounting && <NavItem icon={Package} label="Resources" active={currentPage === 'resources'} onClick={() => handleClick('resources')} collapsed={collapsed} />}
+
+      {isAdmin && (
+        <a
+          href="/portal"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            "flex items-center rounded-xl transition-all duration-200 group relative text-muted-foreground hover:text-foreground",
+            collapsed ? "w-10 h-10 justify-center mx-auto hover:bg-muted" : "w-full gap-3 px-3 py-2.5 hover:bg-muted/50"
+          )}
+        >
+          <Building2 className={cn("shrink-0 h-4 w-4", collapsed && "h-5 w-5")} />
+          {!collapsed && <span>Client Portal Hub</span>}
+        </a>
+      )}
 
       <NavItem icon={FileText} label="Reports" active={currentPage === 'reports'} onClick={() => handleClick('reports')} collapsed={collapsed} />
 
@@ -163,7 +181,7 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
       <div
         ref={scrollRef}
         onScroll={checkScroll}
-        className={cn("flex-1 overflow-y-auto no-scrollbar", className)}
+        className={cn("flex-1 h-0 overflow-y-auto custom-scrollbar min-h-0", className)}
       >
         {children}
       </div>
@@ -212,8 +230,10 @@ function ToastContainer() {
   );
 }
 
+// ... imports ...
+
 export function Layout({ children, currentPage, setPage }: { children?: React.ReactNode, currentPage: string, setPage: (p: string) => void }) {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, organization } = useAuth();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -221,6 +241,126 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
     return saved === 'true';
   });
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+
+  // Onboarding
+  const { showOnboarding, dismissOnboarding } = useOnboarding();
+
+  // Keyboard Shortcuts
+  const { isOpen: showShortcuts, setIsOpen: setShowShortcuts } = useKeyboardShortcutsHelp();
+
+  const onboardingSteps = [
+    {
+      id: 'welcome',
+      title: 'Welcome to Guardian SMS',
+      description: 'Your comprehensive security management system. Let\'s take a quick tour to get you started.'
+    },
+    {
+      id: 'dashboard',
+      title: 'Command Center',
+      description: 'Monitor your operations in real-time. View active officers, incidents, and site status at a glance.',
+      targetSelector: '[data-tour="dashboard"]',
+      position: 'bottom' as const
+    },
+    {
+      id: 'command-palette',
+      title: 'Quick Search',
+      description: 'Press Cmd+K (or Ctrl+K) anytime to search officers, sites, and incidents instantly.',
+      targetSelector: '[data-tour="search"]',
+      position: 'bottom' as const
+    },
+    {
+      id: 'sidebar',
+      title: 'Navigation',
+      description: 'Access all modules from the sidebar. Use the collapse button to save space.',
+      targetSelector: '[data-tour="sidebar"]',
+      position: 'right' as const
+    },
+    {
+      id: 'ready',
+      title: 'You\'re All Set!',
+      description: 'Start by adding officers and sites, or jump right into scheduling shifts. Press ? anytime for keyboard shortcuts.'
+    }
+  ];
+
+  // Branding Logic
+  const branding = organization?.white_label || {
+    company_name: 'Guardian',
+    logo_url: '/favicon.svg',
+    primary_color: '#3b82f6',
+    secondary_color: '#1e40af',
+    accent_color: '#10b981',
+  };
+
+  // Use organization name as fallback if white_label name is missing but org exists
+  const companyName = branding.company_name === 'Guardian' && organization?.name ? organization.name : branding.company_name;
+  // If no specific logo url is provided for white label, default to standard one (or generic placeholder if it's a completely different org)
+  // For this 'revamp', if it's the "Guardian" default, use favicon. If it's a custom org, maybe we simulate a logo or just text.
+  const logoUrl = branding.logo_url || '/favicon.svg';
+
+  // Apply branding colors to CSS custom properties
+  useEffect(() => {
+    const root = document.documentElement;
+
+    // Helper to convert hex to HSL for CSS custom properties
+    const hexToHsl = (hex: string): string => {
+      // Remove # if present
+      hex = hex.replace('#', '');
+
+      // Parse hex values
+      const r = parseInt(hex.substring(0, 2), 16) / 255;
+      const g = parseInt(hex.substring(2, 4), 16) / 255;
+      const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+
+      return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    };
+
+    // Apply primary color
+    if (branding.primary_color) {
+      const primaryHsl = hexToHsl(branding.primary_color);
+      root.style.setProperty('--primary', primaryHsl);
+      root.style.setProperty('--primary-foreground', '0 0% 100%'); // White text on primary
+    }
+
+    // Apply accent color (used for success states, etc.)
+    if (branding.accent_color) {
+      const accentHsl = hexToHsl(branding.accent_color);
+      root.style.setProperty('--accent', accentHsl);
+    }
+
+    // Update favicon if custom one is provided
+    if (branding.favicon_url) {
+      const link: HTMLLinkElement = document.querySelector("link[rel*='icon']") || document.createElement('link');
+      link.type = 'image/x-icon';
+      link.rel = 'shortcut icon';
+      link.href = branding.favicon_url;
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+
+    // Update document title if custom company name
+    if (branding.company_name && branding.company_name !== 'Guardian') {
+      document.title = `${branding.company_name} - Admin Portal`;
+    }
+
+    // Cleanup on unmount or when branding changes
+    return () => {
+      // Reset to defaults if needed (optional, usually not required)
+    };
+  }, [branding.primary_color, branding.accent_color, branding.favicon_url, branding.company_name]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -262,15 +402,15 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       <ToastContainer />
 
       {/* DESKTOP SIDEBAR */}
-      <div className={cn(
-        "hidden border-r bg-card md:block h-full border-border flex-col shadow-sm z-20 transition-all duration-300 ease-in-out relative group/sidebar",
+      <div data-tour="sidebar" className={cn(
+        "hidden border-r bg-card/70 backdrop-blur-xl md:flex h-full border-border flex-col shadow-sm z-20 transition-all duration-300 ease-in-out relative group/sidebar",
         isCollapsed ? "w-[80px]" : "w-[260px]"
       )}>
         {/* Toggle Button - Floating on Border */}
         <button
           onClick={toggleCollapse}
           className={cn(
-            "absolute -right-3 top-9 z-50 h-6 w-6 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md flex items-center justify-center text-primary hover:text-primary hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring hover:scale-110",
+            "absolute -right-3 top-9 z-50 h-6 w-6 rounded-full border border-border bg-card shadow-lg flex items-center justify-center text-primary hover:bg-muted transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring hover:scale-110",
           )}
         >
           <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-300", isCollapsed && "rotate-180")} />
@@ -278,16 +418,16 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
 
         <div className="flex h-full flex-col gap-2">
           <div className={cn(
-            "flex h-16 items-center border-b shrink-0 bg-card border-border transition-all duration-300 overflow-hidden",
+            "flex h-16 items-center border-b shrink-0 bg-transparent border-border transition-all duration-300 overflow-hidden",
             isCollapsed ? "justify-center px-0" : "px-6"
           )}>
-            <div className="flex items-center gap-3 font-bold text-primary">
-              <img src="/favicon.svg" className="h-9 w-9 shrink-0" alt="Guardian Logo" />
+            <div className="flex items-center gap-3 font-bold text-primary" style={{ color: branding.primary_color }}>
+              <img src={logoUrl} className="h-9 w-9 shrink-0 object-contain" alt="Logo" />
               <span className={cn(
                 "text-xl tracking-tight text-foreground transition-all duration-300 whitespace-nowrap",
                 isCollapsed ? "w-0 opacity-0 scale-95" : "w-auto opacity-100 scale-100"
               )}>
-                Guardian
+                {companyName}
               </span>
             </div>
           </div>
@@ -299,7 +439,7 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
             <NavMenu currentPage={currentPage} setPage={setPage} collapsed={isCollapsed} />
           </ScrollableMenu>
 
-          <div className="mt-auto p-4 shrink-0 border-t border-border bg-card">
+          <div className="mt-auto p-4 shrink-0 border-t border-border bg-transparent">
             <div className={cn(
               "flex items-center gap-3 rounded-xl transition-all cursor-pointer border border-transparent hover:border-border hover:bg-muted/50",
               isCollapsed ? "p-0 justify-center h-10 w-10 mx-auto" : "p-3"
@@ -322,9 +462,9 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
             onClick={e => e.stopPropagation()}
           >
             <div className="flex h-16 items-center justify-between border-b px-4 shrink-0 bg-card">
-              <div className="flex items-center gap-2 font-bold text-primary">
-                <img src="/favicon.svg" className="h-8 w-8 shrink-0" alt="Guardian Logo" />
-                <span className="text-lg tracking-tight text-foreground">Guardian</span>
+              <div className="flex items-center gap-2 font-bold text-primary" style={{ color: branding.primary_color }}>
+                <img src={logoUrl} className="h-8 w-8 shrink-0 object-contain" alt="Logo" />
+                <span className="text-lg tracking-tight text-foreground">{companyName}</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
                 <X className="h-5 w-5" />
@@ -359,10 +499,11 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           {/* SIDEBAR TOGGLE (DESKTOP) - Removed from here, moved to sidebar border */}
           <div className="w-full flex-1 flex items-center gap-2">
             <h1 className="text-xl font-bold capitalize tracking-tight text-foreground">{currentPage.replace('_', ' ')}</h1>
-            <div className="hidden md:flex items-center ml-4">
+            <div className="hidden md:flex items-center ml-4" data-tour="search">
               <button
                 onClick={() => setIsCommandOpen(true)}
                 className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                title="Search (Cmd+K)"
               >
                 <Command className="h-3 w-3" />
                 <span className="mr-4">Search...</span>
@@ -372,16 +513,13 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
               </button>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Toggle theme</span>
-          </Button>
+          <div className="flex items-center px-2">
+            <AnimatedDarkModeToggle
+              isDark={theme === 'dark'}
+              onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              size="sm"
+            />
+          </div>
           <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Sign Out</span>
@@ -393,6 +531,20 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           </div>
         </main>
       </div>
+
+      {/* ONBOARDING FLOW */}
+      <OnboardingFlow
+        steps={onboardingSteps}
+        isOpen={showOnboarding}
+        onClose={dismissOnboarding}
+        storageKey="guardian_onboarding_completed"
+      />
+
+      {/* KEYBOARD SHORTCUTS HELP */}
+      <KeyboardShortcutsHelp
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }

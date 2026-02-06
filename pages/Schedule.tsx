@@ -333,7 +333,8 @@ export default function Schedule() {
     end_time: '',
     pay_rate: '',
     bill_rate: '',
-    break_duration: 0
+    break_duration: 0,
+    status: 'published' as Shift['status']
   });
 
   const handleSiteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -481,7 +482,8 @@ export default function Schedule() {
       end_time: formatTime(shift.end_time),
       pay_rate: shift.pay_rate?.toString() || '',
       bill_rate: shift.bill_rate?.toString() || '',
-      break_duration: shift.break_duration || 0
+      break_duration: shift.break_duration || 0,
+      status: shift.status
     });
     setIsEditOpen(true);
   };
@@ -503,7 +505,7 @@ export default function Schedule() {
       officer_id: editData.officer_id || null,
       start_time: startDateTime.toISOString(),
       end_time: endDateTime.toISOString(),
-      status: editData.officer_id ? 'assigned' : 'published',
+      status: editData.status,
       pay_rate: editData.pay_rate !== '' ? Number(editData.pay_rate) : null,
       bill_rate: editData.bill_rate !== '' ? Number(editData.bill_rate) : null,
       break_duration: editData.break_duration ? Number(editData.break_duration) : 0
@@ -533,7 +535,7 @@ export default function Schedule() {
         onDrop={(e) => handleDrop(e, shift.id)}
         onClick={() => canEdit && handleEditOpen(shift)}
         className={clsx(
-          "relative rounded-lg border shadow-sm transition-all group overflow-hidden hover:scale-[1.02] hover:shadow-md duration-200",
+          "relative rounded-xl border shadow-sm transition-all group overflow-hidden hover:scale-[1.02] hover:shadow-md duration-200",
           paddingClass,
           isCompleted ? "bg-muted/40 border-border opacity-75" : "bg-card border-border",
           conflict ? "ring-2 ring-destructive border-destructive bg-destructive/10" : "",
@@ -669,8 +671,8 @@ export default function Schedule() {
     if (!showEmpty) { shiftsBySite = shiftsBySite.filter(g => g.items.length > 0); }
 
     return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-background rounded-xl border border-border shadow-sm">
-        <div className="bg-muted/30 border-b border-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+      <div className="flex-1 flex flex-col overflow-hidden bg-background rounded-2xl border border-border shadow-sm">
+        <div className="bg-card border-b border-border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-8">
             <div className="flex flex-col"><span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Total Shifts</span><span className="text-2xl font-bold tracking-tight">{totalShifts}</span></div>
             <div className="flex flex-col"><span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Hours</span><span className="text-2xl font-bold tracking-tight">{totalHours.toFixed(1)}</span></div>
@@ -683,7 +685,7 @@ export default function Schedule() {
             </label>
           </div>
         </div>
-        <div className="flex-1 overflow-auto p-6 bg-muted/10">
+        <div className="flex-1 overflow-auto p-6 bg-background/50">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {shiftsBySite.map(({ site, items }) => (
               <Card key={site.id} className={clsx("h-fit transition-all hover:border-primary/30", items.length === 0 ? "opacity-60 grayscale" : "")}>
@@ -726,7 +728,7 @@ export default function Schedule() {
     for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
 
     return (
-      <div className="flex-1 overflow-auto rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex-1 overflow-auto rounded-2xl border border-border bg-card shadow-sm">
         <div className="grid grid-cols-7 border-b border-border">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <div key={d} className="p-3 text-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground border-r border-border last:border-r-0 bg-muted/30">{d}</div>
@@ -1072,6 +1074,20 @@ export default function Schedule() {
               <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={editData.officer_id} onChange={(e) => setEditData(p => ({ ...p, officer_id: e.target.value }))}>
                 <option value="">Open Shift</option>
                 {officers.filter(o => o.employment_status === 'active').map(o => <option key={o.id} value={o.id}>{o.full_name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Shift Status</Label>
+              <select
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={editData.status}
+                onChange={(e) => setEditData(p => ({ ...p, status: e.target.value as any }))}
+              >
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="assigned">Assigned</option>
+                <option value="completed">Completed</option>
               </select>
             </div>
 

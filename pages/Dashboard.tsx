@@ -8,7 +8,8 @@ import {
     Users, Clock, AlertTriangle, DollarSign, Map as MapIcon, LocateFixed,
     CheckCircle2, XCircle, Loader2, Calendar, Activity, Shield,
     Radio, Phone, FileText, ChevronRight, Siren, Briefcase, TrendingUp,
-    Wallet, PieChart, BarChart3, ShieldAlert, Zap, Battery, MapPin, Search, Navigation
+    Wallet, PieChart, BarChart3, ShieldAlert, Zap, Battery, MapPin, Search, Navigation,
+    Plus, ClipboardList, Inbox, ShieldCheck
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '../contexts/ToastContext';
@@ -16,6 +17,8 @@ import { useCommandCenter } from '../hooks/useRealtime';
 import { AlertBanner, AlertStack } from '../components/AlertBanner';
 import { PanicAlertModal } from '../components/PanicAlertModal';
 import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
+import { EmptyState } from '../components/EmptyState';
+import { AnimatedCounter } from '../components/AnimatedCounter';
 
 // --- OPERATIONAL COMMAND WALL ---
 const OperationalStatusBoard = ({ sites, locations, panicAlerts, geofenceEvents = [] }: { sites: Site[], locations: any[], panicAlerts: any[], geofenceEvents?: any[] }) => {
@@ -25,8 +28,8 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts, geofenceEvents 
     const filteredSites = sites.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.address.toLowerCase().includes(search.toLowerCase()));
 
     return (
-        <div className="flex flex-col h-full bg-slate-950/5 text-slate-900 border-none">
-            <div className="p-4 border-b bg-white dark:bg-slate-950 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900/50 text-foreground border-none">
+            <div className="p-4 border-b bg-background dark:bg-slate-950 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-primary" />
                     <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Site Status Monitor</span>
@@ -422,22 +425,41 @@ export default function Dashboard() {
     );
 
     // --- STAT CARDS COMPONENT ---
-    const StatCard = ({ title, value, subtext, icon: Icon, colorClass, bgColorClass }: any) => (
-        <Card className="overflow-hidden hover:shadow-md transition-all duration-200">
-            <CardContent className="p-5">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
-                        <h3 className="text-2xl font-bold mt-1 text-foreground">{value}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">{subtext}</p>
+    const StatCard = ({ title, value, subtext, icon: Icon, colorClass, bgColorClass }: any) => {
+        // Check if value is numeric (for animation)
+        const numericValue = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]+/g, ''));
+        const isNumeric = !isNaN(numericValue) && String(value).replace(/[^0-9.-]+/g, '') !== '';
+        const prefix = String(value).match(/^[^0-9]*/)?.[0] || '';
+        const suffix = String(value).match(/[^0-9]*$/)?.[0] || '';
+
+        return (
+            <Card className="overflow-hidden hover:shadow-md transition-all duration-200">
+                <CardContent className="p-5">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+                            <h3 className="text-2xl font-bold mt-1 text-foreground">
+                                {isNumeric ? (
+                                    <AnimatedCounter
+                                        value={numericValue}
+                                        prefix={prefix}
+                                        suffix={suffix}
+                                        decimals={String(numericValue).includes('.') ? 1 : 0}
+                                    />
+                                ) : (
+                                    value
+                                )}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-1">{subtext}</p>
+                        </div>
+                        <div className={`p-2.5 rounded-lg bg-opacity-10 dark:bg-opacity-20`} style={{ backgroundColor: `${colorClass}20` }}>
+                            <Icon className="h-5 w-5" style={{ color: colorClass }} />
+                        </div>
                     </div>
-                    <div className={`p-2.5 rounded-lg bg-opacity-10 dark:bg-opacity-20`} style={{ backgroundColor: `${colorClass}20` }}>
-                        <Icon className="h-5 w-5" style={{ color: colorClass }} />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
+                </CardContent>
+            </Card>
+        );
+    };
 
     if (isLoadingData) {
         return <DashboardSkeleton />;
@@ -548,7 +570,14 @@ export default function Dashboard() {
                                     </CardHeader>
                                     <CardContent className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                                         <div className="divide-y divide-border">
-                                            {activityFeed.length === 0 && <div className="p-8 text-center text-muted-foreground text-sm">No recent activity.</div>}
+                                            {activityFeed.length === 0 && (
+                                                <EmptyState
+                                                    icon={Inbox}
+                                                    title="No Recent Activity"
+                                                    description="Activity from officers, shifts, and incidents will appear here."
+                                                    size="md"
+                                                />
+                                            )}
                                             {activityFeed.map((item, idx) => (
                                                 <div key={idx} className="p-4 flex gap-4 hover:bg-muted/30 transition-colors">
                                                     <div className="mt-1 shrink-0">
@@ -594,7 +623,14 @@ export default function Dashboard() {
                                         <CardHeader className="border-b bg-muted/20 py-4"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Active Personnel</CardTitle></CardHeader>
                                         <CardContent className="p-0">
                                             <div className="divide-y max-h-[400px] overflow-y-auto">
-                                                {dashboardData.activeEntries.length === 0 && <p className="p-6 text-muted-foreground text-sm text-center">No officers currently clocked in.</p>}
+                                                {dashboardData.activeEntries.length === 0 && (
+                                                    <EmptyState
+                                                        icon={Users}
+                                                        title="No Officers On Duty"
+                                                        description="Officers will appear here when they clock in for their shifts."
+                                                        size="md"
+                                                    />
+                                                )}
                                                 {dashboardData.activeEntries.map(entry => (
                                                     <div key={entry.id} className="p-4 flex items-center justify-between hover:bg-muted/20 transition-colors">
                                                         <div className="flex items-center gap-3">
@@ -646,7 +682,12 @@ export default function Dashboard() {
                                                         </div>
                                                     ))}
                                                 {dashboardData.shifts.filter(s => new Date(s.start_time) > new Date() && new Date(s.start_time) < new Date(Date.now() + 86400000)).length === 0 && (
-                                                    <p className="p-6 text-muted-foreground text-sm text-center">No upcoming shifts in the next 24h.</p>
+                                                    <EmptyState
+                                                        icon={Calendar}
+                                                        title="No Upcoming Shifts"
+                                                        description="Shifts scheduled for the next 24 hours will appear here."
+                                                        size="md"
+                                                    />
                                                 )}
                                             </div>
                                         </CardContent>
@@ -681,7 +722,15 @@ export default function Dashboard() {
                                                         </div>
                                                     </div>
                                                 ))}
-                                                {revenueBySite.length === 0 && <p className="text-sm text-muted-foreground">No revenue data available for this week.</p>}
+                                                {revenueBySite.length === 0 && (
+                                                    <EmptyState
+                                                        icon={DollarSign}
+                                                        title="No Revenue Data"
+                                                        description="Revenue from billable shifts will appear here once officers clock in."
+                                                        size="sm"
+                                                        variant="compact"
+                                                    />
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -733,7 +782,14 @@ export default function Dashboard() {
                                                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{inc.description}</p>
                                                     </div>
                                                 ))}
-                                                {dashboardData.incidents.length === 0 && <p className="p-6 text-muted-foreground text-sm text-center">No incidents found.</p>}
+                                                {dashboardData.incidents.length === 0 && (
+                                                    <EmptyState
+                                                        icon={ShieldCheck}
+                                                        title="No Incidents"
+                                                        description="No incidents have been reported. This is good news!"
+                                                        size="md"
+                                                    />
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -880,7 +936,12 @@ export default function Dashboard() {
                                 </CardContent>
                             </Card>
                         ) : (
-                            <div className="p-8 border border-dashed rounded-xl text-center text-sm text-muted-foreground bg-muted/20">No upcoming shifts. Enjoy your time off!</div>
+                            <EmptyState
+                                icon={Calendar}
+                                title="No Upcoming Shifts"
+                                description="You're all caught up! Enjoy your time off."
+                                size="md"
+                            />
                         )}
                     </div>
                 </div>

@@ -77,6 +77,7 @@ export function checkGeofence(
 
     return {
         id: '', // Will be set by Firestore
+        organization_id: site.organization_id,
         officer_id: location.officer_id,
         site_id: site.id,
         event_type: isInside ? 'enter' : 'exit',

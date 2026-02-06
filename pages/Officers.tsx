@@ -1,12 +1,28 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Avatar, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Tabs, TabsList, TabsTrigger, TabsContent, Label, Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '../components/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Avatar, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Tabs, TabsList, TabsTrigger, TabsContent, Label, Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, cn } from '../components/ui';
+import { Checkbox } from '../components/Checkbox';
 import { db } from '../lib/db';
 import { Officer, Certification } from '../lib/types';
-import { Search, Shield, ChevronLeft, ChevronRight, UserPlus, Loader2, Phone, Mail, Briefcase, ArrowLeft, Printer, Edit, Save, Plus, Trash2, FileCheck, AlertCircle, XCircle, LayoutGrid, List, CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Calendar, Clock, DollarSign, FileText } from 'lucide-react';
+import { Search, Shield, ChevronLeft, ChevronRight, UserPlus, Loader2, Phone, Mail, Briefcase, ArrowLeft, Printer, Edit, Save, Plus, Trash2, FileCheck, AlertCircle, XCircle, LayoutGrid, List, CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Calendar, Clock, DollarSign, FileText, CalendarDays, Download } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { EmptyState } from '../components/EmptyState';
+import { BulkActionBar } from '../components/BulkActionBar';
+import { FloatingActionButton } from '../components/FloatingActionButton';
+import { QuickFilterChips } from '../components/QuickFilterChips';
+import { OfficersPageSkeleton, CardSkeleton } from '../components/Skeleton';
+import { ContextMenu, ContextMenuWrapper, officerContextMenu, useContextMenu } from '../components/ContextMenu';
+import { SmartToastProvider, useSmartToastContext, toastPresets } from '../components/SmartToast';
+import { AnimatedCounter } from '../components/AnimatedCounter';
+import { CopyableText } from '../components/CopyableText';
+import { HighlightedText } from '../components/HighlightedText';
+import { ImageLightbox, useImageLightbox } from '../components/ImageLightbox';
+import { InlineEdit } from '../components/InlineEdit';
+import { StickyTableContainer, StickyTable, StickyTableHeader, StickyTableBody, StickyTableRow, StickyTableCell } from '../components/StickyTable';
+import { DragDropSort, SimpleSortableList } from '../components/DragDropSort';
+import { AutoSaveIndicator, useAutoSave } from '../components/AutoSaveIndicator';
 
 type SortKey = 'full_name' | 'badge_number' | 'employment_status' | 'email';
 
@@ -60,6 +76,16 @@ export default function Officers() {
         expiry_date: '',
         status: 'active'
     });
+
+    // Multi-select State
+    const [selectedOfficers, setSelectedOfficers] = useState<Set<string>>(new Set());
+    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+
+    // Quick Filter State
+    const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+    // Image Lightbox
+    const { isOpen: isLightboxOpen, currentIndex, images, openLightbox, closeLightbox, navigateTo } = useImageLightbox();
 
     // Update local financial state when officer is selected
     useEffect(() => {
@@ -310,6 +336,66 @@ export default function Officers() {
         return 'success'; // Valid
     };
 
+    // Multi-select Handlers
+    const toggleOfficerSelection = (officerId: string) => {
+        setSelectedOfficers(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(officerId)) {
+                newSet.delete(officerId);
+            } else {
+                newSet.add(officerId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleAllOfficers = () => {
+        if (selectedOfficers.size === currentOfficers.length) {
+            setSelectedOfficers(new Set());
+        } else {
+            setSelectedOfficers(new Set(currentOfficers.map(o => o.id)));
+        }
+    };
+
+    const clearSelection = () => {
+        setSelectedOfficers(new Set());
+        setIsMultiSelectMode(false);
+    };
+
+    const handleBulkDelete = () => {
+        if (!confirm(`Are you sure you want to delete ${selectedOfficers.size} officers?`)) return;
+
+        selectedOfficers.forEach(id => {
+            deleteOfficerMutation.mutate(id);
+        });
+        clearSelection();
+    };
+
+    const handleBulkExport = () => {
+        const selectedData = officers.filter(o => selectedOfficers.has(o.id));
+        const csv = [
+            ['Name', 'Badge Number', 'Email', 'Phone', 'Status'].join(','),
+            ...selectedData.map(o => [
+                o.full_name,
+                o.badge_number,
+                o.email,
+                o.phone,
+                o.employment_status
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `officers-export-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        addToast({ type: 'success', title: 'Export Complete', description: `${selectedData.length} officers exported.` });
+        clearSelection();
+    };
+
     const handleSort = (key: SortKey) => {
         setSortConfig(current => ({
             key,
@@ -317,11 +403,31 @@ export default function Officers() {
         }));
     };
 
-    const filteredOfficers = officers.filter(o =>
-        o.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.badge_number.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => {
+    const filteredOfficers = officers.filter(o => {
+        // Search term filter
+        const matchesSearch =
+            o.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            o.badge_number.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Quick filter chips
+        if (activeFilters.length === 0) return matchesSearch;
+
+        const matchesFilters = activeFilters.some(filter => {
+            switch (filter) {
+                case 'active':
+                    return o.employment_status === 'active';
+                case 'onboarding':
+                    return o.employment_status === 'onboarding';
+                case 'terminated':
+                    return o.employment_status === 'terminated';
+                default:
+                    return true;
+            }
+        });
+
+        return matchesSearch && matchesFilters;
+    }).sort((a, b) => {
         const aVal = String(a[sortConfig.key as keyof Officer] || '').toLowerCase();
         const bVal = String(b[sortConfig.key as keyof Officer] || '').toLowerCase();
 
@@ -340,26 +446,73 @@ export default function Officers() {
 
     // --- FULL PAGE PROFILE VIEW ---
     if (selectedOfficer) {
+        // Auto-save hook for officer profile
+        const { status: autoSaveStatus, lastSaved, triggerSave } = useAutoSave({
+            onSave: async () => {
+                // Auto-save is handled by individual InlineEdit components
+                // This is just for visual feedback
+                await new Promise(resolve => setTimeout(resolve, 500));
+            },
+            debounceMs: 1500
+        });
+
+        const [noteText, setNoteText] = useState(selectedOfficer.notes || '');
+
+        useEffect(() => {
+            setNoteText(selectedOfficer.notes || '');
+        }, [selectedOfficer.id, selectedOfficer.notes]);
+
         return (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedOfficer(null)} className="pl-0 gap-1 text-muted-foreground hover:text-foreground">
-                            <ArrowLeft className="h-4 w-4" /> Back to Directory
-                        </Button>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedOfficer(null)} className="pl-0 gap-1 text-muted-foreground hover:text-foreground">
+                                <ArrowLeft className="h-4 w-4" /> Back to Directory
+                            </Button>
+                        </div>
+                        <AutoSaveIndicator
+                            status={autoSaveStatus}
+                            lastSaved={lastSaved}
+                        />
                     </div>
 
-                    <Card className="border-l-4 border-l-primary overflow-hidden">
-                        <div className="h-24 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800"></div>
+                    <Card className="border-none overflow-hidden shadow-2xl glass-panel relative">
+                        <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent dark:from-primary/30 dark:via-primary/10 dark:to-transparent">
+                            <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
+                        </div>
                         <div className="px-8 pb-8">
                             <div className="relative flex justify-between items-end -mt-12 mb-6">
                                 <div className="flex items-end gap-6">
                                     <Avatar fallback={selectedOfficer.full_name.charAt(0)} className="h-32 w-32 border-4 border-background text-4xl shadow-md" />
                                     <div className="mb-2 space-y-1">
-                                        <h1 className="text-3xl font-bold tracking-tight">{selectedOfficer.full_name}</h1>
+                                        <h1 className="text-3xl font-bold tracking-tight">
+                                            <InlineEdit
+                                                value={selectedOfficer.full_name}
+                                                onSave={(value) => {
+                                                    triggerSave();
+                                                    updateOfficerMutation.mutate({
+                                                        id: selectedOfficer.id,
+                                                        updates: { full_name: value }
+                                                    });
+                                                }}
+                                                className="text-3xl font-bold"
+                                            />
+                                        </h1>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="outline" className="text-muted-foreground font-normal">
-                                                <Shield className="h-3 w-3 mr-1" /> Badge #{selectedOfficer.badge_number}
+                                                <Shield className="h-3 w-3 mr-1" />
+                                                <InlineEdit
+                                                    value={selectedOfficer.badge_number}
+                                                    onSave={(value) => {
+                                                        triggerSave();
+                                                        updateOfficerMutation.mutate({
+                                                            id: selectedOfficer.id,
+                                                            updates: { badge_number: value }
+                                                        });
+                                                    }}
+                                                    displayClassName="font-mono"
+                                                />
                                             </Badge>
                                             <Badge variant={selectedOfficer.employment_status === 'active' ? 'success' : 'secondary'} className="uppercase">
                                                 {selectedOfficer.employment_status}
@@ -401,11 +554,33 @@ export default function Officers() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-2">
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</p>
-                                    <p className="text-sm font-medium">{selectedOfficer.email}</p>
+                                    <p className="text-sm font-medium">
+                                        <InlineEdit
+                                            value={selectedOfficer.email}
+                                            onSave={(value) => {
+                                                triggerSave();
+                                                updateOfficerMutation.mutate({
+                                                    id: selectedOfficer.id,
+                                                    updates: { email: value }
+                                                });
+                                            }}
+                                        />
+                                    </p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone</p>
-                                    <p className="text-sm font-medium">{selectedOfficer.phone}</p>
+                                    <p className="text-sm font-medium">
+                                        <InlineEdit
+                                            value={selectedOfficer.phone}
+                                            onSave={(value) => {
+                                                triggerSave();
+                                                updateOfficerMutation.mutate({
+                                                    id: selectedOfficer.id,
+                                                    updates: { phone: value }
+                                                });
+                                            }}
+                                        />
+                                    </p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Hours (Lifetime)</p>
@@ -535,7 +710,7 @@ export default function Officers() {
                     </Dialog>
 
                     <Tabs defaultValue="overview" className="space-y-4">
-                        <TabsList className="bg-white border p-1 h-auto gap-2">
+                        <TabsList className="bg-card border border-border p-1 h-auto gap-2">
                             <TabsTrigger value="overview" className="h-9">Overview</TabsTrigger>
                             <TabsTrigger value="schedule" className="h-9">Schedule & Shifts</TabsTrigger>
                             <TabsTrigger value="history" className="h-9">Activity Log</TabsTrigger>
@@ -559,7 +734,7 @@ export default function Officers() {
                                             {selectedOfficer.certifications?.map(cert => {
                                                 const status = getCertStatusColor(cert);
                                                 return (
-                                                    <div key={cert.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                                    <div key={cert.id} className="p-4 flex items-center justify-between hover:bg-muted transition-colors">
                                                         <div className="flex items-start gap-3">
                                                             <div className={`mt-1 p-1.5 rounded-full ${status === 'destructive' ? 'bg-red-100 text-red-600' : status === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
                                                                 <FileCheck className="h-4 w-4" />
@@ -590,7 +765,7 @@ export default function Officers() {
                                             <div className="flex flex-wrap gap-2">
                                                 {selectedOfficer.skills.length === 0 && <p className="text-sm text-muted-foreground">No skills listed.</p>}
                                                 {selectedOfficer.skills.map((skill, i) => (
-                                                    <Badge key={i} variant="secondary" className="px-3 py-1 text-xs uppercase tracking-wide bg-slate-100 text-slate-700 hover:bg-slate-200">
+                                                    <Badge key={i} variant="secondary" className="px-3 py-1 text-xs uppercase tracking-wide">
                                                         {skill}
                                                     </Badge>
                                                 ))}
@@ -603,9 +778,24 @@ export default function Officers() {
                                             <textarea
                                                 className="w-full min-h-[100px] text-sm p-3 rounded-md border bg-muted/20 focus:outline-none focus:ring-1 focus:ring-primary"
                                                 placeholder="Add internal notes about this officer..."
+                                                value={noteText}
+                                                onChange={(e) => setNoteText(e.target.value)}
                                             />
                                             <div className="flex justify-end mt-2">
-                                                <Button size="sm" variant="ghost" className="text-xs h-7">Save Note</Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="text-xs h-7 hover:bg-primary/10 hover:text-primary transition-colors"
+                                                    onClick={() => {
+                                                        triggerSave();
+                                                        updateOfficerMutation.mutate({
+                                                            id: selectedOfficer.id,
+                                                            updates: { notes: noteText }
+                                                        });
+                                                    }}
+                                                >
+                                                    <Save className="h-3 w-3 mr-1" /> Save Note
+                                                </Button>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -619,13 +809,20 @@ export default function Officers() {
                                 <CardHeader><CardTitle className="text-base">Upcoming & Recent Shifts</CardTitle></CardHeader>
                                 <CardContent className="p-0">
                                     <div className="divide-y">
-                                        {officerDetails?.shifts.length === 0 && <p className="p-8 text-center text-muted-foreground">No shifts assigned.</p>}
+                                        {officerDetails?.shifts.length === 0 && (
+                                            <EmptyState
+                                                icon={CalendarDays}
+                                                title="No Shifts Assigned"
+                                                description="This officer doesn't have any upcoming or recent shifts."
+                                                size="md"
+                                            />
+                                        )}
                                         {officerDetails?.shifts.map(shift => {
                                             const isFuture = new Date(shift.start_time) > new Date();
                                             return (
-                                                <div key={shift.id} className={`p-4 flex items-center justify-between ${isFuture ? 'bg-white' : 'bg-slate-50 opacity-75'}`}>
+                                                <div key={shift.id} className={`p-4 flex items-center justify-between ${isFuture ? 'bg-card' : 'bg-muted/50 opacity-75'}`}>
                                                     <div className="flex items-center gap-4">
-                                                        <div className={`p-2 rounded-lg ${isFuture ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'}`}>
+                                                        <div className={`p-2 rounded-lg ${isFuture ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                                                             <Calendar className="h-5 w-5" />
                                                         </div>
                                                         <div>
@@ -722,7 +919,7 @@ export default function Officers() {
                                     <CardContent>
                                         <div className="space-y-3 mb-4">
                                             {financials.deductions.map((d, i) => (
-                                                <div key={i} className="flex justify-between items-center p-2 rounded border bg-slate-50 text-sm">
+                                                <div key={i} className="flex justify-between items-center p-2 rounded border border-border bg-muted/30 text-sm">
                                                     <span>{d.name}</span>
                                                     <div className="flex items-center gap-3">
                                                         <span className="font-semibold text-red-600">-${d.amount.toFixed(2)}</span>
@@ -792,7 +989,7 @@ export default function Officers() {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-white dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg p-1">
+                    <div className="flex items-center bg-card border border-border rounded-lg p-1">
                         <Button
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
                             size="sm"
@@ -812,107 +1009,261 @@ export default function Officers() {
                             <List className="h-4 w-4" />
                         </Button>
                     </div>
+                    <Button
+                        variant={isMultiSelectMode ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => setIsMultiSelectMode(!isMultiSelectMode)}
+                        className="gap-2"
+                    >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {isMultiSelectMode ? 'Done' : 'Select'}
+                    </Button>
                     <Button onClick={() => setIsAddOpen(true)} className="gap-2">
                         <UserPlus className="h-4 w-4" /> Add Officer
                     </Button>
                 </div>
             </div>
 
+            {/* Quick Filter Chips */}
+            {!isLoadingOfficers && (
+                <QuickFilterChips
+                    chips={[
+                        { id: 'active', label: 'Active', count: officers.filter(o => o.employment_status === 'active').length, variant: 'success' },
+                        { id: 'onboarding', label: 'Onboarding', count: officers.filter(o => o.employment_status === 'onboarding').length, variant: 'info' },
+                        { id: 'terminated', label: 'Terminated', count: officers.filter(o => o.employment_status === 'terminated').length, variant: 'default' }
+                    ]}
+                    selectedChips={activeFilters}
+                    onToggle={(filterId) => {
+                        if (activeFilters.includes(filterId)) {
+                            setActiveFilters(activeFilters.filter(f => f !== filterId));
+                        } else {
+                            setActiveFilters([...activeFilters, filterId]);
+                        }
+                    }}
+                    onClearAll={() => setActiveFilters([])}
+                    title="Filter by Status"
+                />
+            )}
+
             {isLoadingOfficers ? (
-                <div className="text-center py-12"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></div>
+                <OfficersPageSkeleton />
             ) : (
                 <>
                     {viewMode === 'grid' ? (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {currentOfficers.map((officer) => (
-                                <Card key={officer.id} className="overflow-hidden group hover:shadow-md transition-all hover:scale-[1.01] duration-200 cursor-pointer" onClick={() => setSelectedOfficer(officer)}>
-                                    <div className="bg-muted/50 p-4 flex items-center gap-4 border-b">
-                                        <Avatar fallback={officer.full_name.charAt(0)} className="h-12 w-12" />
-                                        <div>
-                                            <h3 className="font-semibold">{officer.full_name}</h3>
-                                            <p className="text-xs text-muted-foreground">{officer.email}</p>
-                                        </div>
-                                        <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Button variant="ghost" size="icon">
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <CardContent className="p-4 space-y-4">
-                                        <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div>
-                                                <p className="text-muted-foreground text-xs">Badge #</p>
-                                                <p className="font-medium">{officer.badge_number}</p>
+                                <ContextMenuWrapper
+                                    items={officerContextMenu(officer, {
+                                        onView: () => setSelectedOfficer(officer),
+                                        onEdit: () => {
+                                            setSelectedOfficer(officer);
+                                            setEditOfficerData(officer);
+                                            setIsEditOpen(true);
+                                        },
+                                        onDelete: () => {
+                                            setSelectedOfficer(officer);
+                                            setIsDeleteConfirmOpen(true);
+                                        },
+                                        onCopyEmail: () => {
+                                            navigator.clipboard.writeText(officer.email);
+                                            addToast({ type: 'success', title: 'Copied!', description: 'Email copied to clipboard' });
+                                        }
+                                    })}
+                                    className={cn(
+                                        "overflow-hidden group transition-all hover:scale-[1.01] duration-200",
+                                        isMultiSelectMode ? "cursor-default" : "cursor-pointer hover:shadow-md"
+                                    )}
+                                >
+                                    <Card className={cn(
+                                        "overflow-hidden group transition-all hover:scale-[1.01] duration-200",
+                                        isMultiSelectMode ? "cursor-default" : "cursor-pointer hover:shadow-md"
+                                    )} onClick={() => !isMultiSelectMode && setSelectedOfficer(officer)}>
+                                        <div className="bg-muted/50 p-4 flex items-center gap-4 border-b">
+                                            {isMultiSelectMode && (
+                                                <Checkbox
+                                                    checked={selectedOfficers.has(officer.id)}
+                                                    onChange={() => toggleOfficerSelection(officer.id)}
+                                                    className="shrink-0"
+                                                />
+                                            )}
+                                            <Avatar fallback={officer.full_name.charAt(0)} className="h-12 w-12" />
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-semibold truncate">
+                                                    <HighlightedText text={officer.full_name} searchTerm={searchTerm} />
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground truncate">
+                                                    <CopyableText text={officer.email} displayText={officer.email} />
+                                                </p>
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground text-xs">Phone</p>
-                                                <p className="font-medium">{officer.phone}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                            {officer.certifications?.some(c => getCertStatusColor(c) === 'destructive') ? (
-                                                <Badge variant="destructive" className="text-[10px] gap-1 px-1.5"><AlertCircle className="h-3 w-3" /> License Expired</Badge>
-                                            ) : officer.certifications?.some(c => getCertStatusColor(c) === 'warning') ? (
-                                                <Badge variant="warning" className="text-[10px] gap-1 px-1.5"><AlertCircle className="h-3 w-3" /> License Expiring</Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="text-[10px] gap-1 px-1.5 text-green-600 bg-green-50 border-green-200"><Shield className="h-3 w-3" /> Compliant</Badge>
+                                            {!isMultiSelectMode && (
+                                                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button variant="ghost" size="icon">
+                                                        <ChevronRight className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             )}
                                         </div>
+                                        <CardContent className="p-4 space-y-4">
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <div>
+                                                    <p className="text-muted-foreground text-xs">Badge #</p>
+                                                    <p className="font-medium">
+                                                        <CopyableText text={officer.badge_number} />
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground text-xs">Phone</p>
+                                                    <p className="font-medium">
+                                                        <CopyableText text={officer.phone} />
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                                        <div className="pt-2 flex items-center justify-between border-t mt-2">
-                                            <span className="text-green-600 text-xs font-medium flex items-center gap-1">
-                                                <Shield className="h-3 w-3" />
-                                                {officer.employment_status.toUpperCase()}
-                                            </span>
-                                            <Button variant="ghost" size="sm" className="h-8 text-xs">View Profile</Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                            <div className="flex gap-2">
+                                                {officer.certifications?.some(c => getCertStatusColor(c) === 'destructive') ? (
+                                                    <Badge variant="destructive" className="text-[10px] gap-1 px-1.5"><AlertCircle className="h-3 w-3" /> License Expired</Badge>
+                                                ) : officer.certifications?.some(c => getCertStatusColor(c) === 'warning') ? (
+                                                    <Badge variant="warning" className="text-[10px] gap-1 px-1.5"><AlertCircle className="h-3 w-3" /> License Expiring</Badge>
+                                                ) : (
+                                                    <Badge variant="success" className="text-[10px] gap-1 px-1.5"><Shield className="h-3 w-3" /> Compliant</Badge>
+                                                )}
+                                            </div>
+
+                                            <div className="pt-2 flex items-center justify-between border-t mt-2">
+                                                <span className="text-green-600 text-xs font-medium flex items-center gap-1">
+                                                    <Shield className="h-3 w-3" />
+                                                    {officer.employment_status.toUpperCase()}
+                                                </span>
+                                                {!isMultiSelectMode && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 text-xs font-bold text-primary flex items-center gap-1 group-hover/card:gap-2 transition-all p-0 hover:bg-transparent"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedOfficer(officer);
+                                                        }}
+                                                    >
+                                                        View 360° Profile <ArrowLeft className="h-3 w-3 rotate-180" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </ContextMenuWrapper>
                             ))}
                         </div>
                     ) : (
-                        // List view implementation (unchanged logic, just re-rendered)
-                        <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-hidden shadow-sm">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50 border-b">
-                                        <tr>
-                                            <th className="h-10 px-4 text-left font-medium text-muted-foreground">Officer</th>
-                                            <th className="h-10 px-4 text-left font-medium text-muted-foreground">Badge #</th>
-                                            <th className="h-10 px-4 text-left font-medium text-muted-foreground">Status</th>
-                                            <th className="h-10 px-4 text-right font-medium text-muted-foreground">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {currentOfficers.map(officer => (
-                                            <tr key={officer.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => setSelectedOfficer(officer)}>
-                                                <td className="p-4 align-middle">
+                        // List view implementation with StickyTable
+                        <StickyTableContainer maxHeight="600px">
+                            <StickyTable>
+                                <StickyTableHeader>
+                                    <tr>
+                                        {isMultiSelectMode && (
+                                            <StickyTableCell isHeader className="w-10">
+                                                <Checkbox
+                                                    checked={selectedOfficers.size === currentOfficers.length && currentOfficers.length > 0}
+                                                    onChange={toggleAllOfficers}
+                                                />
+                                            </StickyTableCell>
+                                        )}
+                                        <StickyTableCell isHeader>Officer</StickyTableCell>
+                                        <StickyTableCell isHeader>Badge #</StickyTableCell>
+                                        <StickyTableCell isHeader>Status</StickyTableCell>
+                                        <StickyTableCell isHeader className="text-right">Actions</StickyTableCell>
+                                    </tr>
+                                </StickyTableHeader>
+                                <StickyTableBody>
+                                    {currentOfficers.map(officer => (
+                                        <div key={officer.id} className="contents">
+                                            <StickyTableRow
+                                                className={cn(
+                                                    !isMultiSelectMode && "cursor-pointer"
+                                                )}
+                                                onClick={() => !isMultiSelectMode && setSelectedOfficer(officer)}
+                                            >
+                                                {isMultiSelectMode && (
+                                                    <div onClick={e => e.stopPropagation()}>
+                                                        <StickyTableCell>
+                                                            <Checkbox
+                                                                checked={selectedOfficers.has(officer.id)}
+                                                                onChange={() => toggleOfficerSelection(officer.id)}
+                                                            />
+                                                        </StickyTableCell>
+                                                    </div>
+                                                )}
+                                                <StickyTableCell>
                                                     <div className="flex items-center gap-3">
                                                         <Avatar fallback={officer.full_name.charAt(0)} className="h-8 w-8" />
                                                         <div className="flex flex-col">
-                                                            <span className="font-medium">{officer.full_name}</span>
-                                                            <span className="text-xs text-muted-foreground">{officer.email}</span>
+                                                            <span className="font-medium">
+                                                                <HighlightedText text={officer.full_name} searchTerm={searchTerm} />
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                <CopyableText text={officer.email} displayText={officer.email} />
+                                                            </span>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="p-4 align-middle font-mono">{officer.badge_number}</td>
-                                                <td className="p-4 align-middle">
+                                                </StickyTableCell>
+                                                <StickyTableCell className="font-mono">
+                                                    <CopyableText text={officer.badge_number} />
+                                                </StickyTableCell>
+                                                <StickyTableCell>
                                                     <Badge variant={officer.employment_status === 'active' ? 'success' : 'secondary'} className="capitalize">
                                                         {officer.employment_status}
                                                     </Badge>
-                                                </td>
-                                                <td className="p-4 align-middle text-right">
-                                                    <Button variant="ghost" size="sm">View</Button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                                                </StickyTableCell>
+                                                <StickyTableCell className="text-right">
+                                                    {!isMultiSelectMode && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-primary font-bold hover:bg-primary/10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedOfficer(officer);
+                                                            }}
+                                                        >
+                                                            View 360°
+                                                        </Button>
+                                                    )}
+                                                </StickyTableCell>
+                                            </StickyTableRow>
+                                        </div>
+                                    ))}
+                                </StickyTableBody>
+                            </StickyTable>
+                        </StickyTableContainer>
                     )}
                 </>
+            )}
+
+            {/* Bulk Action Bar */}
+            {selectedOfficers.size > 0 && (
+                <BulkActionBar
+                    selectedCount={selectedOfficers.size}
+                    totalCount={currentOfficers.length}
+                    onSelectAll={toggleAllOfficers}
+                    onDeselectAll={() => setSelectedOfficers(new Set())}
+                    onClose={clearSelection}
+                    itemName="officers"
+                    actions={[
+                        {
+                            id: 'export',
+                            label: 'Export',
+                            icon: Download,
+                            onClick: handleBulkExport,
+                            variant: 'secondary'
+                        },
+                        {
+                            id: 'delete',
+                            label: 'Delete',
+                            icon: Trash2,
+                            onClick: handleBulkDelete,
+                            variant: 'destructive'
+                        }
+                    ]}
+                />
             )}
 
             {/* Pagination Footer */}
@@ -926,6 +1277,14 @@ export default function Officers() {
                         <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage === totalPages}>Next</Button>
                     </div>
                 </div>
+            )}
+
+            {/* Floating Action Button */}
+            {!selectedOfficer && (
+                <FloatingActionButton
+                    mainLabel="Add Officer"
+                    onMainClick={() => setIsAddOpen(true)}
+                />
             )}
 
             {/* ADD OFFICER SHEET (Replaced Dialog) */}
@@ -979,6 +1338,15 @@ export default function Officers() {
                     </SheetFooter>
                 </SheetContent>
             </Sheet>
+
+            {/* Image Lightbox */}
+            <ImageLightbox
+                images={images}
+                currentIndex={currentIndex}
+                isOpen={isLightboxOpen}
+                onClose={closeLightbox}
+                onNavigate={navigateTo}
+            />
         </div>
     );
 }

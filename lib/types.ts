@@ -1,11 +1,32 @@
 
 export type Role = 'owner' | 'admin' | 'ops_manager' | 'officer' | 'client';
 
+export type SubscriptionTier = 'basic' | 'professional' | 'enterprise';
+
+export interface WhiteLabelSettings {
+  company_name: string;
+  logo_url?: string;
+  favicon_url?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  custom_css?: string; // Enterprise tier only
+  custom_domain?: string; // Enterprise tier only (e.g., portal.clientcompany.com)
+  support_email?: string;
+  support_phone?: string;
+  footer_text?: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
   owner_id: string; // User ID of the owner
   created_at: string;
+  subscription_tier: SubscriptionTier;
+  subscription_status: 'active' | 'trial' | 'past_due' | 'cancelled';
+  subscription_expires_at?: string;
+  portal_enabled: boolean;
+  white_label?: WhiteLabelSettings;
   settings?: {
     timezone: string;
     currency: string;
@@ -76,6 +97,7 @@ export interface Officer {
     overtime_rate?: number;
     deductions: Array<{ name: string; amount: number }>;
   };
+  notes?: string;
 }
 
 export interface Shift {
@@ -348,3 +370,44 @@ export interface RealtimeEvent {
   officer_id?: string;
   site_id?: string;
 }
+
+// --- CLIENT PORTAL TYPES ---
+
+export interface ClientPortalUser {
+  id: string;
+  client_id: string; // Links to Client
+  email: string;
+  full_name: string;
+  access_level: 'view_only' | 'request_services';
+  invited_by: string; // User ID who sent invite
+  created_at: string;
+  last_login?: string;
+}
+
+export interface ServiceRequest {
+  id: string;
+  client_id: string;
+  requested_by: string; // ClientPortalUser ID
+  site_id: string;
+  request_type: 'extra_coverage' | 'special_patrol' | 'equipment' | 'other';
+  description: string;
+  requested_date: string;
+  requested_start_time?: string;
+  requested_end_time?: string;
+  status: 'pending' | 'approved' | 'declined' | 'completed';
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string; // User ID
+  resolution_notes?: string;
+}
+
+export interface ShiftRating {
+  id: string;
+  client_id: string;
+  shift_id: string;
+  rated_by: string; // ClientPortalUser ID
+  rating: 1 | 2 | 3 | 4 | 5;
+  notes?: string;
+  created_at: string;
+}
+

@@ -8,6 +8,7 @@ import { X, AlertTriangle, Bell, MapPin, Phone } from 'lucide-react';
 import { Button } from './ui';
 
 interface AlertBannerProps {
+    key?: React.Key;
     type: 'panic' | 'geofence' | 'info';
     title: string;
     message: string;

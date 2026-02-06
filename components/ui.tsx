@@ -35,9 +35,10 @@ export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary' | 'link';
   size?: 'sm' | 'default' | 'lg' | 'icon';
+  loading?: boolean;
 }
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'default', size = 'default', ...props }, ref) => {
+  ({ className, variant = 'default', size = 'default', loading, disabled, children, ...props }, ref) => {
     const variants = {
       default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm border border-transparent',
       outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground shadow-sm',
@@ -56,21 +57,45 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-95',
+          'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-95 ease-spring',
           variants[variant],
           sizes[size],
           className
         )}
+        disabled={disabled || loading}
         {...props}
-      />
+      >
+        {loading && (
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        )}
+        {children}
+      </button>
     );
   }
 );
 Button.displayName = "Button"
 
 // --- CARD ---
-export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('rounded-xl border bg-card text-card-foreground shadow-sm transition-all', className)} {...props} />;
+type CardProps = React.PropsWithChildren<{
+  className?: string;
+  hoverLift?: boolean;
+  glass?: boolean;
+}> & React.HTMLAttributes<HTMLDivElement>;
+export function Card({ className, hoverLift = false, glass = true, ...props }: CardProps) {
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border border-border text-card-foreground shadow-sm transition-all',
+        glass === false ? 'bg-card' : 'glass-card',
+        hoverLift && 'hover-lift cursor-pointer',
+        className
+      )}
+      {...props}
+    />
+  );
 }
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />;
@@ -93,7 +118,7 @@ export function Badge({ className, variant = 'default', ...props }: React.HTMLAt
     warning: 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25',
   };
   return (
-    <div className={cn('inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2', variants[variant], className)} {...props} />
+    <div className={cn('inline-flex items-center rounded-lg border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2', variants[variant], className)} {...props} />
   );
 }
 
@@ -117,7 +142,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:border-accent-foreground/30",
+          "flex h-10 w-full rounded-xl border border-input bg-card/50 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:border-accent-foreground/30",
           className
         )}
         ref={ref}
@@ -207,13 +232,13 @@ export function Dialog({ open, onOpenChange, children, className, overlayClassNa
       onClick={() => onOpenChange?.(false)}
     >
       <div
-        className={cn("relative bg-background w-full max-w-lg rounded-xl shadow-2xl border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300", className)}
+        className={cn("relative bg-card/80 backdrop-blur-2xl w-full max-w-lg rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300", className)}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
         {showClose && (
           <button
-            className="absolute right-4 top-4 rounded-lg p-2 opacity-50 ring-offset-background transition-all hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-20"
+            className="absolute right-4 top-4 rounded-lg p-2 opacity-50 ring-offset-background transition-all hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus-visible:ring-ring focus:ring-offset-2 z-20"
             onClick={() => onOpenChange?.(false)}
           >
             <X className="h-4 w-4" />
@@ -248,7 +273,7 @@ export function Sheet({ open, onOpenChange, children }: { open?: boolean, onOpen
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => onOpenChange?.(false)}>
       <div
-        className="relative w-full max-w-md bg-background border-l border-border shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
+        className="relative w-full max-w-md bg-card/70 backdrop-blur-xl border-l border-border shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         <button
