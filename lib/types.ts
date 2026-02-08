@@ -98,6 +98,7 @@ export interface Officer {
     deductions: Array<{ name: string; amount: number }>;
   };
   notes?: string;
+  image_url?: string;
 }
 
 export interface Shift {

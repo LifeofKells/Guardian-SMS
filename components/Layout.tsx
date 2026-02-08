@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -33,6 +33,9 @@ import { CommandPalette } from './CommandPalette';
 import { OnboardingFlow, useOnboarding } from './OnboardingFlow';
 import { KeyboardShortcutsHelp, useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { AnimatedDarkModeToggle } from './AnimatedDarkModeToggle';
+import { BreadcrumbNav } from './BreadcrumbNav';
+import { NotificationBell } from './NotificationCenter';
+import { LiveActivityWidget } from './LiveActivityPulse';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -68,12 +71,8 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed }: NavItemProps
         <span className="truncate">{label}</span>
       )}
 
-      {/* Active Indicator (Left Bar) for Expanded/Collapsed or Pill? 
-          Modern style usually is huge pill for expanded, square for collapsed. 
-          We already did that with rounded-xl above.
-      */}
       {active && !collapsed && (
-        <div className="absolute left-0 h-6 w-1 rounded-r-full bg-primary opacity-0" /> // Optional accent
+        <div className="absolute left-0 h-6 w-1 rounded-r-full bg-primary opacity-0" />
       )}
     </button>
   );
@@ -152,27 +151,45 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
 
-  const checkScroll = () => {
+  const checkScroll = useCallback(() => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
 
     setCanScrollUp(scrollTop > 0);
-    // Use a small tolerance (1px) for calculation differences
-    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 1);
-  };
+    // Use a small tolerance (2px) to handle fractional pixels and zoom levels
+    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 2);
+  }, []);
 
   useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    // Use ResizeObserver to detect content or container size changes
+    const observer = new ResizeObserver(() => {
+      checkScroll();
+    });
+
+    observer.observe(scrollEl);
+
+    // Also observe the inner content if possible to be extra reactive
+    const contentEl = scrollEl.firstElementChild;
+    if (contentEl) observer.observe(contentEl);
+
     checkScroll();
     window.addEventListener('resize', checkScroll);
-    return () => window.removeEventListener('resize', checkScroll);
-  }, [children]); // Re-check if children change
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [checkScroll, children]);
 
   return (
-    <div className="relative flex-1 overflow-hidden flex flex-col">
+    <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Top Gradient Shadow */}
       <div
         className={cn(
-          "absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-card to-transparent z-10 pointer-events-none transition-opacity duration-300",
+          "absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-card via-card/50 to-transparent z-10 pointer-events-none transition-opacity duration-300",
           canScrollUp ? "opacity-100" : "opacity-0"
         )}
       />
@@ -181,7 +198,11 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
       <div
         ref={scrollRef}
         onScroll={checkScroll}
-        className={cn("flex-1 h-0 overflow-y-auto custom-scrollbar min-h-0", className)}
+        className={cn(
+          "flex-1 overflow-y-auto overflow-x-hidden premium-scrollbar min-h-0 relative",
+          "pb-12",
+          className
+        )}
       >
         {children}
       </div>
@@ -189,13 +210,12 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
       {/* Bottom Gradient Shadow */}
       <div
         className={cn(
-          "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-card to-transparent z-10 pointer-events-none transition-opacity duration-300 flex justify-center items-end pb-1",
+          "absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card via-card/50 to-transparent z-10 pointer-events-none transition-opacity duration-300 flex justify-center items-end pb-2",
           canScrollDown ? "opacity-100" : "opacity-0"
         )}
       >
-        {/* Animated Chevron Indicator */}
-        <div className="text-muted-foreground/50 animate-bounce">
-          <ChevronDown className="h-4 w-4" />
+        <div className="text-primary/40 animate-bounce pointer-events-none">
+          <ChevronDown className="h-5 w-5" />
         </div>
       </div>
     </div>
@@ -229,8 +249,6 @@ function ToastContainer() {
     </div>
   );
 }
-
-// ... imports ...
 
 export function Layout({ children, currentPage, setPage }: { children?: React.ReactNode, currentPage: string, setPage: (p: string) => void }) {
   const { user, profile, logout, organization } = useAuth();
@@ -291,22 +309,15 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
     accent_color: '#10b981',
   };
 
-  // Use organization name as fallback if white_label name is missing but org exists
   const companyName = branding.company_name === 'Guardian' && organization?.name ? organization.name : branding.company_name;
-  // If no specific logo url is provided for white label, default to standard one (or generic placeholder if it's a completely different org)
-  // For this 'revamp', if it's the "Guardian" default, use favicon. If it's a custom org, maybe we simulate a logo or just text.
   const logoUrl = branding.logo_url || '/favicon.svg';
 
   // Apply branding colors to CSS custom properties
   useEffect(() => {
     const root = document.documentElement;
 
-    // Helper to convert hex to HSL for CSS custom properties
     const hexToHsl = (hex: string): string => {
-      // Remove # if present
       hex = hex.replace('#', '');
-
-      // Parse hex values
       const r = parseInt(hex.substring(0, 2), 16) / 255;
       const g = parseInt(hex.substring(2, 4), 16) / 255;
       const b = parseInt(hex.substring(4, 6), 16) / 255;
@@ -329,20 +340,17 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
     };
 
-    // Apply primary color
     if (branding.primary_color) {
       const primaryHsl = hexToHsl(branding.primary_color);
       root.style.setProperty('--primary', primaryHsl);
-      root.style.setProperty('--primary-foreground', '0 0% 100%'); // White text on primary
+      root.style.setProperty('--primary-foreground', '0 0% 100%');
     }
 
-    // Apply accent color (used for success states, etc.)
     if (branding.accent_color) {
       const accentHsl = hexToHsl(branding.accent_color);
       root.style.setProperty('--accent', accentHsl);
     }
 
-    // Update favicon if custom one is provided
     if (branding.favicon_url) {
       const link: HTMLLinkElement = document.querySelector("link[rel*='icon']") || document.createElement('link');
       link.type = 'image/x-icon';
@@ -351,15 +359,9 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       document.getElementsByTagName('head')[0].appendChild(link);
     }
 
-    // Update document title if custom company name
     if (branding.company_name && branding.company_name !== 'Guardian') {
       document.title = `${branding.company_name} - Admin Portal`;
     }
-
-    // Cleanup on unmount or when branding changes
-    return () => {
-      // Reset to defaults if needed (optional, usually not required)
-    };
   }, [branding.primary_color, branding.accent_color, branding.favicon_url, branding.company_name]);
 
   useEffect(() => {
@@ -395,18 +397,13 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[240px_1fr] lg:grid-cols-[260px_1fr]"
     )}>
 
-      {/* COMMAND PALETTE */}
       <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} onNavigate={setPage} />
-
-      {/* TOASTS */}
       <ToastContainer />
 
-      {/* DESKTOP SIDEBAR */}
       <div data-tour="sidebar" className={cn(
-        "hidden border-r bg-card/70 backdrop-blur-xl md:flex h-full border-border flex-col shadow-sm z-20 transition-all duration-300 ease-in-out relative group/sidebar",
+        "hidden border-r bg-card/70 backdrop-blur-xl md:flex h-full border-border flex-col shadow-sm z-20 transition-all duration-300 ease-in-out relative group/sidebar min-h-0",
         isCollapsed ? "w-[80px]" : "w-[260px]"
       )}>
-        {/* Toggle Button - Floating on Border */}
         <button
           onClick={toggleCollapse}
           className={cn(
@@ -416,7 +413,7 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-300", isCollapsed && "rotate-180")} />
         </button>
 
-        <div className="flex h-full flex-col gap-2">
+        <div className="flex h-full flex-col gap-2 min-h-0">
           <div className={cn(
             "flex h-16 items-center border-b shrink-0 bg-transparent border-border transition-all duration-300 overflow-hidden",
             isCollapsed ? "justify-center px-0" : "px-6"
@@ -433,6 +430,13 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           </div>
 
           <ScrollableMenu className="py-4">
+            <div className={cn(
+              "mb-4 pb-4 border-b border-border/50",
+              isCollapsed ? "px-2" : "px-3 lg:px-4"
+            )}>
+              <LiveActivityWidget collapsed={isCollapsed} />
+            </div>
+
             <div className={cn("transition-all duration-300 px-6 mb-2 overflow-hidden", isCollapsed ? "h-0 opacity-0" : "h-auto opacity-100")}>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main Menu</p>
             </div>
@@ -454,7 +458,6 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
         </div>
       </div>
 
-      {/* MOBILE MENU OVERLAY */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
           <div
@@ -488,43 +491,51 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
         </div>
       )}
 
-      {/* MAIN CONTENT AREA */}
       <div className="flex flex-col h-full overflow-hidden relative">
-        <header className="flex h-16 items-center gap-4 border-b border-border bg-background/80 backdrop-blur-md px-6 shrink-0 z-10 transition-all duration-300 sticky top-0">
-          <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
+        <header className="flex flex-col border-b border-border bg-background/80 backdrop-blur-md px-6 shrink-0 z-10 transition-all duration-300 sticky top-0">
+          <div className="flex h-16 items-center gap-4">
+            <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setIsMobileMenuOpen(true)}>
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle Menu</span>
+            </Button>
 
-          {/* SIDEBAR TOGGLE (DESKTOP) - Removed from here, moved to sidebar border */}
-          <div className="w-full flex-1 flex items-center gap-2">
-            <h1 className="text-xl font-bold capitalize tracking-tight text-foreground">{currentPage.replace('_', ' ')}</h1>
-            <div className="hidden md:flex items-center ml-4" data-tour="search">
-              <button
-                onClick={() => setIsCommandOpen(true)}
-                className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                title="Search (Cmd+K)"
-              >
-                <Command className="h-3 w-3" />
-                <span className="mr-4">Search...</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
-                  <span className="text-xs">⌘</span>K
-                </kbd>
-              </button>
+            <div className="w-full flex-1 flex items-center gap-2">
+              <h1 className="text-xl font-bold capitalize tracking-tight text-foreground">{currentPage.replace('_', ' ')}</h1>
+              <div className="hidden md:flex items-center ml-4" data-tour="search">
+                <button
+                  onClick={() => setIsCommandOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title="Search (Cmd+K)"
+                >
+                  <Command className="h-3 w-3" />
+                  <span className="mr-4">Search...</span>
+                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
+                    <span className="text-xs">⌘</span>K
+                  </kbd>
+                </button>
+              </div>
             </div>
+            <div className="flex items-center gap-1">
+              <NotificationBell />
+              <div className="px-1">
+                <AnimatedDarkModeToggle
+                  isDark={theme === 'dark'}
+                  onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  size="sm"
+                />
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </Button>
           </div>
-          <div className="flex items-center px-2">
-            <AnimatedDarkModeToggle
-              isDark={theme === 'dark'}
-              onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              size="sm"
-            />
+
+          <div className="pb-3 -mt-1">
+            <BreadcrumbNav onNavigate={setPage} />
           </div>
-          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </Button>
         </header>
+
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 lg:p-8 transition-colors duration-300">
           <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
             {children}
@@ -532,7 +543,6 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
         </main>
       </div>
 
-      {/* ONBOARDING FLOW */}
       <OnboardingFlow
         steps={onboardingSteps}
         isOpen={showOnboarding}
@@ -540,7 +550,6 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
         storageKey="guardian_onboarding_completed"
       />
 
-      {/* KEYBOARD SHORTCUTS HELP */}
       <KeyboardShortcutsHelp
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}

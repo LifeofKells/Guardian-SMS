@@ -1,6 +1,6 @@
 /**
  * Enhanced Command Palette Component
- * Features: Recent searches, fuzzy matching, saved filters
+ * Features: Recent searches, fuzzy matching, saved filters, quick actions, natural language
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -26,12 +26,34 @@ import {
     Bookmark,
     Sparkles,
     Trash2,
-    Filter
+    Filter,
+    Plus,
+    Play,
+    Zap,
+    Send,
+    Download,
+    Upload,
+    Copy,
+    Edit,
+    Eye,
+    RefreshCw,
+    Bell,
+    MessageSquare,
+    HelpCircle,
+    Moon,
+    Sun,
+    LogOut,
+    UserPlus,
+    CalendarPlus,
+    ClipboardList,
+    FileDown,
+    Mail
 } from 'lucide-react';
 import { Dialog, Badge, cn, Button } from './ui';
 import { db } from '../lib/db';
 import type { Officer, Site, Incident } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface CommandPaletteProps {
     open: boolean;
@@ -41,12 +63,37 @@ interface CommandPaletteProps {
 
 interface SearchResult {
     id: string;
-    type: 'page' | 'officer' | 'site' | 'incident' | 'recent' | 'filter';
+    type: 'page' | 'officer' | 'site' | 'incident' | 'recent' | 'filter' | 'action' | 'nlp';
     title: string;
     subtitle?: string;
     icon: any;
     action: () => void;
     metadata?: any;
+    shortcut?: string;
+    category?: string;
+}
+
+interface QuickAction {
+    id: string;
+    title: string;
+    description: string;
+    icon: any;
+    keywords: string[];
+    shortcut?: string;
+    category: 'create' | 'view' | 'export' | 'system' | 'communication';
+    action: (context: ActionContext) => void;
+}
+
+interface ActionContext {
+    navigate: (page: string) => void;
+    closeModal: () => void;
+    theme: { theme: string; setTheme: (t: string) => void };
+    data: { officers: Officer[]; sites: Site[]; incidents: Incident[] };
+}
+
+interface NLPPattern {
+    patterns: RegExp[];
+    handler: (match: RegExpMatchArray, context: ActionContext) => SearchResult | null;
 }
 
 interface RecentSearch {
@@ -105,8 +152,382 @@ const RECENT_SEARCHES_KEY = 'guardian_recent_searches';
 const SAVED_FILTERS_KEY = 'guardian_saved_filters';
 const MAX_RECENT_SEARCHES = 10;
 
+// ============================================================================
+// QUICK ACTIONS DEFINITIONS
+// ============================================================================
+
+const QUICK_ACTIONS: QuickAction[] = [
+    // CREATE actions
+    {
+        id: 'create-shift',
+        title: 'Create New Shift',
+        description: 'Schedule a new shift assignment',
+        icon: CalendarPlus,
+        keywords: ['add shift', 'new shift', 'schedule shift', 'assign shift', 'create shift'],
+        shortcut: 'C S',
+        category: 'create',
+        action: (ctx) => ctx.navigate('schedule')
+    },
+    {
+        id: 'add-officer',
+        title: 'Add New Officer',
+        description: 'Register a new security officer',
+        icon: UserPlus,
+        keywords: ['new officer', 'add guard', 'new employee', 'hire officer', 'create officer'],
+        shortcut: 'C O',
+        category: 'create',
+        action: (ctx) => ctx.navigate('officers')
+    },
+    {
+        id: 'report-incident',
+        title: 'Report Incident',
+        description: 'Log a new security incident',
+        icon: AlertTriangle,
+        keywords: ['new incident', 'log incident', 'report problem', 'security issue', 'create incident'],
+        shortcut: 'C I',
+        category: 'create',
+        action: (ctx) => ctx.navigate('reports')
+    },
+    {
+        id: 'add-site',
+        title: 'Add New Site',
+        description: 'Register a new client site',
+        icon: Building2,
+        keywords: ['new site', 'add location', 'new client', 'add property', 'create site'],
+        category: 'create',
+        action: (ctx) => ctx.navigate('clients')
+    },
+    
+    // VIEW actions
+    {
+        id: 'view-schedule-today',
+        title: "View Today's Schedule",
+        description: 'See all shifts scheduled for today',
+        icon: Calendar,
+        keywords: ['today shifts', 'current schedule', "today's roster", 'who is working'],
+        category: 'view',
+        action: (ctx) => ctx.navigate('schedule')
+    },
+    {
+        id: 'view-active-officers',
+        title: 'View Active Officers',
+        description: 'Officers currently on shift',
+        icon: Users,
+        keywords: ['on duty', 'active guards', 'working now', 'clocked in', 'on shift'],
+        category: 'view',
+        action: (ctx) => ctx.navigate('officers')
+    },
+    {
+        id: 'view-open-incidents',
+        title: 'View Open Incidents',
+        description: 'Unresolved incident reports',
+        icon: AlertTriangle,
+        keywords: ['pending incidents', 'open issues', 'unresolved', 'active incidents'],
+        category: 'view',
+        action: (ctx) => ctx.navigate('reports')
+    },
+    {
+        id: 'view-timesheets',
+        title: 'Review Timesheets',
+        description: 'Pending timesheet approvals',
+        icon: Clock,
+        keywords: ['approve time', 'pending timesheets', 'review hours', 'timesheet approval'],
+        category: 'view',
+        action: (ctx) => ctx.navigate('timesheets')
+    },
+    
+    // EXPORT actions
+    {
+        id: 'export-schedule',
+        title: 'Export Schedule',
+        description: 'Download schedule as PDF or CSV',
+        icon: FileDown,
+        keywords: ['download schedule', 'export roster', 'print schedule', 'schedule pdf'],
+        category: 'export',
+        action: (ctx) => ctx.navigate('schedule')
+    },
+    {
+        id: 'export-reports',
+        title: 'Generate Reports',
+        description: 'Create and export analytics reports',
+        icon: FileText,
+        keywords: ['analytics', 'generate report', 'export data', 'download report'],
+        category: 'export',
+        action: (ctx) => ctx.navigate('reports')
+    },
+    {
+        id: 'export-timesheets',
+        title: 'Export Timesheets',
+        description: 'Download timesheet data for payroll',
+        icon: Download,
+        keywords: ['payroll export', 'download timesheets', 'timesheet csv', 'export hours'],
+        category: 'export',
+        action: (ctx) => ctx.navigate('timesheets')
+    },
+    
+    // SYSTEM actions
+    {
+        id: 'toggle-theme',
+        title: 'Toggle Dark Mode',
+        description: 'Switch between light and dark theme',
+        icon: Moon,
+        keywords: ['dark mode', 'light mode', 'theme', 'night mode', 'appearance'],
+        shortcut: 'T',
+        category: 'system',
+        action: (ctx) => {
+            ctx.theme.setTheme(ctx.theme.theme === 'dark' ? 'light' : 'dark');
+            ctx.closeModal();
+        }
+    },
+    {
+        id: 'open-settings',
+        title: 'Open Settings',
+        description: 'Configure system preferences',
+        icon: Settings,
+        keywords: ['preferences', 'configuration', 'options', 'settings'],
+        shortcut: ',',
+        category: 'system',
+        action: (ctx) => ctx.navigate('settings')
+    },
+    {
+        id: 'view-audit-log',
+        title: 'View Audit Log',
+        description: 'System activity and changes',
+        icon: Activity,
+        keywords: ['audit', 'history', 'changes', 'log', 'activity'],
+        category: 'system',
+        action: (ctx) => ctx.navigate('audit')
+    },
+    {
+        id: 'refresh-data',
+        title: 'Refresh Data',
+        description: 'Reload all data from server',
+        icon: RefreshCw,
+        keywords: ['reload', 'refresh', 'sync', 'update data'],
+        category: 'system',
+        action: (ctx) => {
+            window.location.reload();
+        }
+    },
+    
+    // COMMUNICATION actions
+    {
+        id: 'send-broadcast',
+        title: 'Send Broadcast Message',
+        description: 'Message all officers',
+        icon: Send,
+        keywords: ['broadcast', 'message all', 'notify officers', 'announcement'],
+        category: 'communication',
+        action: (ctx) => ctx.navigate('officers')
+    },
+    {
+        id: 'view-feedback',
+        title: 'View Feedback',
+        description: 'Officer and client feedback',
+        icon: MessageSquare,
+        keywords: ['feedback', 'comments', 'suggestions', 'reviews'],
+        category: 'communication',
+        action: (ctx) => ctx.navigate('feedback')
+    }
+];
+
+// ============================================================================
+// NATURAL LANGUAGE PATTERNS
+// ============================================================================
+
+function createNLPPatterns(context: ActionContext): NLPPattern[] {
+    return [
+        // "who's available/working on [day]"
+        {
+            patterns: [
+                /who(?:'s| is)?\s+(?:available|working|on shift|on duty)\s+(?:on\s+)?(\w+)/i,
+                /(?:available|working)\s+(?:officers?|guards?)\s+(?:on\s+)?(\w+)/i,
+                /show\s+(?:me\s+)?(?:who(?:'s| is)?\s+)?(?:available|working)\s+(\w+)/i
+            ],
+            handler: (match, ctx) => ({
+                id: 'nlp-availability',
+                type: 'nlp',
+                title: `Check Availability for ${match[1]}`,
+                subtitle: 'View officers available on this day',
+                icon: Users,
+                action: () => ctx.navigate('schedule'),
+                category: 'Smart Query'
+            })
+        },
+        
+        // "show [this week's/today's] overtime"
+        {
+            patterns: [
+                /(?:show|view|get)\s+(?:me\s+)?(?:this week(?:'s)?|today(?:'s)?|all)?\s*overtime/i,
+                /overtime\s+(?:this week|today|report)/i,
+                /who\s+has\s+overtime/i
+            ],
+            handler: (match, ctx) => ({
+                id: 'nlp-overtime',
+                type: 'nlp',
+                title: 'View Overtime Report',
+                subtitle: 'Officers with overtime hours',
+                icon: Clock,
+                action: () => ctx.navigate('timesheets'),
+                category: 'Smart Query'
+            })
+        },
+        
+        // "find coverage for [site]"
+        {
+            patterns: [
+                /(?:find|get|need)\s+coverage\s+(?:for\s+)?(.+)/i,
+                /(?:who can|anyone)\s+cover\s+(.+)/i,
+                /coverage\s+(?:at|for)\s+(.+)/i
+            ],
+            handler: (match, ctx) => {
+                const siteName = match[1]?.trim();
+                return {
+                    id: 'nlp-coverage',
+                    type: 'nlp',
+                    title: `Find Coverage${siteName ? ` for ${siteName}` : ''}`,
+                    subtitle: 'Search for available officers to cover shifts',
+                    icon: Users,
+                    action: () => ctx.navigate('schedule'),
+                    category: 'Smart Query'
+                };
+            }
+        },
+        
+        // "incidents at [site]" or "incidents this week"
+        {
+            patterns: [
+                /incidents?\s+(?:at|for|from)\s+(.+)/i,
+                /(?:show|view|get)\s+(?:me\s+)?incidents?\s+(?:at|for|from)?\s*(.+)?/i,
+                /(.+)\s+incidents?/i
+            ],
+            handler: (match, ctx) => {
+                const location = match[1]?.trim();
+                return {
+                    id: 'nlp-incidents',
+                    type: 'nlp',
+                    title: `View Incidents${location ? ` at ${location}` : ''}`,
+                    subtitle: 'Search incident reports',
+                    icon: AlertTriangle,
+                    action: () => ctx.navigate('reports'),
+                    category: 'Smart Query'
+                };
+            }
+        },
+        
+        // "hours for [officer name]"
+        {
+            patterns: [
+                /hours\s+(?:for|worked by)\s+(.+)/i,
+                /(?:how many|total)\s+hours\s+(?:did|has|for)\s+(.+)/i,
+                /(.+?)(?:'s)?\s+hours/i
+            ],
+            handler: (match, ctx) => {
+                const name = match[1]?.trim();
+                return {
+                    id: 'nlp-hours',
+                    type: 'nlp',
+                    title: `View Hours${name ? ` for ${name}` : ''}`,
+                    subtitle: 'Check timesheet and worked hours',
+                    icon: Clock,
+                    action: () => ctx.navigate('timesheets'),
+                    category: 'Smart Query'
+                };
+            }
+        },
+        
+        // "schedule [officer] at [site]"
+        {
+            patterns: [
+                /schedule\s+(.+?)\s+(?:at|to|for)\s+(.+)/i,
+                /assign\s+(.+?)\s+(?:to|at)\s+(.+)/i,
+                /put\s+(.+?)\s+(?:at|on)\s+(.+)/i
+            ],
+            handler: (match, ctx) => {
+                const officer = match[1]?.trim();
+                const site = match[2]?.trim();
+                return {
+                    id: 'nlp-schedule-officer',
+                    type: 'nlp',
+                    title: `Schedule ${officer} at ${site}`,
+                    subtitle: 'Create a new shift assignment',
+                    icon: CalendarPlus,
+                    action: () => ctx.navigate('schedule'),
+                    category: 'Smart Action'
+                };
+            }
+        },
+        
+        // "go to [page]"
+        {
+            patterns: [
+                /go\s+to\s+(.+)/i,
+                /open\s+(.+)/i,
+                /navigate\s+(?:to\s+)?(.+)/i,
+                /show\s+(?:me\s+)?(?:the\s+)?(.+)\s+page/i
+            ],
+            handler: (match, ctx) => {
+                const page = match[1]?.trim().toLowerCase();
+                const pageMap: Record<string, string> = {
+                    'dashboard': 'dashboard',
+                    'home': 'dashboard',
+                    'schedule': 'schedule',
+                    'calendar': 'schedule',
+                    'shifts': 'schedule',
+                    'officers': 'officers',
+                    'guards': 'officers',
+                    'staff': 'officers',
+                    'sites': 'clients',
+                    'clients': 'clients',
+                    'locations': 'clients',
+                    'timesheets': 'timesheets',
+                    'time': 'timesheets',
+                    'hours': 'timesheets',
+                    'reports': 'reports',
+                    'incidents': 'reports',
+                    'settings': 'settings',
+                    'audit': 'audit',
+                    'feedback': 'feedback'
+                };
+                const targetPage = pageMap[page] || page;
+                return {
+                    id: 'nlp-navigate',
+                    type: 'nlp',
+                    title: `Go to ${page.charAt(0).toUpperCase() + page.slice(1)}`,
+                    subtitle: 'Navigate to page',
+                    icon: ChevronRight,
+                    action: () => ctx.navigate(targetPage),
+                    category: 'Navigation'
+                };
+            }
+        }
+    ];
+}
+
+// Helper to match NLP patterns
+function matchNLPPatterns(query: string, context: ActionContext): SearchResult[] {
+    const results: SearchResult[] = [];
+    const patterns = createNLPPatterns(context);
+    
+    for (const { patterns: regexes, handler } of patterns) {
+        for (const regex of regexes) {
+            const match = query.match(regex);
+            if (match) {
+                const result = handler(match, context);
+                if (result && !results.find(r => r.id === result.id)) {
+                    results.push(result);
+                }
+                break; // Only match first pattern per group
+            }
+        }
+    }
+    
+    return results;
+}
+
 export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPaletteProps) {
     const { organization } = useAuth();
+    const { theme, setTheme } = useTheme();
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -121,7 +542,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
     });
     const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
     const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
-    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'filters'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'filters' | 'actions'>('all');
 
     // Load recent searches and saved filters from localStorage
     useEffect(() => {
@@ -259,23 +680,101 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                 });
             }
 
+            // Quick Actions - show when no query or on actions tab
+            if (activeTab === 'all' || activeTab === 'actions') {
+                const actionContext: ActionContext = {
+                    navigate: onNavigate,
+                    closeModal: () => onOpenChange(false),
+                    theme: { theme, setTheme },
+                    data
+                };
+
+                // Group actions by category
+                const categories = ['create', 'view', 'system'] as const;
+                const categoryLabels: Record<string, string> = {
+                    create: 'Quick Create',
+                    view: 'Quick View',
+                    system: 'System'
+                };
+
+                categories.forEach(category => {
+                    const categoryActions = QUICK_ACTIONS.filter(a => a.category === category).slice(0, 3);
+                    if (categoryActions.length > 0) {
+                        searchResults.push({
+                            id: `action-header-${category}`,
+                            type: 'action',
+                            title: categoryLabels[category] || category,
+                            icon: Zap,
+                            action: () => {}
+                        });
+
+                        categoryActions.forEach(action => {
+                            searchResults.push({
+                                id: `action-${action.id}`,
+                                type: 'action',
+                                title: action.title,
+                                subtitle: action.description,
+                                icon: action.icon,
+                                shortcut: action.shortcut,
+                                action: () => action.action(actionContext)
+                            });
+                        });
+                    }
+                });
+            }
+
             return searchResults;
         }
 
-        // Actions / Commands
-        if ('dark light mode theme toggle transition'.includes(q) && q.length > 0) {
+        // Build action context for NLP and quick actions
+        const actionContext: ActionContext = {
+            navigate: onNavigate,
+            closeModal: () => onOpenChange(false),
+            theme: { theme, setTheme },
+            data
+        };
+
+        // Try NLP patterns first (natural language queries)
+        const nlpResults = matchNLPPatterns(q, actionContext);
+        if (nlpResults.length > 0) {
             searchResults.push({
-                id: 'theme-toggle',
-                type: 'page',
-                title: 'Toggle Theme',
-                subtitle: 'Switch between light and dark mode',
-                icon: Shield,
-                action: () => {
-                    document.documentElement.classList.toggle('dark');
-                    const isDark = document.documentElement.classList.contains('dark');
-                    localStorage.setItem('guardian-theme', isDark ? 'dark' : 'light');
-                }
+                id: 'nlp-header',
+                type: 'nlp',
+                title: 'Smart Suggestions',
+                icon: Sparkles,
+                action: () => {}
             });
+            nlpResults.forEach(r => {
+                searchResults.push({ ...r, metadata: { score: 200 } }); // High priority
+            });
+        }
+
+        // Quick Actions matching query
+        QUICK_ACTIONS.forEach(action => {
+            const titleScore = calculateMatchScore(action.title, q);
+            const descScore = calculateMatchScore(action.description, q);
+            const keywordScore = action.keywords.some(k => 
+                k.toLowerCase().includes(q) || calculateMatchScore(k, q) > 50
+            ) ? 70 : 0;
+            const maxScore = Math.max(titleScore, descScore, keywordScore);
+
+            if (maxScore > 0) {
+                searchResults.push({
+                    id: `action-${action.id}`,
+                    type: 'action',
+                    title: action.title,
+                    subtitle: action.description,
+                    icon: action.icon,
+                    shortcut: action.shortcut,
+                    action: () => action.action(actionContext),
+                    metadata: { score: maxScore + 20 } // Boost actions slightly
+                });
+            }
+        });
+
+        // Actions / Commands (legacy theme toggle - keep for backwards compat)
+        if ('dark light mode theme toggle transition'.includes(q) && q.length > 0) {
+            // Already handled by QUICK_ACTIONS, skip duplicate
         }
 
         // Pages with fuzzy matching and keyword support
@@ -358,10 +857,10 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
 
         // Sort by score and limit results
         return searchResults
-            .filter(r => r.type === 'recent' || r.type === 'filter' || (r.metadata?.score || 0) > 0)
+            .filter(r => r.type === 'recent' || r.type === 'filter' || r.type === 'action' || r.type === 'nlp' || (r.metadata?.score || 0) > 0)
             .sort((a, b) => (b.metadata?.score || 0) - (a.metadata?.score || 0))
-            .slice(0, 12);
-    }, [query, data, pages, onNavigate, recentSearches, savedFilters, activeTab]);
+            .slice(0, 15);
+    }, [query, data, pages, onNavigate, onOpenChange, recentSearches, savedFilters, activeTab, theme, setTheme]);
 
     // Save search when user selects a result
     const handleSelectResult = useCallback((result: SearchResult) => {
@@ -420,7 +919,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                         ref={inputRef}
                         type="text"
                         className="w-full bg-transparent border-none pl-10 pr-24 py-2.5 text-[15px] focus:ring-0 outline-none placeholder:text-muted-foreground/50 transition-all font-medium"
-                        placeholder="Search officers, sites, incidents..."
+                        placeholder="Search or type a command..."
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
@@ -462,7 +961,17 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                             )}
                         >
                             <Bookmark className="h-3 w-3" />
-                            Saved Filters
+                            Saved
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('actions')}
+                            className={cn(
+                                "px-3 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1",
+                                activeTab === 'actions' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <Zap className="h-3 w-3" />
+                            Actions
                         </button>
                         {(recentSearches.length > 0 || savedFilters.length > 0) && (
                             <button
@@ -488,9 +997,9 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                                 </>
                             ) : (
                                 <>
-                                    <Search className="h-8 w-8 mx-auto mb-3 text-muted-foreground/40" />
-                                    <p className="text-[13px] text-muted-foreground/60 px-4">Start typing to search</p>
-                                    <p className="text-[11px] text-muted-foreground/40 mt-1">Search officers, sites, incidents, or pages</p>
+                                    <Zap className="h-8 w-8 mx-auto mb-3 text-muted-foreground/40" />
+                                    <p className="text-[13px] text-muted-foreground/60 px-4">Type a command or search</p>
+                                    <p className="text-[11px] text-muted-foreground/40 mt-1">Try "create shift" or "who's available Monday"</p>
                                 </>
                             )}
                         </div>
@@ -529,9 +1038,21 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                                                 idx === selectedIndex ? "text-primary" : "text-foreground"
                                             )}>{result.title}</p>
                                             {!result.id.includes('header') && (
-                                                <span className="text-[10px] uppercase font-bold tracking-tight text-muted-foreground/40 shrink-0">
-                                                    {result.type}
-                                                </span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {result.shortcut && (
+                                                        <Badge variant="outline" className="text-[9px] font-mono py-0 px-1.5 h-4 bg-muted/40 text-muted-foreground/70 border-none">
+                                                            {result.shortcut}
+                                                        </Badge>
+                                                    )}
+                                                    <span className={cn(
+                                                        "text-[10px] uppercase font-bold tracking-tight shrink-0",
+                                                        result.type === 'action' ? "text-primary/50" :
+                                                        result.type === 'nlp' ? "text-amber-500/50" :
+                                                        "text-muted-foreground/40"
+                                                    )}>
+                                                        {result.type === 'nlp' ? 'smart' : result.type}
+                                                    </span>
+                                                </div>
                                             )}
                                         </div>
                                         {result.subtitle && !result.id.includes('header') && (

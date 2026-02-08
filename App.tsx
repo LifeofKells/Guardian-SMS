@@ -17,6 +17,11 @@ import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label } from '
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
+import { useBreadcrumbs } from './contexts/BreadcrumbContext';
+import { NotificationProvider } from './components/NotificationCenter';
+import { AnimatedPage } from './components/PageTransition';
+import { ActivityFeedProvider } from './components/LiveActivityPulse';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { ClientPortalAuthProvider, useClientPortalAuth } from './contexts/ClientPortalAuthContext';
@@ -39,9 +44,10 @@ const queryClient = new QueryClient({
   },
 });
 
-function AuthenticatedApp() {
+function AuthenticatedAppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const { user, mustChangePassword, changePassword, logout } = useAuth();
+  const { pushBreadcrumb, replaceLastBreadcrumb } = useBreadcrumbs();
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -106,36 +112,94 @@ function AuthenticatedApp() {
     );
   }
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard': return <Dashboard />;
-      case 'schedule': return <Schedule />;
-      case 'officers': return <Officers />;
-      case 'timesheets': return <Timesheets />;
-      case 'clients': return <Clients />;
-      case 'accounting': return <Accounting />;
-      case 'resources': return <Resources />;
-      case 'reports': return <Reports />;
-      case 'settings': return <Settings />;
-      case 'feedback': return <Feedback />;
-      case 'audit': return <AuditLogs />;
-      default:
-        return (
-          <div className="flex items-center justify-center h-[50vh]">
-            <Card className="w-[400px]">
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                <p>Module <strong>{currentPage}</strong> is under construction.</p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+  const handlePageChange = (page: string, data?: Record<string, any>) => {
+    const pageLabels: Record<string, string> = {
+      dashboard: 'Dashboard',
+      schedule: 'Schedule',
+      officers: 'Officers',
+      timesheets: 'Timesheets',
+      clients: 'Clients & Sites',
+      accounting: 'Accounting',
+      resources: 'Resources',
+      reports: 'Reports',
+      settings: 'Settings',
+      feedback: 'Feedback',
+      audit: 'Audit Logs'
+    };
+
+    const label = data?.label || pageLabels[page] || page;
+    
+    if (currentPage === page && data) {
+      replaceLastBreadcrumb({
+        id: `${page}-${Date.now()}`,
+        label,
+        page,
+        data
+      });
+    } else if (currentPage !== page) {
+      pushBreadcrumb({
+        id: `${page}-${Date.now()}`,
+        label,
+        page,
+        data
+      });
     }
+    
+    setCurrentPage(page);
+  };
+
+  const renderPage = () => {
+    const pageContent = (() => {
+      switch (currentPage) {
+        case 'dashboard': return <Dashboard />;
+        case 'schedule': return <Schedule />;
+        case 'officers': return <Officers />;
+        case 'timesheets': return <Timesheets />;
+        case 'clients': return <Clients />;
+        case 'accounting': return <Accounting />;
+        case 'resources': return <Resources />;
+        case 'reports': return <Reports />;
+        case 'settings': return <Settings />;
+        case 'feedback': return <Feedback />;
+        case 'audit': return <AuditLogs />;
+        default:
+          return (
+            <div className="flex items-center justify-center h-[50vh]">
+              <Card className="w-[400px]">
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  <p>Module <strong>{currentPage}</strong> is under construction.</p>
+                </CardContent>
+              </Card>
+            </div>
+          );
+      }
+    })();
+
+    return (
+      <React.Fragment key={currentPage}>
+        <AnimatedPage animation="fade-in-up">
+          {pageContent}
+        </AnimatedPage>
+      </React.Fragment>
+    );
   };
 
   return (
-    <Layout currentPage={currentPage} setPage={setCurrentPage}>
+    <Layout currentPage={currentPage} setPage={handlePageChange}>
       {renderPage()}
     </Layout>
+  );
+}
+
+function AuthenticatedApp() {
+  return (
+    <ActivityFeedProvider demoMode={true} demoInterval={12000}>
+      <NotificationProvider>
+        <BreadcrumbProvider>
+          <AuthenticatedAppContent />
+        </BreadcrumbProvider>
+      </NotificationProvider>
+    </ActivityFeedProvider>
   );
 }
 

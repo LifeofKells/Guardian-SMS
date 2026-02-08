@@ -19,6 +19,7 @@ import { PanicAlertModal } from '../components/PanicAlertModal';
 import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { EmptyState } from '../components/EmptyState';
 import { AnimatedCounter } from '../components/AnimatedCounter';
+import { ActivityTrendChart, RevenueCostChart, OfficerStatusChart } from '../components/AnalyticsWidgets';
 
 // --- OPERATIONAL COMMAND WALL ---
 const OperationalStatusBoard = ({ sites, locations, panicAlerts, geofenceEvents = [] }: { sites: Site[], locations: any[], panicAlerts: any[], geofenceEvents?: any[] }) => {
@@ -542,6 +543,16 @@ export default function Dashboard() {
                             )}
                         </div>
 
+                        {/* ANALYTICS CHARTS SECTION */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[300px]">
+                            <div className="lg:col-span-2 shadow-sm rounded-xl overflow-hidden border bg-card">
+                                <ActivityTrendChart incidents={dashboardData.incidents} entries={dashboardData.entries} />
+                            </div>
+                            <div className="shadow-sm rounded-xl overflow-hidden border bg-card">
+                                <OfficerStatusChart officers={dashboardData.officers} />
+                            </div>
+                        </div>
+
                         {/* Emergency Alert Banner */}
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[550px]">
@@ -701,6 +712,11 @@ export default function Dashboard() {
                                     <StatCard title="Est. Revenue (WTD)" value={`$${dashboardData.stats.revenueEst.toLocaleString()}`} subtext="Based on billable hours" icon={TrendingUp} colorClass="#10b981" />
                                     <StatCard title="Est. Payroll (WTD)" value={`$${dashboardData.stats.payrollEst.toLocaleString()}`} subtext="Based on clock-ins" icon={Wallet} colorClass="#f59e0b" />
                                     <StatCard title="Est. Margin" value={`$${(dashboardData.stats.revenueEst - dashboardData.stats.payrollEst).toLocaleString()}`} subtext={`${dashboardData.stats.revenueEst > 0 ? Math.round(((dashboardData.stats.revenueEst - dashboardData.stats.payrollEst) / dashboardData.stats.revenueEst) * 100) : 0}% Margin`} icon={PieChart} colorClass="#3b82f6" />
+                                </div>
+
+                                {/* FINANCIAL CHART */}
+                                <div className="h-[300px] shadow-sm rounded-xl overflow-hidden border bg-card">
+                                    <RevenueCostChart entries={dashboardData.entries} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

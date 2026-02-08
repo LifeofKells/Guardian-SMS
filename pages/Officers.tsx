@@ -20,9 +20,10 @@ import { CopyableText } from '../components/CopyableText';
 import { HighlightedText } from '../components/HighlightedText';
 import { ImageLightbox, useImageLightbox } from '../components/ImageLightbox';
 import { InlineEdit } from '../components/InlineEdit';
-import { StickyTableContainer, StickyTable, StickyTableHeader, StickyTableBody, StickyTableRow, StickyTableCell } from '../components/StickyTable';
+import { StickyTableContainer, StickyTable, StickyTableHeader, StickyTableBody, StickyTableRow, StickyTableCell, StickyResizableHeaderCell } from '../components/StickyTable';
 import { DragDropSort, SimpleSortableList } from '../components/DragDropSort';
 import { AutoSaveIndicator, useAutoSave } from '../components/AutoSaveIndicator';
+import { FileDragUpload } from '../components/FileDragUpload';
 
 type SortKey = 'full_name' | 'badge_number' | 'employment_status' | 'email';
 
@@ -46,14 +47,26 @@ export default function Officers() {
         badge_number: '',
         phone: '',
         skills: '',
-        employment_status: 'active' as Officer['employment_status']
+        employment_status: 'active' as Officer['employment_status'],
+        image_url: ''
     });
+    const [newOfficerFile, setNewOfficerFile] = useState<File | null>(null);
 
     const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
 
     // Edit Officer State
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editOfficerFile, setEditOfficerFile] = useState<File | null>(null);
     const [editOfficerData, setEditOfficerData] = useState<Partial<Officer>>({});
+
+    const fileToDataUrl = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
 
     // Delete Officer State
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -84,6 +97,29 @@ export default function Officers() {
     // Quick Filter State
     const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
+    // Row Highlighting
+    const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+    // Profile Specific State & Hooks (Must be at top level)
+    const [noteText, setNoteText] = useState('');
+
+    // Auto-save hook for officer profile
+    const { status: autoSaveStatus, lastSaved, triggerSave } = useAutoSave({
+        onSave: async () => {
+            // Auto-save is handled by individual InlineEdit components
+            // This is just for visual feedback
+            await new Promise(resolve => setTimeout(resolve, 500));
+        },
+        debounceMs: 1500
+    });
+
+    useEffect(() => {
+        if (highlightedId) {
+            const timer = setTimeout(() => setHighlightedId(null), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [highlightedId]);
+
     // Image Lightbox
     const { isOpen: isLightboxOpen, currentIndex, images, openLightbox, closeLightbox, navigateTo } = useImageLightbox();
 
@@ -95,6 +131,7 @@ export default function Officers() {
                 overtime_rate: selectedOfficer.financials?.overtime_rate || 30,
                 deductions: selectedOfficer.financials?.deductions || []
             });
+            setNoteText(selectedOfficer.notes || '');
         }
     }, [selectedOfficer]);
 
@@ -170,8 +207,11 @@ export default function Officers() {
                 badge_number: '',
                 phone: '',
                 skills: '',
-                employment_status: 'active'
+                employment_status: 'active',
+                image_url: ''
             });
+            setNewOfficerFile(null);
+            setHighlightedId(data.id);
         }
     });
 
@@ -195,10 +235,10 @@ export default function Officers() {
             });
 
             setIsEditOpen(false);
-            // Updating selected officer locally to reflect changes immediately in the view
             if (selectedOfficer && selectedOfficer.id === variables.id) {
                 setSelectedOfficer(prev => prev ? ({ ...prev, ...variables.updates }) : null);
             }
+            setHighlightedId(variables.id);
         }
     });
 
@@ -227,13 +267,24 @@ export default function Officers() {
         }
     });
 
-    const handleAddOfficer = () => {
+    const handleAddOfficer = async () => {
         if (!newOfficer.full_name || !newOfficer.badge_number) {
             alert("Name and Badge Number are required.");
             return;
         }
+
+        let imageUrl = '';
+        if (newOfficerFile) {
+            try {
+                imageUrl = await fileToDataUrl(newOfficerFile);
+            } catch (e) {
+                console.error("Error reading file", e);
+            }
+        }
+
         const officerData = {
             ...newOfficer,
+            image_url: imageUrl,
             organization_id: organization?.id,
             skills: newOfficer.skills.split(',').map(s => s.trim()).filter(s => s.length > 0)
         };
@@ -446,21 +497,6 @@ export default function Officers() {
 
     // --- FULL PAGE PROFILE VIEW ---
     if (selectedOfficer) {
-        // Auto-save hook for officer profile
-        const { status: autoSaveStatus, lastSaved, triggerSave } = useAutoSave({
-            onSave: async () => {
-                // Auto-save is handled by individual InlineEdit components
-                // This is just for visual feedback
-                await new Promise(resolve => setTimeout(resolve, 500));
-            },
-            debounceMs: 1500
-        });
-
-        const [noteText, setNoteText] = useState(selectedOfficer.notes || '');
-
-        useEffect(() => {
-            setNoteText(selectedOfficer.notes || '');
-        }, [selectedOfficer.id, selectedOfficer.notes]);
 
         return (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -484,7 +520,7 @@ export default function Officers() {
                         <div className="px-8 pb-8">
                             <div className="relative flex justify-between items-end -mt-12 mb-6">
                                 <div className="flex items-end gap-6">
-                                    <Avatar fallback={selectedOfficer.full_name.charAt(0)} className="h-32 w-32 border-4 border-background text-4xl shadow-md" />
+                                    <Avatar src={selectedOfficer.image_url} fallback={selectedOfficer.full_name.charAt(0)} className="h-32 w-32 border-4 border-background text-4xl shadow-md object-cover" />
                                     <div className="mb-2 space-y-1">
                                         <h1 className="text-3xl font-bold tracking-tight">
                                             <InlineEdit
@@ -534,8 +570,10 @@ export default function Officers() {
                                                 phone: selectedOfficer.phone,
                                                 badge_number: selectedOfficer.badge_number,
                                                 employment_status: selectedOfficer.employment_status,
-                                                skills: selectedOfficer.skills.join(', ') as any // Temporary cast for editing
+                                                skills: selectedOfficer.skills.join(', ') as any, // Temporary cast for editing
+                                                image_url: selectedOfficer.image_url
                                             });
+                                            setEditOfficerFile(null);
                                             setIsEditOpen(true);
                                         }}
                                     >
@@ -584,130 +622,17 @@ export default function Officers() {
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Hours (Lifetime)</p>
-                                    <p className="text-sm font-medium">{officerDetails?.stats.totalHours.toFixed(1) || 0} Hrs</p>
+                                    <p className="text-sm font-medium">{(officerDetails?.stats?.totalHours ?? 0).toFixed(1)} Hrs</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Incident Reports</p>
-                                    <p className="text-sm font-medium">{officerDetails?.stats.incidentCount || 0}</p>
+                                    <p className="text-sm font-medium">{officerDetails?.stats?.incidentCount ?? 0}</p>
                                 </div>
                             </div>
                         </div>
                     </Card>
 
-                    {/* EDIT OFFICER DIALOG */}
-                    <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Edit Officer Profile</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Full Name</Label>
-                                    <Input
-                                        value={editOfficerData.full_name || ''}
-                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, full_name: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Badge Number</Label>
-                                        <Input
-                                            value={editOfficerData.badge_number || ''}
-                                            onChange={(e) => setEditOfficerData(prev => ({ ...prev, badge_number: e.target.value }))}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Status</Label>
-                                        <select
-                                            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                                            value={editOfficerData.employment_status || 'active'}
-                                            onChange={(e) => setEditOfficerData(prev => ({ ...prev, employment_status: e.target.value as any }))}
-                                        >
-                                            <option value="active">Active</option>
-                                            <option value="onboarding">Onboarding</option>
-                                            <option value="terminated">Terminated</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Email</Label>
-                                    <Input
-                                        value={editOfficerData.email || ''}
-                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, email: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Phone</Label>
-                                    <Input
-                                        value={editOfficerData.phone || ''}
-                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, phone: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Skills (Comma separated)</Label>
-                                    <Input
-                                        value={editOfficerData.skills as any || ''}
-                                        onChange={(e) => setEditOfficerData(prev => ({ ...prev, skills: e.target.value as any }))}
-                                        placeholder="First Aid, K9, Armed"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                                <Button onClick={() => {
-                                    if (!selectedOfficer) return;
-
-                                    // Process skills back to array
-                                    const skillsString = editOfficerData.skills as unknown as string;
-                                    const skillsArray = skillsString && typeof skillsString === 'string'
-                                        ? skillsString.split(',').map(s => s.trim()).filter(s => s.length > 0)
-                                        : selectedOfficer.skills;
-
-                                    const updates = {
-                                        ...editOfficerData,
-                                        skills: skillsArray
-                                    };
-
-                                    updateOfficerMutation.mutate({ id: selectedOfficer.id, updates });
-                                }}>
-                                    Save Changes
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* DELETE CONFIRM DIALOG */}
-                    <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Delete Officer</DialogTitle>
-                            </DialogHeader>
-                            <div className="py-4 text-center space-y-2">
-                                <div className="flex justify-center mb-4">
-                                    <div className="p-3 bg-red-100 rounded-full animate-bounce">
-                                        <AlertCircle className="h-6 w-6 text-red-600" />
-                                    </div>
-                                </div>
-                                <p className="font-semibold text-lg">{selectedOfficer.full_name}</p>
-                                <p className="text-muted-foreground text-sm">
-                                    Are you sure you want to delete this officer? This action cannot be undone.
-                                </p>
-                                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 text-left mt-4">
-                                    <strong>Warning:</strong> Deleting an officer does not delete their past history in shifts/reports,
-                                    but they will no longer be assignable.
-                                </div>
-                            </div>
-                            <DialogFooter className="gap-2 sm:gap-0">
-                                <Button variant="ghost" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={() => selectedOfficer && deleteOfficerMutation.mutate(selectedOfficer.id)}
-                                >
-                                    Delete Permanently
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    {/* Delete and Edit dialogs were moved to the bottom of the main component */}
 
                     <Tabs defaultValue="overview" className="space-y-4">
                         <TabsList className="bg-card border border-border p-1 h-auto gap-2">
@@ -855,7 +780,7 @@ export default function Officers() {
                                                 <div className="mt-1 p-1.5 rounded-full bg-green-100 text-green-700"><CheckCircle2 className="h-4 w-4" /></div>
                                                 <div>
                                                     <p className="text-sm font-medium">Clocked in at {entry.shift?.site?.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(entry.clock_in).toLocaleString()} • {entry.total_hours.toFixed(2)} hrs logged</p>
+                                                    <p className="text-xs text-muted-foreground">{new Date(entry.clock_in).toLocaleString()} • {(entry.total_hours ?? 0).toFixed(2)} hrs logged</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -1086,7 +1011,7 @@ export default function Officers() {
                                                     className="shrink-0"
                                                 />
                                             )}
-                                            <Avatar fallback={officer.full_name.charAt(0)} className="h-12 w-12" />
+                                            <Avatar src={officer.image_url} fallback={officer.full_name.charAt(0)} className="h-12 w-12 object-cover" />
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-semibold truncate">
                                                     <HighlightedText text={officer.full_name} searchTerm={searchTerm} />
@@ -1156,21 +1081,21 @@ export default function Officers() {
                     ) : (
                         // List view implementation with StickyTable
                         <StickyTableContainer maxHeight="600px">
-                            <StickyTable>
+                            <StickyTable className="table-fixed min-w-full">
                                 <StickyTableHeader>
                                     <tr>
                                         {isMultiSelectMode && (
-                                            <StickyTableCell isHeader className="w-10">
+                                            <StickyTableCell isHeader className="w-10" style={{ width: '40px', minWidth: '40px' }}>
                                                 <Checkbox
                                                     checked={selectedOfficers.size === currentOfficers.length && currentOfficers.length > 0}
                                                     onChange={toggleAllOfficers}
                                                 />
                                             </StickyTableCell>
                                         )}
-                                        <StickyTableCell isHeader>Officer</StickyTableCell>
-                                        <StickyTableCell isHeader>Badge #</StickyTableCell>
-                                        <StickyTableCell isHeader>Status</StickyTableCell>
-                                        <StickyTableCell isHeader className="text-right">Actions</StickyTableCell>
+                                        <StickyResizableHeaderCell id="officer-name" defaultWidth={300} minWidth={200}>Officer</StickyResizableHeaderCell>
+                                        <StickyResizableHeaderCell id="badge-num" defaultWidth={120} minWidth={80}>Badge #</StickyResizableHeaderCell>
+                                        <StickyResizableHeaderCell id="status" defaultWidth={120} minWidth={100}>Status</StickyResizableHeaderCell>
+                                        <StickyResizableHeaderCell id="actions" defaultWidth={100} minWidth={80} className="text-right">Actions</StickyResizableHeaderCell>
                                     </tr>
                                 </StickyTableHeader>
                                 <StickyTableBody>
@@ -1178,7 +1103,9 @@ export default function Officers() {
                                         <div key={officer.id} className="contents">
                                             <StickyTableRow
                                                 className={cn(
-                                                    !isMultiSelectMode && "cursor-pointer"
+                                                    "group",
+                                                    !isMultiSelectMode && "cursor-pointer",
+                                                    officer.id === highlightedId && "bg-yellow-100/50 dark:bg-yellow-900/20"
                                                 )}
                                                 onClick={() => !isMultiSelectMode && setSelectedOfficer(officer)}
                                             >
@@ -1194,7 +1121,7 @@ export default function Officers() {
                                                 )}
                                                 <StickyTableCell>
                                                     <div className="flex items-center gap-3">
-                                                        <Avatar fallback={officer.full_name.charAt(0)} className="h-8 w-8" />
+                                                        <Avatar src={officer.image_url} fallback={officer.full_name.charAt(0)} className="h-8 w-8 object-cover" />
                                                         <div className="flex flex-col">
                                                             <span className="font-medium">
                                                                 <HighlightedText text={officer.full_name} searchTerm={searchTerm} />
@@ -1215,17 +1142,48 @@ export default function Officers() {
                                                 </StickyTableCell>
                                                 <StickyTableCell className="text-right">
                                                     {!isMultiSelectMode && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-primary font-bold hover:bg-primary/10"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedOfficer(officer);
-                                                            }}
-                                                        >
-                                                            View 360°
-                                                        </Button>
+                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedOfficer(officer);
+                                                                    setEditOfficerData({
+                                                                        ...officer,
+                                                                        skills: officer.skills.join(', ') as any
+                                                                    });
+                                                                    setEditOfficerFile(null);
+                                                                    setIsEditOpen(true);
+                                                                }}
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedOfficer(officer);
+                                                                    setIsDeleteConfirmOpen(true);
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-primary"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedOfficer(officer);
+                                                                }}
+                                                            >
+                                                                <ChevronRight className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     )}
                                                 </StickyTableCell>
                                             </StickyTableRow>
@@ -1294,6 +1252,16 @@ export default function Officers() {
                         <SheetTitle>Onboard New Officer</SheetTitle>
                     </SheetHeader>
                     <div className="py-6 space-y-6">
+                        <div className="flex justify-center">
+                            <div className="w-full max-w-xs">
+                                <FileDragUpload
+                                    onFilesSelected={(files) => setNewOfficerFile(files[0])}
+                                    title="Officer Photo"
+                                    description="Upload a profile picture"
+                                    className="h-40"
+                                />
+                            </div>
+                        </div>
                         <div className="space-y-1">
                             <Label>First & Last Name</Label>
                             <Input value={newOfficer.full_name} onChange={(e) => setNewOfficer(p => ({ ...p, full_name: e.target.value }))} placeholder="e.g. James Godonu" />
@@ -1347,6 +1315,137 @@ export default function Officers() {
                 onClose={closeLightbox}
                 onNavigate={navigateTo}
             />
+
+            {/* EDIT OFFICER DIALOG */}
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Officer Profile</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-full max-w-xs">
+                                <FileDragUpload
+                                    onFilesSelected={(files) => setEditOfficerFile(files[0])}
+                                    title="Update Profile Photo"
+                                    className="h-32"
+                                    existingFiles={editOfficerData.image_url ? [editOfficerData.image_url] : []}
+                                    onRemoveExisting={() => setEditOfficerData(prev => ({ ...prev, image_url: '' }))}
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Full Name</Label>
+                            <Input
+                                value={editOfficerData.full_name || ''}
+                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, full_name: e.target.value }))}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Badge Number</Label>
+                                <Input
+                                    value={editOfficerData.badge_number || ''}
+                                    onChange={(e) => setEditOfficerData(prev => ({ ...prev, badge_number: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Status</Label>
+                                <select
+                                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                    value={editOfficerData.employment_status || 'active'}
+                                    onChange={(e) => setEditOfficerData(prev => ({ ...prev, employment_status: e.target.value as any }))}
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="onboarding">Onboarding</option>
+                                    <option value="terminated">Terminated</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Email</Label>
+                            <Input
+                                value={editOfficerData.email || ''}
+                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, email: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Phone</Label>
+                            <Input
+                                value={editOfficerData.phone || ''}
+                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, phone: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Skills (Comma separated)</Label>
+                            <Input
+                                value={editOfficerData.skills as any || ''}
+                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, skills: e.target.value as any }))}
+                                placeholder="First Aid, K9, Armed"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                        <Button onClick={async () => {
+                            if (!selectedOfficer) return;
+
+                            // Process skills back to array
+                            const skillsString = editOfficerData.skills as unknown as string;
+                            const skillsArray = skillsString && typeof skillsString === 'string'
+                                ? skillsString.split(',').map(s => s.trim()).filter(s => s.length > 0)
+                                : selectedOfficer.skills;
+
+                            const updates = {
+                                ...editOfficerData,
+                                skills: skillsArray,
+                                image_url: editOfficerData.image_url // Keep existing URL unless overridden below
+                            };
+
+                            if (editOfficerFile) {
+                                updates.image_url = await fileToDataUrl(editOfficerFile);
+                            }
+
+                            updateOfficerMutation.mutate({ id: selectedOfficer.id, updates });
+                        }}>
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* DELETE CONFIRM DIALOG */}
+            <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Officer</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 text-center space-y-2">
+                        <div className="flex justify-center mb-4">
+                            <div className="p-3 bg-red-100 rounded-full animate-bounce">
+                                <AlertCircle className="h-6 w-6 text-red-600" />
+                            </div>
+                        </div>
+                        <p className="font-semibold text-lg">{selectedOfficer?.full_name}</p>
+                        <p className="text-muted-foreground text-sm">
+                            Are you sure you want to delete this officer? This action cannot be undone.
+                        </p>
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 text-left mt-4">
+                            <strong>Warning:</strong> Deleting an officer does not delete their past history in shifts/reports,
+                            but they will no longer be assignable.
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="ghost" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => selectedOfficer && deleteOfficerMutation.mutate(selectedOfficer.id)}
+                        >
+                            Delete Permanently
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

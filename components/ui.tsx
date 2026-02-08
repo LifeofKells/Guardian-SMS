@@ -338,3 +338,33 @@ export function Tooltip({ children, content, side = 'right' }: { children: React
     </div>
   );
 }
+
+// --- RE-EXPORTS FOR NEW FEATURES ---
+export { useBreadcrumbs } from '../contexts/BreadcrumbContext';
+export { BreadcrumbNav } from './BreadcrumbNav';
+export { useTabPersistence, useMultiTabPersistence } from '../hooks/useTabPersistence';
+export { SlidePanel, FilterPanel, DetailsPanel, EditPanel } from './SlidePanel';
+export { PageTransition, AnimatedPage, StaggeredList, CrossFade } from './PageTransition';
+export { 
+  CollapsibleSection, 
+  Accordion, 
+  ExpandableDetails, 
+  FormSection, 
+  ShowMore, 
+  InfoDisclosure 
+} from './ProgressiveDisclosure';
+export { 
+  NotificationProvider, 
+  NotificationBell, 
+  useNotifications, 
+  useDemoNotifications 
+} from './NotificationCenter';
+export type { Notification } from './NotificationCenter';
+export {
+  ActivityFeedProvider,
+  LiveActivityPulse,
+  LiveActivityWidget,
+  ActivityStream,
+  useActivityFeed
+} from './LiveActivityPulse';
+export type { ActivityEvent, ActivityType } from './LiveActivityPulse';
