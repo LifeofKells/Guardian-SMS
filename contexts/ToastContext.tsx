@@ -9,6 +9,8 @@ interface Toast {
   title: string;
   description?: string;
   duration?: number;
+  actionLabel?: string;
+  action?: () => void;
 }
 
 interface ToastContextType {
@@ -28,9 +30,9 @@ export function ToastProvider({ children }: { children?: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const addToast = useCallback(({ type, title, description, duration = 5000 }: Omit<Toast, 'id'>) => {
+  const addToast = useCallback(({ type, title, description, duration = 5000, actionLabel, action }: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).substring(2, 9);
-    const newToast = { id, type, title, description, duration };
+    const newToast = { id, type, title, description, duration, actionLabel, action };
     
     setToasts((prev) => [...prev, newToast]);
 

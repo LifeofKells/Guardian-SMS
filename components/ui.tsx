@@ -13,7 +13,7 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
   return (
     <label
       className={cn(
-        "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-slate-700 dark:text-slate-200 mb-2 block",
+        "text-xs font-medium leading-none tracking-wide uppercase text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-1.5 block",
         className
       )}
       {...props}
@@ -40,24 +40,24 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'default', loading, disabled, children, ...props }, ref) => {
     const variants = {
-      default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm border border-transparent',
-      outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground shadow-sm',
+      default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+      outline: 'border border-border bg-transparent hover:bg-accent hover:text-accent-foreground',
       ghost: 'hover:bg-accent hover:text-accent-foreground',
-      destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm border border-transparent',
-      secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm border border-transparent',
+      destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+      secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
       link: 'text-primary underline-offset-4 hover:underline',
     };
     const sizes = {
-      sm: 'h-9 px-3 text-xs',
-      default: 'h-10 px-4 py-2',
-      lg: 'h-11 px-8 text-base',
-      icon: 'h-9 w-9',
+      sm: 'h-7 rounded-md px-2.5 text-xs',
+      default: 'h-9 rounded-md px-4 py-2',
+      lg: 'h-10 rounded-md px-6 text-sm',
+      icon: 'h-8 w-8 rounded-md',
     };
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-95 ease-spring',
+          'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
           variants[variant],
           sizes[size],
           className
@@ -82,15 +82,13 @@ Button.displayName = "Button"
 type CardProps = React.PropsWithChildren<{
   className?: string;
   hoverLift?: boolean;
-  glass?: boolean;
 }> & React.HTMLAttributes<HTMLDivElement>;
-export function Card({ className, hoverLift = false, glass = true, ...props }: CardProps) {
+export function Card({ className, hoverLift = false, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-2xl border border-border text-card-foreground shadow-sm transition-all',
-        glass === false ? 'bg-card' : 'glass-card',
-        hoverLift && 'hover-lift cursor-pointer',
+        'rounded-lg border border-border bg-card text-card-foreground transition-colors',
+        hoverLift && 'hover:border-muted-foreground/25 cursor-pointer',
         className
       )}
       {...props}
@@ -98,27 +96,27 @@ export function Card({ className, hoverLift = false, glass = true, ...props }: C
   );
 }
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />;
+  return <div className={cn('flex flex-col space-y-1 p-5 pb-3', className)} {...props} />;
 }
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-lg font-semibold leading-none tracking-tight', className)} {...props} />;
+  return <h3 className={cn('text-sm font-semibold leading-none tracking-tight', className)} {...props} />;
 }
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-6 pt-0', className)} {...props} />;
+  return <div className={cn('p-5 pt-0', className)} {...props} />;
 }
 
 // --- BADGE ---
 export function Badge({ className, variant = 'default', ...props }: React.HTMLAttributes<HTMLDivElement> & { variant?: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning' }) {
   const variants = {
-    default: 'border-transparent bg-primary/15 text-primary hover:bg-primary/25',
-    secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
-    destructive: 'border-transparent bg-destructive/15 text-destructive hover:bg-destructive/25',
+    default: 'border-transparent bg-primary/15 text-primary',
+    secondary: 'border-transparent bg-secondary text-secondary-foreground',
+    destructive: 'border-transparent bg-destructive/15 text-destructive',
     outline: 'text-foreground border-border',
-    success: 'border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25',
-    warning: 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25',
+    success: 'border-transparent bg-emerald-500/10 text-emerald-400',
+    warning: 'border-transparent bg-amber-500/10 text-amber-400',
   };
   return (
-    <div className={cn('inline-flex items-center rounded-lg border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2', variants[variant], className)} {...props} />
+    <div className={cn('inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide transition-colors', variants[variant], className)} {...props} />
   );
 }
 
@@ -142,7 +140,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-xl border border-input bg-card/50 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:border-accent-foreground/30",
+          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 transition-colors",
           className
         )}
         ref={ref}
@@ -159,8 +157,29 @@ const TabsContext = React.createContext<{
   setActiveTab: (value: string) => void;
 } | null>(null);
 
-export function Tabs({ className, defaultValue, children }: { className?: string, defaultValue: string, children?: React.ReactNode }) {
-  const [activeTab, setActiveTab] = React.useState(defaultValue);
+export function Tabs({
+  className,
+  defaultValue,
+  value,
+  onValueChange,
+  children
+}: {
+  className?: string,
+  defaultValue: string,
+  value?: string,
+  onValueChange?: (value: string) => void,
+  children?: React.ReactNode
+}) {
+  const [internalActiveTab, setInternalActiveTab] = React.useState(defaultValue);
+  const isControlled = value !== undefined;
+  const activeTab = isControlled ? value : internalActiveTab;
+
+  const setActiveTab = (nextValue: string) => {
+    if (!isControlled) {
+      setInternalActiveTab(nextValue);
+    }
+    onValueChange?.(nextValue);
+  };
 
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>
@@ -173,7 +192,7 @@ export function Tabs({ className, defaultValue, children }: { className?: string
 
 export function TabsList({ className, children }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground", className)}>
+    <div className={cn("inline-flex h-9 items-center gap-1 border-b border-border text-muted-foreground", className)}>
       {children}
     </div>
   );
@@ -189,8 +208,8 @@ export function TabsTrigger({ className, value, children }: React.ButtonHTMLAttr
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
-        isActive ? "bg-background text-foreground shadow-sm" : "hover:bg-background/50 hover:text-foreground",
+        "inline-flex items-center justify-center whitespace-nowrap px-3 pb-2 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 border-b-2 -mb-px",
+        isActive ? "border-primary text-foreground" : "border-transparent hover:text-foreground hover:border-muted-foreground/30",
         className
       )}
       onClick={() => setActiveTab(value)}
@@ -228,11 +247,11 @@ export function Dialog({ open, onOpenChange, children, className, overlayClassNa
 
   return (
     <div
-      className={cn("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200", overlayClassName)}
+      className={cn("fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-150", overlayClassName)}
       onClick={() => onOpenChange?.(false)}
     >
       <div
-        className={cn("relative bg-card/80 backdrop-blur-2xl w-full max-w-lg rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300", className)}
+        className={cn("relative bg-card w-full max-w-lg rounded-lg border border-border flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 zoom-in-95 duration-150 ease-out", className)}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -271,13 +290,13 @@ export function Sheet({ open, onOpenChange, children }: { open?: boolean, onOpen
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => onOpenChange?.(false)}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 animate-in fade-in duration-150" onClick={() => onOpenChange?.(false)}>
       <div
-        className="relative w-full max-w-md bg-card/70 backdrop-blur-xl border-l border-border shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
+        className="relative w-full max-w-md bg-card border-l border-border h-full flex flex-col animate-in slide-in-from-right duration-200 ease-out"
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10 bg-muted/50 p-1"
+          className="absolute right-4 top-4 rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 hover:bg-accent focus:outline-none z-10 p-1.5"
           onClick={() => onOpenChange?.(false)}
         >
           <X className="h-4 w-4" />
@@ -318,21 +337,13 @@ export function Tooltip({ children, content, side = 'right' }: { children: React
       {children}
       {isVisible && (
         <div className={cn(
-          "absolute z-50 px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-md shadow-lg whitespace-nowrap animate-in fade-in zoom-in-95 duration-200 pointer-events-none",
+          "absolute z-50 px-2 py-1 text-xs font-medium bg-foreground text-background rounded-md whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 pointer-events-none",
           side === 'right' && "left-full ml-2",
           side === 'left' && "right-full mr-2",
           side === 'top' && "bottom-full mb-2 left-1/2 -translate-x-1/2",
           side === 'bottom' && "top-full mt-2 left-1/2 -translate-x-1/2"
         )}>
           {content}
-          {/* Arrow */}
-          <div className={cn(
-            "absolute w-0 h-0 border-[5px] border-transparent",
-            side === 'right' && "border-r-slate-900 right-full top-1/2 -translate-y-1/2",
-            side === 'left' && "border-l-slate-900 left-full top-1/2 -translate-y-1/2",
-            side === 'top' && "border-t-slate-900 top-full left-1/2 -translate-x-1/2",
-            side === 'bottom' && "border-b-slate-900 bottom-full left-1/2 -translate-x-1/2"
-          )} />
         </div>
       )}
     </div>
@@ -345,26 +356,18 @@ export { BreadcrumbNav } from './BreadcrumbNav';
 export { useTabPersistence, useMultiTabPersistence } from '../hooks/useTabPersistence';
 export { SlidePanel, FilterPanel, DetailsPanel, EditPanel } from './SlidePanel';
 export { PageTransition, AnimatedPage, StaggeredList, CrossFade } from './PageTransition';
-export { 
-  CollapsibleSection, 
-  Accordion, 
-  ExpandableDetails, 
-  FormSection, 
-  ShowMore, 
-  InfoDisclosure 
+export {
+  CollapsibleSection,
+  Accordion,
+  ExpandableDetails,
+  FormSection,
+  ShowMore,
+  InfoDisclosure
 } from './ProgressiveDisclosure';
-export { 
-  NotificationProvider, 
-  NotificationBell, 
-  useNotifications, 
-  useDemoNotifications 
+export {
+  NotificationProvider,
+  NotificationBell,
+  useNotifications,
+  useDemoNotifications
 } from './NotificationCenter';
 export type { Notification } from './NotificationCenter';
-export {
-  ActivityFeedProvider,
-  LiveActivityPulse,
-  LiveActivityWidget,
-  ActivityStream,
-  useActivityFeed
-} from './LiveActivityPulse';
-export type { ActivityEvent, ActivityType } from './LiveActivityPulse';

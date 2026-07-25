@@ -151,11 +151,11 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
                                     <div className="bg-primary p-2 rounded-lg">
                                         <ShieldCheck className="h-8 w-8 text-white" />
                                     </div>
-                                    <span className="text-3xl font-black tracking-tighter uppercase italic">Guardian</span>
+                                    <span className="text-3xl font-black tracking-tighter uppercase italic">Pro Guard</span>
                                 </div>
                                 <div className="space-y-1 text-sm text-slate-500">
                                     <p>500 Security Plaza, Los Angeles, CA 90210</p>
-                                    <p>Dispatch: (555) 911-0000 • support@guardiansms.com</p>
+                                    <p>Dispatch: (555) 911-0000 • support@proguard.com</p>
                                 </div>
                             </div>
                             <div className="text-right">
@@ -295,7 +295,7 @@ export function DARPreview({ open, onOpenChange, data }: DARPreviewProps) {
                         <div className="mt-20 text-center border-t border-border pt-6">
                             <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-medium mb-2">Confidential Proprietary Information</p>
                             <p className="text-[9px] text-slate-300 leading-relaxed max-w-lg mx-auto italic">
-                                This report is the property of Guardian Security Management Systems and is intended solely for the person or entity to which it is addressed. Any unauthorized review, use, disclosure, or distribution is prohibited.
+                                This report is the property of Pro Guard Security Management Systems and is intended solely for the person or entity to which it is addressed. Any unauthorized review, use, disclosure, or distribution is prohibited.
                             </p>
                         </div>
                     </div>

@@ -5,6 +5,7 @@ import { db } from '../lib/db';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { Star, MessageSquare, Loader2, User, CheckCircle2 } from 'lucide-react';
+import { EmptyState, EMPTY_STATES } from '../components/EmptyState';
 
 export default function Feedback() {
     const { profile, organization } = useAuth(); // Added organization
@@ -84,7 +85,7 @@ export default function Feedback() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-bold tracking-tight">Shift Feedback</h2>
+                    <h2 className="text-lg font-bold tracking-tight">Shift Feedback</h2>
                     <p className="text-sm text-muted-foreground">{isClient ? 'Rate recent shifts and help us improve.' : 'View client feedback and ratings.'}</p>
                 </div>
             </div>
@@ -107,7 +108,14 @@ export default function Feedback() {
             )}
 
             <div className="grid gap-4">
-                {feedbackList.length === 0 && <div className="p-8 text-center text-muted-foreground border border-border rounded-lg bg-card">No feedback history found.</div>}
+                {feedbackList.length === 0 && (
+                    <EmptyState
+                        icon={MessageSquare}
+                        title="No Feedback Found"
+                        description={isClient ? "You haven't submitted any feedback yet." : "No client feedback has been received."}
+                        size="md"
+                    />
+                )}
                 {feedbackList.map(item => (
                     <Card key={item.id}>
                         <CardContent className="p-4">

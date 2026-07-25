@@ -129,6 +129,12 @@ export interface TimeEntry {
     pay_rate: number;
     bill_rate: number;
   };
+  billing_status?: 'unbilled' | 'invoiced';
+  invoice_id?: string | null;
+  invoiced_at?: string;
+  payroll_status?: 'ready' | 'processed';
+  payroll_run_id?: string | null;
+  payroll_processed_at?: string;
 }
 
 export interface Incident {
@@ -152,6 +158,7 @@ export interface PayrollRun {
   status: 'draft' | 'processing' | 'paid';
   officer_count: number;
   processed_at?: string;
+  time_entry_ids?: string[];
 }
 
 export interface Invoice {
@@ -164,6 +171,7 @@ export interface Invoice {
   amount: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
   items?: Array<{ description: string; quantity: number; rate: number; amount: number }>;
+  time_entry_ids?: string[];
 }
 
 export interface Feedback {
@@ -175,6 +183,36 @@ export interface Feedback {
   comments?: string;
   created_at: string;
   status: 'new' | 'reviewed';
+}
+
+export type MessagingChannelType = 'command' | 'site' | 'shift' | 'announcement' | 'direct';
+
+export interface MessageChannel {
+  id: string;
+  organization_id: string;
+  name: string;
+  type: MessagingChannelType;
+  description?: string;
+  pinned?: boolean;
+  member_ids?: string[];
+  last_message_at?: string;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface ChannelMessage {
+  id: string;
+  organization_id: string;
+  channel_id: string;
+  parent_message_id?: string | null;
+  sender_id: string;
+  sender_name: string;
+  sender_role?: Role;
+  message: string;
+  priority?: 'normal' | 'urgent';
+  pinned?: boolean;
+  read_by?: string[];
+  created_at: string;
 }
 
 export interface AuditLog {
@@ -411,4 +449,3 @@ export interface ShiftRating {
   notes?: string;
   created_at: string;
 }
-

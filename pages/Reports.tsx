@@ -105,7 +105,7 @@ export default function Reports() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold tracking-tight">Reports & Analytics</h2>
+                <h2 className="text-lg font-bold tracking-tight">Reports & Analytics</h2>
                 {!isClient && (
                     <Button variant="outline" className="gap-2">
                         <Download className="h-4 w-4" /> Export Report
@@ -227,7 +227,17 @@ export default function Reports() {
                                                     </tr>
                                                 ))}
                                                 {billingStats.length === 0 && (
-                                                    <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No billing data available.</td></tr>
+                                                    <tr>
+                                                        <td colSpan={4} className="p-8">
+                                                            <EmptyState
+                                                                icon={DollarSign}
+                                                                title="No billing data available"
+                                                                description="Billing stats will appear here once shifts are completed and approved."
+                                                                size="sm"
+                                                                variant="default"
+                                                            />
+                                                        </td>
+                                                    </tr>
                                                 )}
                                             </tbody>
                                         </table>
@@ -248,7 +258,7 @@ export default function Reports() {
                     <div className="border border-border p-6 rounded-md bg-card text-sm space-y-4 max-h-[60vh] overflow-y-auto">
                         <div className="flex justify-between border-b pb-4">
                             <div>
-                                <h3 className="font-bold text-lg">Guardian Security</h3>
+                                <h3 className="font-bold text-lg">Pro Guard</h3>
                                 <p className="text-muted-foreground">Daily Activity Report</p>
                             </div>
                             <div className="text-right">

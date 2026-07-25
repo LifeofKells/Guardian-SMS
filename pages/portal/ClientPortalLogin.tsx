@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useClientPortalAuth } from '../../contexts/ClientPortalAuthContext';
 import { Button, Input, Label } from '../../components/ui';
-import { Lock, Mail, Loader2, Shield, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Lock, Mail, Loader2, Shield, Eye, EyeOff, ArrowRight, ShieldCheck, Activity, BarChart4 } from 'lucide-react';
 
 export function ClientPortalLogin() {
     const { login, isLoading } = useClientPortalAuth();
@@ -29,193 +29,199 @@ export function ClientPortalLogin() {
     };
 
     return (
-        <div className="min-h-screen flex">
-            {/* Left Panel - Branding */}
-            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-                {/* Dynamic gradient background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900" />
+        <div className="min-h-screen flex bg-background selection:bg-primary/30">
+            {/* Left Panel - Immersive Branding */}
+            <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden bg-slate-950">
+                {/* Immersive Deep Space Gradient */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950" />
 
-                {/* Animated background shapes */}
-                <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute -top-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute top-1/2 -right-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-                    <div className="absolute bottom-20 left-1/4 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+                {/* Animated organic orbs */}
+                <div className="absolute inset-0 overflow-hidden opacity-60">
+                    <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '12s', animationDelay: '2s' }} />
                 </div>
 
-                {/* Grid pattern overlay */}
-                <div className="absolute inset-0 opacity-10" style={{
-                    backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
-                    backgroundSize: '50px 50px'
+                {/* Refined Grid Engine Pattern */}
+                <div className="absolute inset-0 opacity-[0.03]" style={{
+                    backgroundImage: 'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
+                    backgroundSize: '4rem 4rem'
                 }} />
 
-                {/* Content */}
-                <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-                                <Shield className="h-7 w-7 text-white" />
-                            </div>
-                            <span className="text-2xl font-bold tracking-tight">Client Portal</span>
+                {/* Foreground Content */}
+                <div className="relative z-10 flex flex-col justify-between p-16 w-full h-full text-slate-100">
+                    <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-2xl glass-gradient-border">
+                            <ShieldCheck className="h-8 w-8 text-primary" />
                         </div>
+                        <span className="text-3xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
+                            Pro Guard
+                        </span>
                     </div>
 
-                    <div className="space-y-8">
-                        <h1 className="text-5xl font-bold leading-tight">
-                            Real-time visibility<br />
-                            into your security<br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">services.</span>
+                    <div className="max-w-xl space-y-10">
+                        <h1 className="text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6">
+                            Client Intelligence <br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-indigo-400">Portal.</span>
                         </h1>
-                        <p className="text-lg text-slate-300 max-w-md">
-                            Monitor coverage, track incidents, and communicate directly with your security team — all in one place.
+                        <p className="text-xl text-slate-400 font-light leading-relaxed max-w-lg">
+                            Monitor live operations, access detailed incident reports, and measure service performance in flawless real-time.
                         </p>
 
-                        {/* Feature highlights */}
-                        <div className="grid grid-cols-2 gap-4 pt-4">
-                            {[
-                                { label: 'Live Coverage', desc: 'Real-time shift visibility' },
-                                { label: 'Incident Reports', desc: 'Detailed documentation' },
-                                { label: 'Service Requests', desc: 'Direct communication' },
-                                { label: 'Monthly Analytics', desc: 'Performance insights' },
-                            ].map((feature, i) => (
-                                <div key={i} className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-                                    <p className="font-semibold text-white">{feature.label}</p>
-                                    <p className="text-sm text-slate-400 mt-1">{feature.desc}</p>
-                                </div>
-                            ))}
+                        {/* Floating Feature Cards */}
+                        <div className="grid grid-cols-2 gap-6 pt-8">
+                            <div className="p-6 rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 shadow-xl hover:bg-white/10 transition-colors duration-300 group">
+                                <Activity className="h-8 w-8 text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-300" />
+                                <p className="font-semibold text-white text-lg mb-1">Live Feed</p>
+                                <p className="text-sm text-slate-400">Instant visibility into on-site guard activity.</p>
+                            </div>
+                            <div className="p-6 rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 shadow-xl hover:bg-white/10 transition-colors duration-300 group">
+                                <BarChart4 className="h-8 w-8 text-indigo-400 mb-4 group-hover:scale-110 transition-transform duration-300" />
+                                <p className="font-semibold text-white text-lg mb-1">Deep Analytics</p>
+                                <p className="text-sm text-slate-400">Metrics, coverage data, and KPI tracking.</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="text-sm text-slate-400">
-                        Protected by enterprise-grade security
+                    <div className="flex items-center gap-8 text-sm font-medium text-slate-500">
+                        <div className="flex items-center gap-2">
+                            <Lock className="h-4 w-4 text-slate-400" />
+                            End-to-End Encrypted
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-slate-400" />
+                            SOC 2 Type II
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Right Panel - Login Form */}
-            <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
-                <div className="w-full max-w-md">
-                    {/* Mobile logo */}
-                    <div className="lg:hidden text-center mb-8">
-                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 mb-4 shadow-lg shadow-blue-500/25">
-                            <Shield className="h-9 w-9 text-white" />
+            {/* Right Panel - Login Interface */}
+            <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 relative overflow-hidden bg-background">
+
+                {/* Subtle light mode background flare */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none dark:hidden">
+                    <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[100px]" />
+                </div>
+
+                <div className="w-full max-w-[440px] relative z-10 w-full animate-in slide-in-from-bottom-8 zoom-in-[0.98] duration-700 ease-out">
+                    {/* Mobile Branding */}
+                    <div className="lg:hidden text-center mb-10 flex flex-col items-center">
+                        <div className="h-16 w-16 rounded-3xl bg-primary text-primary-foreground flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] mb-6">
+                            <ShieldCheck className="h-8 w-8" />
                         </div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Client Portal</h1>
+                        <h1 className="text-3xl font-black tracking-tighter uppercase italic">Pro Guard</h1>
                     </div>
 
-                    {/* Form Card */}
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 p-8 border border-slate-200 dark:border-slate-700">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Welcome back</h2>
-                            <p className="text-slate-500 dark:text-slate-400 mt-2">Sign in to access your security dashboard</p>
+                    {/* Premium Form Container */}
+                    <div className="glass-card-depth p-8 sm:p-10 rounded-[2rem]">
+                        <div className="text-center mb-10">
+                            <h2 className="text-3xl font-bold text-foreground tracking-tight mb-3">Welcome back</h2>
+                            <p className="text-muted-foreground font-medium text-sm">Secure access to your intelligence dashboard</p>
                         </div>
 
-                        {/* Demo Credentials Helper */}
-                        <div className="mb-6 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                            <p className="text-sm text-blue-700 dark:text-blue-400 mb-2 font-medium">🔑 Demo Mode</p>
-                            <p className="text-xs text-blue-600 dark:text-blue-500 mb-3">
-                                First, generate data in the main app Settings → "Generate Standard Data"
-                            </p>
-                            <button
-                                type="button"
-                                onClick={fillDemoCredentials}
-                                className="w-full text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                            >
-                                Use Demo Credentials
-                            </button>
+                        {/* Interactive Demo Callout */}
+                        <div className="mb-8 p-5 rounded-3xl bg-primary/5 border border-primary/20 relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-primary/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500 rounded-3xl" />
+                            <div className="relative z-10">
+                                <p className="text-sm font-bold text-primary mb-2 flex items-center gap-2">
+                                    <span className="text-lg">✨</span> Demo Account
+                                </p>
+                                <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                                    Auto-fill with mock client credentials to explore the portal features right away.
+                                </p>
+                                <Button
+                                    type="button"
+                                    onClick={fillDemoCredentials}
+                                    variant="outline"
+                                    className="w-full h-10 rounded-xl bg-background/50 backdrop-border text-xs uppercase tracking-wider font-bold text-primary border-primary/20 hover:bg-primary hover:text-white transition-all duration-300"
+                                >
+                                    Auto-Fill Demo Info
+                                </Button>
+                            </div>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             {error && (
-                                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-800/30 flex items-center justify-center shrink-0">
+                                <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                                    <div className="h-8 w-8 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
                                         <Lock className="h-4 w-4" />
                                     </div>
-                                    <span>{error}</span>
+                                    <span className="font-medium leading-relaxed pt-1.5">{error}</span>
                                 </div>
                             )}
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">Email Address</Label>
+                                <Label htmlFor="email" className="text-xs uppercase tracking-widest font-bold text-muted-foreground ml-1">Email Address</Label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 group-focus-within:text-primary transition-colors duration-300" />
                                     <Input
                                         id="email"
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="you@company.com"
-                                        className="pl-12 h-12 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20 transition-all"
+                                        className="pl-12 h-14 bg-background border-border/60 hover:border-border focus:border-primary shadow-sm rounded-2xl text-base"
                                         required
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">Password</Label>
-                                    <a href="#" className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
-                                        Forgot password?
+                                <div className="flex justify-between items-baseline mb-2">
+                                    <Label htmlFor="password" className="text-xs uppercase tracking-widest font-bold text-muted-foreground ml-1 mb-0">Password</Label>
+                                    <a href="#" className="text-xs font-bold text-primary hover:text-primary/80 transition-colors">
+                                        Recover
                                     </a>
                                 </div>
                                 <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 group-focus-within:text-primary transition-colors duration-300" />
                                     <Input
                                         id="password"
                                         type={showPassword ? 'text' : 'password'}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="••••••••"
-                                        className="pl-12 pr-12 h-12 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20 transition-all"
+                                        className="pl-12 pr-12 h-14 bg-background border-border/60 hover:border-border focus:border-primary shadow-sm rounded-2xl text-base"
                                         required
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors p-1"
                                     >
                                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                     </button>
                                 </div>
                             </div>
 
-                            <Button
-                                type="submit"
-                                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-300"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                        Signing in...
-                                    </>
-                                ) : (
-                                    <>
-                                        Sign In
-                                        <ArrowRight className="ml-2 h-5 w-5" />
-                                    </>
-                                )}
-                            </Button>
+                            <div className="pt-4">
+                                <Button
+                                    type="submit"
+                                    className="w-full h-14 text-base font-bold tracking-wide rounded-2xl group overflow-hidden relative shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_hsl(var(--primary)/0.4)]"
+                                    disabled={isLoading}
+                                >
+                                    <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                                            Authenticating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Access Portal
+                                            <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </form>
                     </div>
 
-                    <div className="mt-8 text-center">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Need portal access?{' '}
-                            <span className="text-slate-700 dark:text-slate-300 font-medium">Contact your security provider</span>
-                        </p>
-                    </div>
-
-                    {/* Trust badges */}
-                    <div className="mt-8 flex items-center justify-center gap-6 text-slate-400">
-                        <div className="flex items-center gap-2 text-xs">
-                            <Lock className="h-3.5 w-3.5" />
-                            <span>256-bit SSL</span>
-                        </div>
-                        <div className="h-4 w-px bg-slate-300" />
-                        <div className="flex items-center gap-2 text-xs">
-                            <Shield className="h-3.5 w-3.5" />
-                            <span>SOC 2 Compliant</span>
-                        </div>
+                    <div className="mt-10 text-center text-sm font-medium text-muted-foreground">
+                        Require elevated access?{' '}
+                        <a href="#" className="text-foreground hover:text-primary transition-colors border-b decoration-primary/30 border-primary/30 pb-0.5 inline-block ml-1">
+                            Contact Operations
+                        </a>
                     </div>
                 </div>
             </div>

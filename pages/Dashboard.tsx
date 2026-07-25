@@ -16,7 +16,6 @@ import { useToast } from '../contexts/ToastContext';
 import { useCommandCenter } from '../hooks/useRealtime';
 import { AlertBanner, AlertStack } from '../components/AlertBanner';
 import { PanicAlertModal } from '../components/PanicAlertModal';
-import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { EmptyState } from '../components/EmptyState';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { ActivityTrendChart, RevenueCostChart, OfficerStatusChart } from '../components/AnalyticsWidgets';
@@ -141,12 +140,6 @@ const OperationalStatusBoard = ({ sites, locations, panicAlerts, geofenceEvents 
                 </div>
             </div>
 
-            <BreadcrumbTrail
-                open={!!breadcrumbOfficer}
-                onOpenChange={(open) => !open && setBreadcrumbOfficer(null)}
-                officerId={breadcrumbOfficer?.id || ''}
-                officerName={breadcrumbOfficer?.name || ''}
-            />
         </div>
     );
 };
@@ -434,8 +427,8 @@ export default function Dashboard() {
         const suffix = String(value).match(/[^0-9]*$/)?.[0] || '';
 
         return (
-            <Card className="overflow-hidden hover:shadow-md transition-all duration-200">
-                <CardContent className="p-5">
+            <Card className="glass-card-depth hover-lift transition-all duration-300 rounded-[1.5rem] border-0">
+                <CardContent className="p-6">
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
@@ -451,10 +444,10 @@ export default function Dashboard() {
                                     value
                                 )}
                             </h3>
-                            <p className="text-xs text-muted-foreground mt-1">{subtext}</p>
+                            <p className="text-xs text-muted-foreground mt-1.5">{subtext}</p>
                         </div>
-                        <div className={`p-2.5 rounded-lg bg-opacity-10 dark:bg-opacity-20`} style={{ backgroundColor: `${colorClass}20` }}>
-                            <Icon className="h-5 w-5" style={{ color: colorClass }} />
+                        <div className={`p-3 rounded-2xl bg-opacity-10 dark:bg-opacity-20 shadow-inner`} style={{ backgroundColor: `${colorClass}15`, boxShadow: `inset 0 2px 10px ${colorClass}20` }}>
+                            <Icon className="h-6 w-6" style={{ color: colorClass }} />
                         </div>
                     </div>
                 </CardContent>
@@ -501,11 +494,11 @@ export default function Dashboard() {
             </AlertStack>
             {(isAdmin || isClient) && dashboardData ? (
                 // --- ADMIN & CLIENT COMMAND CENTER (TABBED) ---
-                <Tabs defaultValue="overview" className="space-y-6 animate-in fade-in duration-500">
+                <Tabs defaultValue="overview" className="space-y-8 animate-in slide-in-from-bottom-8 fade-in duration-700 ease-out">
                     {/* Header Status Bar */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-2xl font-bold tracking-tight text-foreground">{isClient ? 'Client Portal' : 'Command Center'}</h2>
+                            <h2 className="text-lg font-bold tracking-tight text-foreground">{isClient ? 'Client Portal' : 'Command Center'}</h2>
                             <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
                                 <span className="relative flex h-2.5 w-2.5">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -516,14 +509,14 @@ export default function Dashboard() {
                         </div>
                         {!isClient && (
                             <div className="flex items-center gap-3">
-                                <TabsList className="hidden md:flex">
+                                <TabsList className="hidden md:flex bg-muted/50 backdrop-blur border">
                                     <TabsTrigger value="overview">Overview</TabsTrigger>
                                     <TabsTrigger value="workforce">Workforce</TabsTrigger>
                                     <TabsTrigger value="finance">Finance</TabsTrigger>
                                     <TabsTrigger value="risk">Risk & Ops</TabsTrigger>
                                 </TabsList>
                                 <div className="h-8 w-px bg-border hidden md:block" />
-                                <Button variant="outline" size="sm" className="gap-2 bg-background shadow-sm hover:shadow-md transition-all border-blue-200 dark:border-blue-900/50 hover:border-blue-300">
+                                <Button variant="outline" size="sm" className="gap-2 bg-background/50 backdrop-blur-md shadow-sm border-blue-200 dark:border-blue-900/50 hover:border-blue-300 hover:text-blue-500 rounded-xl hover-lift">
                                     <Activity className="h-4 w-4 text-blue-500" /> Live Monitor
                                 </Button>
                             </div>
@@ -545,10 +538,10 @@ export default function Dashboard() {
 
                         {/* ANALYTICS CHARTS SECTION */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[300px]">
-                            <div className="lg:col-span-2 shadow-sm rounded-xl overflow-hidden border bg-card">
+                            <div className="lg:col-span-2 shadow-lg hover-lift transition-all duration-300 rounded-[1.5rem] overflow-hidden border-border/50 bg-card glass-card-depth">
                                 <ActivityTrendChart incidents={dashboardData.incidents} entries={dashboardData.entries} />
                             </div>
-                            <div className="shadow-sm rounded-xl overflow-hidden border bg-card">
+                            <div className="shadow-lg hover-lift transition-all duration-300 rounded-[1.5rem] overflow-hidden border-border/50 bg-card glass-card-depth">
                                 <OfficerStatusChart officers={dashboardData.officers} />
                             </div>
                         </div>
@@ -558,28 +551,28 @@ export default function Dashboard() {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[550px]">
                             {/* Operational Wall */}
                             <div className="lg:col-span-2 flex flex-col h-full">
-                                <Card className="flex-1 overflow-hidden border shadow-sm flex flex-col p-0 h-full">
-                                    <div className="bg-slate-950 px-5 py-4 flex justify-between items-center border-b border-slate-800 shrink-0">
+                                <Card className="flex-1 overflow-hidden border-border/50 shadow-lg flex flex-col p-0 h-full rounded-[2rem] glass-card-depth hover-lift duration-300">
+                                    <div className="bg-slate-950/90 backdrop-blur-md px-6 py-5 flex justify-between items-center border-b border-border/50 shrink-0">
                                         <h3 className="font-semibold text-slate-50 flex items-center gap-2 tracking-tight"><Activity className="h-4 w-4 text-emerald-500" /> Real-Time Operations Monitor</h3>
                                         <div className="flex items-center gap-2">
                                             <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Syncing</span>
                                         </div>
                                     </div>
-                                    <div className="flex-1 overflow-hidden bg-slate-50/50 dark:bg-slate-900/10">
+                                    <div className="flex-1 overflow-hidden bg-background">
                                         <OperationalStatusBoard sites={sites} locations={locations} panicAlerts={panicAlerts} geofenceEvents={geofenceEvents} />
                                     </div>
                                 </Card>
                             </div>
                             {/* Activity Feed */}
                             <div className="flex flex-col h-full">
-                                <Card className="flex-1 flex flex-col overflow-hidden h-full p-0">
-                                    <CardHeader className="py-4 px-5 bg-muted/30 border-b shrink-0">
+                                <Card className="flex-1 flex flex-col overflow-hidden h-full p-0 rounded-[2rem] glass-card-depth border-border/50 shadow-lg hover-lift duration-300">
+                                    <CardHeader className="py-5 px-6 bg-muted/40 backdrop-blur-md border-b border-border/50 shrink-0">
                                         <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wide text-muted-foreground">
                                             <Radio className="h-4 w-4 text-red-500 animate-pulse" /> Dispatch Feed
                                         </CardTitle>
                                     </CardHeader>
-                                    <CardContent className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                                    <CardContent className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent bg-background">
                                         <div className="divide-y divide-border">
                                             {activityFeed.length === 0 && (
                                                 <EmptyState
@@ -630,8 +623,8 @@ export default function Dashboard() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Active Personnel List */}
-                                    <Card className="h-full">
-                                        <CardHeader className="border-b bg-muted/20 py-4"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Active Personnel</CardTitle></CardHeader>
+                                    <Card className="h-full glass-card-depth rounded-[2rem] border-border/50 shadow-sm hover-lift duration-300">
+                                        <CardHeader className="border-b border-border/50 bg-muted/40 backdrop-blur-md py-5 px-6"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Personnel</CardTitle></CardHeader>
                                         <CardContent className="p-0">
                                             <div className="divide-y max-h-[400px] overflow-y-auto">
                                                 {dashboardData.activeEntries.length === 0 && (
@@ -665,8 +658,8 @@ export default function Dashboard() {
                                     </Card>
 
                                     {/* Upcoming Shifts (Next 12h) */}
-                                    <Card className="h-full">
-                                        <CardHeader className="border-b bg-muted/20 py-4"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Upcoming Shifts (Next 24h)</CardTitle></CardHeader>
+                                    <Card className="h-full glass-card-depth rounded-[2rem] border-border/50 shadow-sm hover-lift duration-300">
+                                        <CardHeader className="border-b border-border/50 bg-muted/40 backdrop-blur-md py-5 px-6"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Upcoming Shifts (Next 24h)</CardTitle></CardHeader>
                                         <CardContent className="p-0">
                                             <div className="divide-y max-h-[400px] overflow-y-auto">
                                                 {dashboardData.shifts
@@ -715,13 +708,13 @@ export default function Dashboard() {
                                 </div>
 
                                 {/* FINANCIAL CHART */}
-                                <div className="h-[300px] shadow-sm rounded-xl overflow-hidden border bg-card">
+                                <div className="h-[300px] shadow-sm hover-lift transition-all duration-300 rounded-[1.5rem] overflow-hidden border border-border/50 bg-card glass-card-depth">
                                     <RevenueCostChart entries={dashboardData.entries} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <Card>
-                                        <CardHeader className="border-b py-4 bg-muted/20"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Top Revenue Sites (WTD)</CardTitle></CardHeader>
+                                    <Card className="glass-card-depth rounded-[2rem] border-border/50 shadow-sm hover-lift duration-300">
+                                        <CardHeader className="border-b border-border/50 bg-muted/40 backdrop-blur-md py-5 px-6"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Top Revenue Sites (WTD)</CardTitle></CardHeader>
                                         <CardContent className="pt-6">
                                             <div className="space-y-5">
                                                 {revenueBySite.map((item, i) => (
@@ -751,8 +744,8 @@ export default function Dashboard() {
                                         </CardContent>
                                     </Card>
 
-                                    <Card>
-                                        <CardHeader className="border-b py-4 bg-muted/20"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Recent Billable Shifts</CardTitle></CardHeader>
+                                    <Card className="glass-card-depth rounded-[2rem] border-border/50 shadow-sm hover-lift duration-300">
+                                        <CardHeader className="border-b border-border/50 bg-muted/40 backdrop-blur-md py-5 px-6"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Recent Billable Shifts</CardTitle></CardHeader>
                                         <CardContent className="p-0">
                                             <div className="divide-y max-h-[300px] overflow-y-auto">
                                                 {dashboardData.entries.slice(0, 5).map(entry => (
@@ -782,8 +775,8 @@ export default function Dashboard() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <Card>
-                                        <CardHeader className="border-b py-4 bg-muted/20"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Recent Incident Log</CardTitle></CardHeader>
+                                    <Card className="glass-card-depth rounded-[2rem] border-border/50 shadow-sm hover-lift duration-300">
+                                        <CardHeader className="border-b border-border/50 bg-muted/40 backdrop-blur-md py-5 px-6"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Recent Incident Log</CardTitle></CardHeader>
                                         <CardContent className="p-0">
                                             <div className="divide-y max-h-[400px] overflow-y-auto">
                                                 {dashboardData.incidents.map(inc => (
@@ -810,8 +803,8 @@ export default function Dashboard() {
                                         </CardContent>
                                     </Card>
 
-                                    <Card>
-                                        <CardHeader className="border-b py-4 bg-muted/20"><CardTitle className="text-sm font-bold uppercase tracking-wide text-muted-foreground">High Risk Locations</CardTitle></CardHeader>
+                                    <Card className="glass-card-depth rounded-[2rem] border-border/50 shadow-sm hover-lift duration-300">
+                                        <CardHeader className="border-b border-border/50 bg-muted/40 backdrop-blur-md py-5 px-6"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">High Risk Locations</CardTitle></CardHeader>
                                         <CardContent className="p-0">
                                             <div className="divide-y max-h-[400px] overflow-y-auto">
                                                 {sites.filter(s => s.risk_level === 'high').map(site => (
@@ -853,8 +846,8 @@ export default function Dashboard() {
                     </div>
 
                     {/* STATUS CARD */}
-                    <Card className={`border-0 shadow-lg overflow-hidden ${isClockedIn ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30' : 'bg-card'}`}>
-                        <CardContent className="pt-8 pb-8 text-center space-y-5">
+                    <Card className={`border-border/50 shadow-xl overflow-hidden glass-card-depth rounded-[2.5rem] ${isClockedIn ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 ring-1 ring-emerald-500/20' : 'bg-card hover-lift duration-300'}`}>
+                        <CardContent className="pt-10 pb-10 text-center space-y-6">
                             <div className="flex justify-center">
                                 <div className={cn("rounded-full p-5 transition-all duration-500", isClockedIn ? 'bg-emerald-100 text-emerald-600 ring-4 ring-emerald-50 dark:bg-emerald-900/50 dark:text-emerald-400 dark:ring-emerald-900/20 animate-pulse' : 'bg-muted text-muted-foreground')}>
                                     <Shield className="h-12 w-12" />
@@ -912,20 +905,20 @@ export default function Dashboard() {
                     <div>
                         <h3 className="text-xs font-bold text-muted-foreground mb-4 uppercase tracking-wider">Quick Actions</h3>
                         <div className="grid grid-cols-2 gap-4">
-                            <Button variant="outline" className="h-28 flex flex-col items-center justify-center gap-3 bg-card hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:border-red-900 transition-all shadow-sm rounded-xl border-border">
-                                <Siren className="h-8 w-8" />
+                            <Button variant="outline" className="h-32 flex flex-col items-center justify-center gap-3 bg-card hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:border-red-900 transition-all shadow-sm rounded-[2rem] border-border/50 glass-card-depth hover-lift duration-300">
+                                <Siren className="h-8 w-8 text-muted-foreground group-hover:text-red-600" />
                                 <span className="font-medium">Incident</span>
                             </Button>
-                            <Button variant="outline" className="h-28 flex flex-col items-center justify-center gap-3 bg-card hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:border-blue-900 transition-all shadow-sm rounded-xl border-border">
-                                <FileText className="h-8 w-8" />
+                            <Button variant="outline" className="h-32 flex flex-col items-center justify-center gap-3 bg-card hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:border-blue-900 transition-all shadow-sm rounded-[2rem] border-border/50 glass-card-depth hover-lift duration-300">
+                                <FileText className="h-8 w-8 text-muted-foreground group-hover:text-blue-600" />
                                 <span className="font-medium">Log Entry</span>
                             </Button>
-                            <Button variant="outline" className="h-28 flex flex-col items-center justify-center gap-3 bg-card hover:bg-accent transition-all shadow-sm rounded-xl border-border">
-                                <CheckCircle2 className="h-8 w-8" />
+                            <Button variant="outline" className="h-32 flex flex-col items-center justify-center gap-3 bg-card hover:bg-accent hover:text-emerald-600 transition-all shadow-sm rounded-[2rem] border-border/50 glass-card-depth hover-lift duration-300">
+                                <CheckCircle2 className="h-8 w-8 text-muted-foreground group-hover:text-emerald-600" />
                                 <span className="font-medium">Check-In</span>
                             </Button>
-                            <Button variant="outline" className="h-28 flex flex-col items-center justify-center gap-3 bg-card hover:bg-accent transition-all shadow-sm rounded-xl border-border">
-                                <Phone className="h-8 w-8" />
+                            <Button variant="outline" className="h-32 flex flex-col items-center justify-center gap-3 bg-card hover:bg-accent hover:text-amber-600 transition-all shadow-sm rounded-[2rem] border-border/50 glass-card-depth hover-lift duration-300">
+                                <Phone className="h-8 w-8 text-muted-foreground group-hover:text-amber-600" />
                                 <span className="font-medium">Dispatch</span>
                             </Button>
                         </div>
@@ -938,8 +931,8 @@ export default function Dashboard() {
                             <Button variant="link" size="sm" className="h-auto p-0 text-primary">View Calendar</Button>
                         </div>
                         {myNextShift ? (
-                            <Card className="border-l-4 border-l-primary shadow-md">
-                                <CardContent className="p-5 flex gap-5 items-center">
+                            <Card className="glass-card-depth rounded-3xl border-l-[6px] border-l-primary shadow-sm hover-lift duration-300 border-border/50">
+                                <CardContent className="p-6 flex gap-6 items-center">
                                     <div className="flex flex-col items-center justify-center h-14 w-14 bg-primary/10 text-primary rounded-xl">
                                         <span className="text-[10px] font-bold uppercase tracking-wider">{new Date(myNextShift.start_time).toLocaleDateString('en-US', { weekday: 'short' })}</span>
                                         <span className="text-xl font-bold leading-none">{new Date(myNextShift.start_time).getDate()}</span>

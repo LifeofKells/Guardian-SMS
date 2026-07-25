@@ -17,7 +17,7 @@ import {
     onSnapshot,
     type QueryConstraint
 } from 'firebase/firestore';
-import { Client, Officer, Shift, Site, TimeEntry, User, Incident, PayrollRun, Invoice, Certification, Feedback, AuditLog, Expense, Equipment, MaintenanceRecord, EquipmentLog, Availability, ShiftTemplate, OfficerLocation, PanicAlert, GeofenceEvent, Organization } from './types';
+import { Client, Officer, Shift, Site, TimeEntry, User, Incident, PayrollRun, Invoice, Certification, Feedback, MessageChannel, ChannelMessage, AuditLog, Expense, Equipment, MaintenanceRecord, EquipmentLog, Availability, ShiftTemplate, OfficerLocation, PanicAlert, GeofenceEvent, Organization } from './types';
 
 // --- HELPERS ---
 const generateId = () => Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
@@ -245,6 +245,8 @@ function generateShifts(sites: Site[], officers: Officer[], daysBack: number, da
                                 clock_out: clockOut.toISOString(),
                                 total_hours: totalHours,
                                 status: Math.random() > 0.1 ? 'approved' : 'pending',
+                                billing_status: 'unbilled',
+                                payroll_status: 'ready',
                                 ...(hasNotes ? { notes: 'Automated entry log' } : {}),
                                 financial_snapshot: {
                                     pay_rate: officer.financials?.base_rate || 20,
@@ -551,6 +553,8 @@ export const db = {
                             clock_out: currentShift.end_time,
                             total_hours: Math.max(0, totalHours),
                             status: 'approved' as const,
+                            billing_status: 'unbilled' as const,
+                            payroll_status: 'ready' as const,
                             financial_snapshot: {
                                 pay_rate: currentShift.pay_rate || 20,
                                 bill_rate: currentShift.bill_rate || 45
@@ -675,6 +679,96 @@ export const db = {
                 return { data: { ...fb, id: docRef.id } as Feedback, error: null };
             } catch (e: any) {
                 return { data: null, error: e };
+            }
+        }
+    },
+    message_channels: {
+        select: async (orgId: string) => {
+            try {
+                const data = await fetchCollection<MessageChannel>('message_channels', orgId);
+                return { data, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        create: async (channel: Omit<MessageChannel, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'message_channels'), channel);
+                return { data: { ...channel, id: docRef.id } as MessageChannel, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        update: async (id: string, data: Partial<MessageChannel>) => {
+            try {
+                await updateDoc(doc(firestore, 'message_channels', id), data);
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        subscribe: (orgId: string, callback: (data: MessageChannel[]) => void) => {
+            try {
+                const q = query(collection(firestore, 'message_channels'), where('organization_id', '==', orgId));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const rows = snapshot.docs.map(row => ({ ...row.data(), id: row.id } as MessageChannel));
+                    rows.sort((a, b) => new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime());
+                    callback(rows);
+                });
+                return unsubscribe;
+            } catch (e) {
+                console.error('Channel subscription error', e);
+                return () => { };
+            }
+        }
+    },
+    channel_messages: {
+        select: async (orgId: string) => {
+            try {
+                const messages = await fetchCollection<ChannelMessage>('channel_messages', orgId);
+                messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                return { data: messages, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        create: async (message: Omit<ChannelMessage, 'id'>) => {
+            try {
+                const docRef = await addDoc(collection(firestore, 'channel_messages'), message);
+
+                await db.message_channels.update(message.channel_id, {
+                    last_message_at: message.created_at
+                });
+
+                return { data: { ...message, id: docRef.id } as ChannelMessage, error: null };
+            } catch (e: any) {
+                return { data: null, error: e };
+            }
+        },
+        markRead: async (id: string, userId: string) => {
+            try {
+                const messageDoc = await getDoc(doc(firestore, 'channel_messages', id));
+                if (!messageDoc.exists()) return { error: null };
+                const current = messageDoc.data() as ChannelMessage;
+                const readBy = Array.from(new Set([...(current.read_by || []), userId]));
+                await updateDoc(doc(firestore, 'channel_messages', id), { read_by: readBy });
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
+        subscribe: (orgId: string, callback: (data: ChannelMessage[]) => void) => {
+            try {
+                const q = query(collection(firestore, 'channel_messages'), where('organization_id', '==', orgId));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const rows = snapshot.docs.map(row => ({ ...row.data(), id: row.id } as ChannelMessage));
+                    rows.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    callback(rows);
+                });
+                return unsubscribe;
+            } catch (e) {
+                console.error('Message subscription error', e);
+                return () => { };
             }
         }
     },

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Package, DollarSign, Wrench, Plus, Check, X,
     AlertCircle, Search, Filter, Calendar, TrendingUp, CreditCard,
-    Briefcase, FileText, Download, Eye, MoreHorizontal, Upload, Loader2
+    Briefcase, FileText, Download, Eye, MoreHorizontal, Upload, Loader2, Minimize2, Maximize2, Sparkles
 } from 'lucide-react';
 import { db } from '../lib/db';
 import { storage } from '../lib/firebase';
@@ -25,49 +25,150 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogFooter
+    DialogFooter,
+    cn
 } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { RefreshCw, ChevronRight } from 'lucide-react';
 import type { Expense, Equipment, MaintenanceRecord, ExpenseCategory, ExpenseStatus, EquipmentType, EquipmentStatus } from '../lib/types';
 
-export default function Resources() {
+function StatPill({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string | number; accent?: string }) {
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight text-foreground">Resources & Assets</h2>
-                    <p className="text-sm text-muted-foreground">Manage organizational expenses, equipment inventory, and maintenance.</p>
-                </div>
+        <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-4 py-3 min-w-0 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+            <div className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider', accent ?? 'text-muted-foreground')}>
+                <Icon className="h-3.5 w-3.5 shrink-0" />{label}
             </div>
+            <p className="text-xl font-bold text-foreground tabular-nums leading-none mt-1 tracking-tight">{value}</p>
+        </div>
+    );
+}
 
-            <Tabs defaultValue="expenses" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="expenses" className="gap-2"><DollarSign className="h-4 w-4" /> Expenses</TabsTrigger>
-                    <TabsTrigger value="equipment" className="gap-2"><Package className="h-4 w-4" /> Equipment</TabsTrigger>
-                    <TabsTrigger value="maintenance" className="gap-2"><Wrench className="h-4 w-4" /> Maintenance</TabsTrigger>
-                </TabsList>
+export default function Resources() {
+    const { organization } = useAuth();
+    const queryClient = useQueryClient();
+    const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
+    const isCompact = density === 'compact';
 
-                <TabsContent value="expenses" className="space-y-4">
-                    <ExpensesTab />
-                </TabsContent>
+    // Aggregate queries for the header stats
+    const { data: expenses = [] } = useQuery({
+        queryKey: ['expenses-summary', organization?.id],
+        enabled: !!organization,
+        queryFn: async () => { if (!organization) return []; const { data } = await db.getFullExpenses(organization.id); return data || []; }
+    });
+    const { data: equipment = [] } = useQuery({
+        queryKey: ['equipment-summary', organization?.id],
+        enabled: !!organization,
+        queryFn: async () => { if (!organization) return []; const { data } = await db.getFullEquipment(organization.id); return data || []; }
+    });
 
-                <TabsContent value="equipment" className="space-y-4">
-                    <EquipmentTab />
-                </TabsContent>
+    const stats = useMemo(() => ({
+        pendingExpenses: expenses.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0),
+        totalAssets: equipment.length,
+        maintenanceNeeded: equipment.filter(e => e.status === 'maintenance' || e.status === 'damaged').length,
+        assignedAssets: equipment.filter(e => e.status === 'assigned').length
+    }), [expenses, equipment]);
 
-                <TabsContent value="maintenance" className="space-y-4">
-                    <MaintenanceTab />
-                </TabsContent>
+    function StatPill({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string | number; accent?: string }) {
+        return (
+            <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-4 py-3 min-w-0 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+                <div className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider', accent ?? 'text-muted-foreground')}>
+                    <Icon className="h-3 w-3 shrink-0" />{label}
+                </div>
+                <p className="text-xl font-bold text-foreground tabular-nums leading-none mt-1 tracking-tight">{value}</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
+            <Tabs defaultValue="expenses" className="flex-1 min-h-0 flex flex-col gap-4">
+                {/* ── HEADER BAND ── */}
+                <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden relative z-10">
+                    <div className="p-5 lg:p-6 relative">
+                        {/* Title row */}
+                        <div className="flex items-start justify-between gap-4 mb-5">
+                            <div>
+                                <div className="flex items-center gap-2.5 mb-1">
+                                    <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
+                                        <Package className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <h1 className="text-lg font-bold tracking-tight text-foreground">Resources & Assets</h1>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Manage organizational expenses, equipment inventory, and maintenance.</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['expenses-summary', 'equipment-summary'] })} className="h-9 rounded-xl gap-2 text-xs">
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Refresh</span>
+                                </Button>
+                                <Button size="sm" onClick={() => { }} className="h-9 rounded-xl px-4 gap-2 text-xs font-semibold">
+                                    <Download className="h-3.5 w-3.5" /> Export Report
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Stat strip */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+                            <StatPill icon={DollarSign} label="Pending Approval" value={`$${stats.pendingExpenses.toLocaleString()}`} accent="text-amber-600 dark:text-amber-400" />
+                            <StatPill icon={Package} label="Total Assets" value={stats.totalAssets} />
+                            <StatPill icon={AlertCircle} label="Maintenance" value={stats.maintenanceNeeded} accent="text-red-600 dark:text-red-400" />
+                            <StatPill icon={TrendingUp} label="Assigned Assets" value={stats.assignedAssets} accent="text-emerald-600 dark:text-emerald-400" />
+                        </div>
+
+                        {/* Toolbar */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/40">
+                            <div className="flex items-center gap-2">
+                                <TabsList className="h-9 bg-muted/40 p-1 border border-border/40">
+                                    <TabsTrigger value="expenses" className="px-3 text-xs gap-2"><DollarSign className="h-3 w-3" /> Expenses</TabsTrigger>
+                                    <TabsTrigger value="equipment" className="px-3 text-xs gap-2"><Package className="h-3 w-3" /> Equipment</TabsTrigger>
+                                    <TabsTrigger value="maintenance" className="px-3 text-xs gap-2"><Wrench className="h-3 w-3" /> Maintenance</TabsTrigger>
+                                </TabsList>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center bg-muted/40 rounded-xl p-0.5 gap-0.5 border border-border/40 h-9">
+                                    <button
+                                        onClick={() => setDensity('compact')}
+                                        className={cn('px-2.5 py-1 rounded-lg transition-all duration-200 h-full flex items-center', isCompact ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                                    >
+                                        <Minimize2 className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setDensity('comfortable')}
+                                        className={cn('px-2.5 py-1 rounded-lg transition-all duration-200 h-full flex items-center', !isCompact ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                                    >
+                                        <Maximize2 className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-hidden">
+                    <TabsContent value="expenses" className="h-full overflow-y-auto pr-1">
+                        <ExpensesTab density={density} />
+                    </TabsContent>
+
+                    <TabsContent value="equipment" className="h-full overflow-y-auto pr-1">
+                        <EquipmentTab density={density} />
+                    </TabsContent>
+
+                    <TabsContent value="maintenance" className="h-full overflow-y-auto pr-1">
+                        <MaintenanceTab density={density} />
+                    </TabsContent>
+                </div>
             </Tabs>
         </div>
     );
 }
 
 // --- EXPENSES TAB ---
-function ExpensesTab() {
+function ExpensesTab({ density }: { density: 'compact' | 'comfortable' }) {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<ExpenseStatus | 'all'>('all');
     const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
     const { user, profile, organization } = useAuth();
     const queryClient = useQueryClient();
     const { addToast } = useToast();
@@ -115,6 +216,13 @@ function ExpensesTab() {
     const filteredExpenses = expensesData?.filter(exp => {
         if (statusFilter !== 'all' && exp.status !== statusFilter) return false;
         if (categoryFilter !== 'all' && exp.category !== categoryFilter) return false;
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase();
+            const officer = exp.officer?.full_name?.toLowerCase() || '';
+            const desc = exp.description?.toLowerCase() || '';
+            const cat = exp.category?.toLowerCase() || '';
+            if (!officer.includes(q) && !desc.includes(q) && !cat.includes(q)) return false;
+        }
         return true;
     }) || [];
 
@@ -124,6 +232,9 @@ function ExpensesTab() {
         rejectedCount: expensesData?.filter(e => e.status === 'rejected').length || 0,
         totalCount: expensesData?.length || 0
     };
+    const isCompact = density === 'compact';
+    const cellX = isCompact ? 'px-4' : 'px-6';
+    const cellY = isCompact ? 'py-2.5' : 'py-4';
 
     return (
         <>
@@ -176,6 +287,16 @@ function ExpensesTab() {
                 <div className="flex flex-col sm:flex-row items-end gap-4">
                     <div className="grid gap-1.5 flex-1 w-full">
                         <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                            <Search className="h-3 w-3" /> Search
+                        </label>
+                        <Input
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search officer, category, or description"
+                        />
+                    </div>
+                    <div className="grid gap-1.5 flex-1 w-full">
+                        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                             <Filter className="h-3 w-3" /> Status
                         </label>
                         <select
@@ -210,11 +331,23 @@ function ExpensesTab() {
                         </select>
                     </div>
                     <div className="flex gap-2 pb-0.5 w-full sm:w-auto">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setStatusFilter('all');
+                                setCategoryFilter('all');
+                                setSearchTerm('');
+                            }}
+                            className="w-full sm:w-auto"
+                        >
+                            Reset
+                        </Button>
                         <Button onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto">
                             <Plus className="w-4 h-4 mr-2" /> Submit Expense
                         </Button>
                     </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-3">Showing {filteredExpenses.length} of {expensesData?.length || 0} expenses</p>
             </div>
 
             {/* Expenses Table */}
@@ -227,20 +360,38 @@ function ExpensesTab() {
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50 border-b border-border">
                                 <tr>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Officer</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Date</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Category</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Description</th>
-                                    <th className="h-10 px-6 text-right font-medium text-muted-foreground">Amount</th>
-                                    <th className="h-10 px-6 text-center font-medium text-muted-foreground">Status</th>
-                                    <th className="h-10 px-6 text-right font-medium text-muted-foreground">Actions</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Officer</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Date</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Category</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Description</th>
+                                    <th className={`h-10 ${cellX} text-right font-medium text-muted-foreground`}>Amount</th>
+                                    <th className={`h-10 ${cellX} text-center font-medium text-muted-foreground`}>Status</th>
+                                    <th className={`h-10 ${cellX} text-right font-medium text-muted-foreground`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border text-left">
                                 {isLoading ? (
                                     <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading expenses...</td></tr>
                                 ) : filteredExpenses.length === 0 ? (
-                                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No expenses found matching the filters.</td></tr>
+                                    <tr>
+                                        <td colSpan={7} className="p-10">
+                                            <div className="max-w-md mx-auto rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+                                                <Sparkles className="h-6 w-6 mx-auto mb-2 text-muted-foreground/70" />
+                                                {expensesData?.length ? (
+                                                    <>
+                                                        <p className="text-sm font-medium">No expenses match current filters</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">Broaden filters to review more expense claims.</p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-sm font-medium">No expenses submitted yet</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">Create your first expense claim to start tracking spend.</p>
+                                                        <Button size="sm" className="mt-3" onClick={() => setIsAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Submit Expense</Button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : (
                                     filteredExpenses.map((expense: any) => {
                                         const statusColors: any = {
@@ -251,15 +402,15 @@ function ExpensesTab() {
                                         };
                                         return (
                                             <tr key={expense.id} className="hover:bg-muted/30 transition-colors">
-                                                <td className="px-6 py-4 font-medium">{expense.officer?.full_name || 'Unknown'}</td>
-                                                <td className="px-6 py-4">{new Date(expense.date).toLocaleDateString()}</td>
-                                                <td className="px-6 py-4 capitalize">{expense.category}</td>
-                                                <td className="px-6 py-4 max-w-xs truncate text-muted-foreground">{expense.description}</td>
-                                                <td className="px-6 py-4 text-right font-medium">${expense.amount.toFixed(2)}</td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className={`${cellX} ${cellY} font-medium`}>{expense.officer?.full_name || 'Unknown'}</td>
+                                                <td className={`${cellX} ${cellY}`}>{new Date(expense.date).toLocaleDateString()}</td>
+                                                <td className={`${cellX} ${cellY} capitalize`}>{expense.category}</td>
+                                                <td className={`${cellX} ${cellY} max-w-xs truncate text-muted-foreground`}>{expense.description}</td>
+                                                <td className={`${cellX} ${cellY} text-right font-medium`}>${expense.amount.toFixed(2)}</td>
+                                                <td className={`${cellX} ${cellY} text-center`}>
                                                     <Badge variant={statusColors[expense.status]}>{expense.status}</Badge>
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
+                                                <td className={`${cellX} ${cellY} text-right`}>
                                                     <div className="flex justify-end gap-2">
                                                         {expense.status === 'pending' && (
                                                             <>
@@ -306,9 +457,11 @@ function ExpensesTab() {
 }
 
 // --- EQUIPMENT TAB (Now Table View) ---
-function EquipmentTab() {
+function EquipmentTab({ density }: { density: 'compact' | 'comfortable' }) {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
+    const [typeFilter, setTypeFilter] = useState<EquipmentType | 'all'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
     const { organization } = useAuth();
 
     const { data: equipmentData, isLoading } = useQuery({
@@ -323,14 +476,24 @@ function EquipmentTab() {
 
     const filteredEquipment = equipmentData?.filter(eq => {
         if (statusFilter !== 'all' && eq.status !== statusFilter) return false;
+        if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase();
+            const assigned = eq.assigned_officer?.full_name?.toLowerCase() || '';
+            if (!eq.name.toLowerCase().includes(q) && !eq.identifier.toLowerCase().includes(q) && !assigned.includes(q)) return false;
+        }
         return true;
     }) || [];
 
     const stats = {
         total: equipmentData?.length || 0,
         available: equipmentData?.filter(e => e.status === 'available').length || 0,
-        assigned: equipmentData?.filter(e => e.status === 'assigned').length || 0
+        assigned: equipmentData?.filter(e => e.status === 'assigned').length || 0,
+        issue: equipmentData?.filter(e => e.status === 'maintenance' || e.status === 'damaged' || e.status === 'lost').length || 0
     };
+    const isCompact = density === 'compact';
+    const cellX = isCompact ? 'px-4' : 'px-6';
+    const cellY = isCompact ? 'py-2.5' : 'py-4';
 
     return (
         <>
@@ -366,11 +529,27 @@ function EquipmentTab() {
                         <p className="text-xs text-muted-foreground mt-1">Currently in use</p>
                     </CardContent>
                 </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Needs Attention</CardTitle>
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.issue}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Maintenance, damaged, or lost</p>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Filter Card */}
             <div className="bg-card p-4 rounded-lg border border-border mb-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="grid gap-1.5 flex-1 w-full">
+                        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                            <Search className="h-3 w-3" /> Search
+                        </label>
+                        <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search item, identifier, or assignee" />
+                    </div>
                     <div className="grid gap-1.5 flex-1 w-full">
                         <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                             <Filter className="h-3 w-3" /> Status
@@ -389,12 +568,44 @@ function EquipmentTab() {
                             <option value="retired">Retired</option>
                         </select>
                     </div>
+                    <div className="grid gap-1.5 flex-1 w-full">
+                        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                            <Filter className="h-3 w-3" /> Type
+                        </label>
+                        <select
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="all">All Types</option>
+                            <option value="radio">Radio</option>
+                            <option value="vehicle">Vehicle</option>
+                            <option value="uniform">Uniform</option>
+                            <option value="firearm">Firearm</option>
+                            <option value="baton">Baton</option>
+                            <option value="flashlight">Flashlight</option>
+                            <option value="body_camera">Body Camera</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
                     <div className="flex gap-2 pb-0.5 w-full sm:w-auto">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setStatusFilter('all');
+                                setTypeFilter('all');
+                                setSearchTerm('');
+                            }}
+                            className="w-full sm:w-auto"
+                        >
+                            Reset
+                        </Button>
                         <Button onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto">
                             <Plus className="w-4 h-4 mr-2" /> Add Equipment
                         </Button>
                     </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-3">Showing {filteredEquipment.length} of {equipmentData?.length || 0} assets</p>
             </div>
 
             {/* Equipment Table */}
@@ -407,19 +618,28 @@ function EquipmentTab() {
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50 border-b border-border">
                                 <tr>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Item Name</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Identifier</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Type</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Assigned To / Location</th>
-                                    <th className="h-10 px-6 text-right font-medium text-muted-foreground">Value</th>
-                                    <th className="h-10 px-6 text-center font-medium text-muted-foreground">Status</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Item Name</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Identifier</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Type</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Assigned To / Location</th>
+                                    <th className={`h-10 ${cellX} text-right font-medium text-muted-foreground`}>Value</th>
+                                    <th className={`h-10 ${cellX} text-center font-medium text-muted-foreground`}>Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border text-left">
                                 {isLoading ? (
                                     <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading equipment...</td></tr>
                                 ) : filteredEquipment.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No equipment found.</td></tr>
+                                    <tr>
+                                        <td colSpan={6} className="p-10">
+                                            <div className="max-w-md mx-auto rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+                                                <Sparkles className="h-6 w-6 mx-auto mb-2 text-muted-foreground/70" />
+                                                <p className="text-sm font-medium">No equipment in this view</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Add inventory items or adjust status filter.</p>
+                                                <Button size="sm" className="mt-3" onClick={() => setIsAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Equipment</Button>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : (
                                     filteredEquipment.map((item: any) => {
                                         const statusColors: any = {
@@ -432,18 +652,18 @@ function EquipmentTab() {
                                         };
                                         return (
                                             <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                                                <td className="px-6 py-4 font-medium">{item.name}</td>
-                                                <td className="px-6 py-4 text-muted-foreground">{item.identifier}</td>
-                                                <td className="px-6 py-4 capitalize">{item.type.replace('_', ' ')}</td>
-                                                <td className="px-6 py-4 text-muted-foreground">
+                                                <td className={`${cellX} ${cellY} font-medium`}>{item.name}</td>
+                                                <td className={`${cellX} ${cellY} text-muted-foreground`}>{item.identifier}</td>
+                                                <td className={`${cellX} ${cellY} capitalize`}>{item.type.replace('_', ' ')}</td>
+                                                <td className={`${cellX} ${cellY} text-muted-foreground`}>
                                                     {item.assigned_officer ? (
                                                         <span className="text-foreground">{item.assigned_officer.full_name}</span>
                                                     ) : (
                                                         item.location || '-'
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-right">${item.purchase_price?.toFixed(2) || '0.00'}</td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className={`${cellX} ${cellY} text-right`}>${item.purchase_price?.toFixed(2) || '0.00'}</td>
+                                                <td className={`${cellX} ${cellY} text-center`}>
                                                     <Badge variant={statusColors[item.status]}>{item.status}</Badge>
                                                 </td>
                                             </tr>
@@ -462,8 +682,10 @@ function EquipmentTab() {
 }
 
 // --- MAINTENANCE TAB ---
-function MaintenanceTab() {
+function MaintenanceTab({ density }: { density: 'compact' | 'comfortable' }) {
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
     const { organization } = useAuth();
 
     const { data: maintenanceData, isLoading } = useQuery({
@@ -475,13 +697,83 @@ function MaintenanceTab() {
             return data || [];
         }
     });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const filteredMaintenance = (maintenanceData || []).filter((record: any) => {
+        if (statusFilter !== 'all' && record.status !== statusFilter) return false;
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase();
+            const equip = record.equipment?.name?.toLowerCase() || '';
+            const desc = record.description?.toLowerCase() || '';
+            const type = record.type?.toLowerCase() || '';
+            if (!equip.includes(q) && !desc.includes(q) && !type.includes(q)) return false;
+        }
+        return true;
+    });
+
+    const maintenanceStats = {
+        scheduled: (maintenanceData || []).filter((r: any) => r.status === 'scheduled').length,
+        completed: (maintenanceData || []).filter((r: any) => r.status === 'completed').length,
+        overdue: (maintenanceData || []).filter((r: any) => r.status === 'scheduled' && new Date(r.scheduled_date).getTime() < today.getTime()).length
+    };
+    const isCompact = density === 'compact';
+    const cellX = isCompact ? 'px-4' : 'px-6';
+    const cellY = isCompact ? 'py-2.5' : 'py-4';
 
     return (
         <>
-            <div className="flex justify-end mb-4">
-                <Button onClick={() => setIsAddOpen(true)}>
-                    <Plus className="w-4 h-4 mr-2" /> Schedule Maintenance
-                </Button>
+            <div className="grid gap-4 md:grid-cols-3 mb-4">
+                <Card>
+                    <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground">Scheduled</p>
+                        <p className="text-2xl font-bold mt-1">{maintenanceStats.scheduled}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground">Completed</p>
+                        <p className="text-2xl font-bold mt-1 text-emerald-600">{maintenanceStats.completed}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground">Overdue</p>
+                        <p className="text-2xl font-bold mt-1 text-amber-600">{maintenanceStats.overdue}</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="bg-card p-4 rounded-lg border border-border mb-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="grid gap-1.5 flex-1 w-full">
+                        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                            <Search className="h-3 w-3" /> Search
+                        </label>
+                        <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search equipment, type, or description" />
+                    </div>
+                    <div className="grid gap-1.5 flex-1 w-full">
+                        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                            <Filter className="h-3 w-3" /> Status
+                        </label>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="all">All Statuses</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div className="flex gap-2 pb-0.5 w-full sm:w-auto">
+                        <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }} className="w-full sm:w-auto">Reset</Button>
+                        <Button onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto">
+                            <Plus className="w-4 h-4 mr-2" /> Schedule Maintenance
+                        </Button>
+                    </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">Showing {filteredMaintenance.length} of {maintenanceData?.length || 0} records</p>
             </div>
 
             <Card>
@@ -493,37 +785,61 @@ function MaintenanceTab() {
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50 border-b border-border">
                                 <tr>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Equipment</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Type</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Description</th>
-                                    <th className="h-10 px-6 text-left font-medium text-muted-foreground">Scheduled Date</th>
-                                    <th className="h-10 px-6 text-right font-medium text-muted-foreground">Cost</th>
-                                    <th className="h-10 px-6 text-center font-medium text-muted-foreground">Status</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Equipment</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Type</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Description</th>
+                                    <th className={`h-10 ${cellX} text-left font-medium text-muted-foreground`}>Scheduled Date</th>
+                                    <th className={`h-10 ${cellX} text-right font-medium text-muted-foreground`}>Cost</th>
+                                    <th className={`h-10 ${cellX} text-center font-medium text-muted-foreground`}>Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border text-left">
                                 {isLoading ? (
                                     <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading records...</td></tr>
-                                ) : maintenanceData.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No maintenance records found.</td></tr>
+                                ) : filteredMaintenance.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="p-10">
+                                            <div className="max-w-md mx-auto rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+                                                <Sparkles className="h-6 w-6 mx-auto mb-2 text-muted-foreground/70" />
+                                                {(maintenanceData?.length || 0) > 0 ? (
+                                                    <>
+                                                        <p className="text-sm font-medium">No maintenance records match filters</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">Try broadening status or clearing search.</p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-sm font-medium">No maintenance records yet</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">Schedule routine checks or repairs to track maintenance activity.</p>
+                                                        <Button size="sm" className="mt-3" onClick={() => setIsAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Schedule Maintenance</Button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : (
-                                    maintenanceData.map((record: any) => (
-                                        <tr key={record.id} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-foreground">{record.equipment?.name || 'Unknown'}</div>
-                                                <div className="text-xs text-muted-foreground">{record.equipment?.identifier}</div>
-                                            </td>
-                                            <td className="px-6 py-4 capitalize"><Badge variant="outline">{record.type}</Badge></td>
-                                            <td className="px-6 py-4 max-w-xs truncate text-muted-foreground">{record.description}</td>
-                                            <td className="px-6 py-4">{new Date(record.scheduled_date).toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 text-right font-medium">{record.cost ? `$${record.cost.toFixed(2)}` : '-'}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <Badge variant={record.status === 'completed' ? 'success' : record.status === 'cancelled' ? 'secondary' : 'warning'}>
-                                                    {record.status}
-                                                </Badge>
-                                            </td>
-                                        </tr>
-                                    ))
+                                    filteredMaintenance.map((record: any) => {
+                                        const isOverdue = record.status === 'scheduled' && new Date(record.scheduled_date).getTime() < today.getTime();
+                                        return (
+                                            <tr key={record.id} className={`hover:bg-muted/30 transition-colors ${isOverdue ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}`}>
+                                                <td className={`${cellX} ${cellY}`}>
+                                                    <div className="font-medium text-foreground">{record.equipment?.name || 'Unknown'}</div>
+                                                    <div className="text-xs text-muted-foreground">{record.equipment?.identifier}</div>
+                                                </td>
+                                                <td className={`${cellX} ${cellY} capitalize`}><Badge variant="outline">{record.type}</Badge></td>
+                                                <td className={`${cellX} ${cellY} max-w-xs truncate text-muted-foreground`}>{record.description}</td>
+                                                <td className={`${cellX} ${cellY}`}>
+                                                    {new Date(record.scheduled_date).toLocaleDateString()}
+                                                    {isOverdue && <span className="ml-2 text-[10px] font-semibold text-amber-700 dark:text-amber-400">Overdue</span>}
+                                                </td>
+                                                <td className={`${cellX} ${cellY} text-right font-medium`}>{record.cost ? `$${record.cost.toFixed(2)}` : '-'}</td>
+                                                <td className={`${cellX} ${cellY} text-center`}>
+                                                    <Badge variant={record.status === 'completed' ? 'success' : record.status === 'cancelled' ? 'secondary' : 'warning'}>
+                                                        {record.status}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })
                                 )}
                             </tbody>
                         </table>

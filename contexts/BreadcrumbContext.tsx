@@ -14,6 +14,7 @@ interface BreadcrumbContextType {
   goToBreadcrumb: (index: number) => BreadcrumbItem | null;
   clearBreadcrumbs: () => void;
   replaceLastBreadcrumb: (item: BreadcrumbItem) => void;
+  setTopLevelBreadcrumb: (item: BreadcrumbItem) => void;
 }
 
 const BreadcrumbContext = createContext<BreadcrumbContextType | null>(null);
@@ -74,6 +75,15 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
     });
   }, []);
 
+  const setTopLevelBreadcrumb = useCallback((item: BreadcrumbItem) => {
+    const dashboardCrumb: BreadcrumbItem = { id: 'dashboard', label: 'Dashboard', page: 'dashboard' };
+    if (item.page === 'dashboard') {
+      setBreadcrumbs([dashboardCrumb]);
+    } else {
+      setBreadcrumbs([dashboardCrumb, item]);
+    }
+  }, []);
+
   return (
     <BreadcrumbContext.Provider
       value={{
@@ -83,6 +93,7 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
         goToBreadcrumb,
         clearBreadcrumbs,
         replaceLastBreadcrumb,
+        setTopLevelBreadcrumb,
       }}
     >
       {children}

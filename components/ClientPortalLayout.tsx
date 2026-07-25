@@ -21,7 +21,7 @@ export function ClientPortalLayout({ children, currentPage = 'dashboard', onNavi
 
     // Get white-label branding or fall back to defaults
     const branding = organization?.white_label || {
-        company_name: 'Guardian SMS',
+        company_name: 'Pro Guard',
         primary_color: '#3b82f6',
         secondary_color: '#1e40af',
         logo_url: undefined,

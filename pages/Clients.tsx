@@ -1,12 +1,15 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Label } from '../components/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Label, cn } from '../components/ui';
+import { PressButton, Shimmer, AnimatedNumber, SuccessToast, StaggerContainer, useSuccessFeedback, useConfetti } from '../components/MicroAnimations';
 import { db } from '../lib/db';
 import { Client, Site, Invoice, Shift, Incident } from '../lib/types';
-import { Building2, MapPin, Search, Plus, ExternalLink, ArrowLeft, Phone, Mail, Globe, TrendingUp, AlertTriangle, FileText, Clock, ShieldCheck, Calendar, DollarSign, CheckCircle2, Loader2, Briefcase, User as UserIcon, Save, Activity, Siren, FileCheck, History, Lock, UserPlus, LayoutGrid, List, Trash2, Key, Pencil, Inbox } from 'lucide-react';
+import { Building2, MapPin, Search, Plus, ExternalLink, ArrowLeft, Phone, Mail, Globe, TrendingUp, AlertTriangle, FileText, Clock, ShieldCheck, Calendar, DollarSign, CheckCircle2, Loader2, Briefcase, User as UserIcon, Save, Activity, Siren, FileCheck, History, Lock, UserPlus, LayoutGrid, List, Trash2, Key, Pencil, Inbox, Minimize2, Maximize2, Sparkles, ChevronDown, ChevronRight, Users, RefreshCw, Filter, Zap, X, ArrowUpRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { EmptyState } from '../components/EmptyState';
+import { StepIndicator } from '../components/StepIndicator';
+import { QuickFilterChips } from '../components/QuickFilterChips';
 
 interface ClientWithSites extends Client {
     sites: Site[];
@@ -17,10 +20,22 @@ export default function Clients() {
     const { createClientUser, profile, organization } = useAuth();
     const [filter, setFilter] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
+    const [activeFilters, setActiveFilters] = useState<string[]>([]);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     // Modal States
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [newClientStep, setNewClientStep] = useState(0);
+    const [showClientStepErrors, setShowClientStepErrors] = useState(false);
     const [newClient, setNewClient] = useState({ name: '', contact_name: '', email: '', address: '', status: 'active' as const });
+
+    const clientCreationSteps = [
+        { id: 'company', label: 'Company Info', description: 'Basic company details' },
+        { id: 'contact', label: 'Contact Person', description: 'Primary point of contact' },
+        { id: 'billing', label: 'Billing Setup', description: 'Address and contract terms' },
+        { id: 'review', label: 'Review', description: 'Confirm and create account' }
+    ];
 
     const [isAddSiteOpen, setIsAddSiteOpen] = useState(false);
     const [newSite, setNewSite] = useState({ name: '', address: '', risk_level: 'low' as const });
@@ -42,9 +57,17 @@ export default function Clients() {
 
     // Selection State
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+    const [siteSearch, setSiteSearch] = useState('');
+    const [siteRiskFilter, setSiteRiskFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+    const [sitePanelView, setSitePanelView] = useState<'list' | 'grid'>('list');
+    const [clientSectionOpen, setClientSectionOpen] = useState({ contact: true, contract: true, sites: true, activity: true });
 
     // Rate Editing
     const [billingRates, setBillingRates] = useState({ standard: 45, holiday: 70, emergency: 85 });
+
+    // Micro-animation hooks
+    const { showFeedback, SuccessComponent } = useSuccessFeedback();
+    const { celebrate, ConfettiComponent } = useConfetti();
 
     // --- QUERIES ---
     const { data: clients = [], isLoading: isLoadingClients } = useQuery({
@@ -121,6 +144,25 @@ export default function Clients() {
         }
     });
 
+    const directoryStats = useMemo(() => ({
+        total: clients.length,
+        active: clients.filter(c => c.status === 'active').length,
+        prospect: clients.filter(c => c.status === 'prospect').length,
+        terminated: clients.filter(c => c.status === 'terminated').length,
+        sites: sites.length,
+    }), [clients, sites]);
+
+    function StatPill({ icon: Icon, label, value, accent }: { icon: any; label: string; value: string | number; accent?: string }) {
+        return (
+            <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-4 py-3 min-w-0 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+                <div className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider', accent ?? 'text-muted-foreground')}>
+                    <Icon className="h-3 w-3 shrink-0" />{label}
+                </div>
+                <p className="text-xl font-bold text-foreground tabular-nums leading-none mt-1 tracking-tight">{value}</p>
+            </div>
+        );
+    }
+
     // Default detail structure
     const details = clientDetails || {
         invoices: [],
@@ -160,6 +202,16 @@ export default function Clients() {
             .sort((a, b) => b.value - a.value);
     }, [clientDetails, selectedClient]);
 
+    const filteredSelectedSites = useMemo(() => {
+        if (!selectedClient) return [] as Site[];
+        const q = siteSearch.trim().toLowerCase();
+        return selectedClient.sites.filter((site) => {
+            if (siteRiskFilter !== 'all' && site.risk_level !== siteRiskFilter) return false;
+            if (!q) return true;
+            return (`${site.name} ${site.address}`.toLowerCase().includes(q));
+        });
+    }, [selectedClient, siteSearch, siteRiskFilter]);
+
     // --- MUTATIONS ---
     const createClientMutation = useMutation({
         mutationFn: async (clientData: any) => {
@@ -169,6 +221,9 @@ export default function Clients() {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
+            // Show success toast & confetti
+            showFeedback('Client created successfully!');
+            celebrate();
 
             // Audit Log
             db.audit_logs.create({
@@ -280,6 +335,8 @@ export default function Clients() {
             });
 
             setIsEditOpen(false);
+            // Refresh UI feedback
+            showFeedback('Client updated');
             // Update selected client view if it's the one edited (though query invalidation should handle it, explicit set helps flicker)
             // But since selectedClient is derived from clientsWithSites which comes from query, invalidation is enough.
         }
@@ -305,6 +362,7 @@ export default function Clients() {
             });
 
             setIsDeleteConfirmOpen(false);
+            showFeedback('Client deleted');
             setSelectedClientId(null); // Return to directory
         }
     });
@@ -404,8 +462,33 @@ export default function Clients() {
         });
     };
 
-    const filteredData = clientsWithSites.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()) || c.contact_name.toLowerCase().includes(filter.toLowerCase()));
+    const filteredData = useMemo(() => {
+        return clientsWithSites.filter(c => {
+            const matchesSearch = c.name.toLowerCase().includes(filter.toLowerCase()) || c.contact_name.toLowerCase().includes(filter.toLowerCase());
+            if (activeFilters.length === 0) return matchesSearch;
+            return matchesSearch && activeFilters.includes(c.status);
+        });
+    }, [clientsWithSites, filter, activeFilters]);
     const isLoading = isLoadingClients || isLoadingSites;
+    const isCompact = density === 'compact';
+    const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClient.email.trim());
+    const clientStepErrors = {
+        company: !newClient.name.trim(),
+        contactName: !newClient.contact_name.trim(),
+        emailRequired: !newClient.email.trim(),
+        emailFormat: !!newClient.email.trim() && !emailLooksValid
+    };
+
+    const canProceedClientStep =
+        (newClientStep === 0 && !clientStepErrors.company) ||
+        (newClientStep === 1 && !clientStepErrors.contactName && !clientStepErrors.emailRequired && !clientStepErrors.emailFormat) ||
+        newClientStep >= 2;
+
+    const resetClientForm = () => {
+        setNewClientStep(0);
+        setShowClientStepErrors(false);
+        setNewClient({ name: '', contact_name: '', email: '', address: '', status: 'active' });
+    };
 
     // --- CLIENT 360 VIEW ---
     if (selectedClient) {
@@ -419,92 +502,74 @@ export default function Clients() {
                         </Button>
                     </div>
 
-                    <Card className="bg-slate-900 text-slate-50 border-slate-800">
-                        <CardContent className="p-6">
+                    <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden relative">
+                        <div className="p-6 relative">
                             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-16 w-16 rounded-lg bg-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-blue-900/50">
-                                        {selectedClient.name.substring(0, 2).toUpperCase()}
+                                <div className="flex items-center gap-5">
+                                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 border border-primary/20 shadow-sm relative group/profile-img overflow-hidden transition-all duration-500 hover:scale-105">
+                                        <Building2 className="h-8 w-8 transition-transform duration-500 group-hover/profile-img:rotate-12" />
+                                        <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent opacity-0 group-hover/profile-img:opacity-100 transition-opacity" />
                                     </div>
                                     <div>
-                                        <h1 className="text-2xl font-bold tracking-tight">{selectedClient.name}</h1>
-                                        <div className="flex items-center gap-3 mt-1 text-slate-300 text-sm">
-                                            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {selectedClient.address}</span>
-                                            <span className="h-1 w-1 rounded-full bg-slate-500"></span>
-                                            <span className="flex items-center gap-1"><UserIcon className="h-3 w-3" /> {selectedClient.contact_name}</span>
+                                        <h1 className="text-xl font-bold tracking-tight text-foreground transition-all duration-300">{selectedClient.name}</h1>
+                                        <div className="flex flex-wrap items-center gap-4 mt-2 text-muted-foreground text-xs md:text-sm font-medium">
+                                            <span className="flex items-center gap-1.5 opacity-80"><MapPin className="h-3.5 w-3.5 text-primary/70" />{selectedClient.address || 'Central Headquarters'}</span>
+                                            <span className="flex items-center gap-1.5 opacity-80"><UserIcon className="h-3.5 w-3.5 text-primary/70" />{selectedClient.contact_name || 'Unassigned'}</span>
+                                            <span className="flex items-center gap-1.5 opacity-80"><Mail className="h-3.5 w-3.5 text-primary/70" />{selectedClient.email || 'No email provided'}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <Badge variant={selectedClient.status === 'active' ? 'success' : 'secondary'} className="px-3 py-1 text-sm uppercase tracking-wide">
-                                        {selectedClient.status}
-                                    </Badge>
-                                    <Button
-                                        variant="outline"
-                                        className="bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800 hover:text-white"
-                                        onClick={() => {
-                                            setEditClientData({
-                                                name: selectedClient.name,
-                                                contact_name: selectedClient.contact_name,
-                                                email: selectedClient.email,
-                                                address: selectedClient.address,
-                                                status: selectedClient.status
-                                            });
-                                            setIsEditOpen(true);
-                                        }}
-                                    >
-                                        Edit Profile
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <span className={cn('text-xs font-bold px-4 py-1.5 rounded-full border capitalize', selectedClient.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : selectedClient.status === 'prospect' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : 'bg-red-500/10 text-red-600 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]')}>{selectedClient.status}</span>
+                                    <Button variant="outline" onClick={() => { setEditClientData({ name: selectedClient.name, contact_name: selectedClient.contact_name, email: selectedClient.email, address: selectedClient.address, status: selectedClient.status }); setIsEditOpen(true); }} className="rounded-2xl">
+                                        <Pencil className="h-4 w-4 mr-2" /> Edit
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="bg-transparent border-red-900/50 text-red-400 hover:bg-red-950/50 hover:text-red-300 hover:border-red-900"
-                                        onClick={() => setIsDeleteConfirmOpen(true)}
-                                    >
+                                    <Button variant="outline" size="icon" className="text-red-500 hover:text-red-600 border-red-200 hover:border-red-300 rounded-2xl hover:bg-red-50 dark:hover:bg-red-500/10" onClick={() => setIsDeleteConfirmOpen(true)}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* QUICK STATS ROW */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Card>
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="p-2 bg-blue-100 text-blue-700 rounded-lg"><Building2 className="h-5 w-5" /></div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground font-medium uppercase">Active Sites</p>
-                                    <p className="text-xl font-bold">{selectedClient.sites.length}</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                        <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10">
+                                    <Building2 className="h-4 w-4 text-primary" />
                                 </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="p-2 bg-green-100 text-green-700 rounded-lg"><DollarSign className="h-5 w-5" /></div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground font-medium uppercase">Total Spend</p>
-                                    <p className="text-xl font-bold">${details.stats.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Sites</p>
+                            </div>
+                            <p className="text-2xl font-bold tabular-nums text-primary">{selectedClient.sites.length}</p>
+                        </div>
+                        <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-emerald-500/10">
+                                    <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="p-2 bg-amber-100 text-amber-700 rounded-lg"><Clock className="h-5 w-5" /></div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground font-medium uppercase">Total Shifts</p>
-                                    <p className="text-xl font-bold">{details.stats.shiftCount}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Spend</p>
+                            </div>
+                            <AnimatedNumber value={details.stats.totalSpend} prefix="$" className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-amber-500/10">
+                                    <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                 </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="p-2 bg-red-100 text-red-700 rounded-lg"><AlertTriangle className="h-5 w-5" /></div>
-                                <div>
-                                    <p className="text-xs text-muted-foreground font-medium uppercase">Open Incidents</p>
-                                    <p className="text-xl font-bold">{details.stats.openIncidents}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Shifts</p>
+                            </div>
+                            <AnimatedNumber value={details.stats.shiftCount} className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-red-500/10">
+                                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Open Incidents</p>
+                            </div>
+                            <AnimatedNumber value={details.stats.openIncidents} className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400" />
+                        </div>
                     </div>
                 </div>
 
@@ -648,10 +713,10 @@ export default function Clients() {
                 {/* 360 VIEW TABS */}
                 <Tabs defaultValue="overview" className="space-y-4">
                     <TabsList className="bg-card border border-border p-1 h-auto gap-2">
-                        <TabsTrigger value="overview" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Overview</TabsTrigger>
-                        <TabsTrigger value="operations" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Operations</TabsTrigger>
-                        <TabsTrigger value="financials" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Financials</TabsTrigger>
-                        <TabsTrigger value="users" className="data-[state=active]:bg-secondary data-[state=active]:text-foreground h-9">Users</TabsTrigger>
+                        <TabsTrigger value="overview" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-9">Overview</TabsTrigger>
+                        <TabsTrigger value="operations" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-9">Operations</TabsTrigger>
+                        <TabsTrigger value="financials" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-9">Financials</TabsTrigger>
+                        <TabsTrigger value="users" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary h-9">Users</TabsTrigger>
                     </TabsList>
 
 
@@ -661,52 +726,72 @@ export default function Clients() {
                             {/* Left Column: Contact & Contract */}
                             <div className="space-y-6">
                                 <Card>
-                                    <CardHeader><CardTitle className="text-base">Contact Information</CardTitle></CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-100 rounded-full"><UserIcon className="h-4 w-4 text-slate-600" /></div>
-                                            <div><p className="text-xs text-muted-foreground">Primary Contact</p><p className="font-medium text-sm">{selectedClient.contact_name}</p></div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-100 rounded-full"><Mail className="h-4 w-4 text-slate-600" /></div>
-                                            <div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium text-sm">{selectedClient.email}</p></div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-100 rounded-full"><Phone className="h-4 w-4 text-slate-600" /></div>
-                                            <div><p className="text-xs text-muted-foreground">Phone</p><p className="font-medium text-sm">(555) 123-4567</p></div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-100 rounded-full"><MapPin className="h-4 w-4 text-slate-600" /></div>
-                                            <div><p className="text-xs text-muted-foreground">HQ Address</p><p className="font-medium text-sm">{selectedClient.address}</p></div>
-                                        </div>
-                                    </CardContent>
+                                    <CardHeader className="pb-3">
+                                        <button
+                                            className="w-full flex items-center justify-between text-left"
+                                            onClick={() => setClientSectionOpen(p => ({ ...p, contact: !p.contact }))}
+                                        >
+                                            <CardTitle className="text-base">Contact Information</CardTitle>
+                                            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", clientSectionOpen.contact && "rotate-180")} />
+                                        </button>
+                                    </CardHeader>
+                                    {clientSectionOpen.contact && (
+                                        <CardContent className="space-y-4 pt-0 animate-in fade-in duration-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-100 rounded-full"><UserIcon className="h-4 w-4 text-slate-600" /></div>
+                                                <div><p className="text-xs text-muted-foreground">Primary Contact</p><p className="font-medium text-sm">{selectedClient.contact_name}</p></div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-100 rounded-full"><Mail className="h-4 w-4 text-slate-600" /></div>
+                                                <div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium text-sm">{selectedClient.email}</p></div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-100 rounded-full"><Phone className="h-4 w-4 text-slate-600" /></div>
+                                                <div><p className="text-xs text-muted-foreground">Phone</p><p className="font-medium text-sm">(555) 123-4567</p></div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-100 rounded-full"><MapPin className="h-4 w-4 text-slate-600" /></div>
+                                                <div><p className="text-xs text-muted-foreground">HQ Address</p><p className="font-medium text-sm">{selectedClient.address}</p></div>
+                                            </div>
+                                        </CardContent>
+                                    )}
                                 </Card>
 
                                 {/* Contract Details */}
                                 <Card>
-                                    <CardHeader><CardTitle className="text-base">Contract Details</CardTitle></CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="flex justify-between border-b pb-2">
-                                            <span className="text-sm text-muted-foreground">Status</span>
-                                            <Badge variant="outline" className="capitalize">{selectedClient.status}</Badge>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-2">
-                                            <span className="text-sm text-muted-foreground">Start Date</span>
-                                            <span className="text-sm font-medium">Jan 01, 2023</span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-2">
-                                            <span className="text-sm text-muted-foreground">Renewal Date</span>
-                                            <span className="text-sm font-medium">Jan 01, 2025</span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-2">
-                                            <span className="text-sm text-muted-foreground">Payment Terms</span>
-                                            <span className="text-sm font-medium">Net 30</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-muted-foreground">SLA Level</span>
-                                            <span className="text-sm font-medium text-blue-600">Enterprise Gold</span>
-                                        </div>
-                                    </CardContent>
+                                    <CardHeader className="pb-3">
+                                        <button
+                                            className="w-full flex items-center justify-between text-left"
+                                            onClick={() => setClientSectionOpen(p => ({ ...p, contract: !p.contract }))}
+                                        >
+                                            <CardTitle className="text-base">Contract Details</CardTitle>
+                                            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", clientSectionOpen.contract && "rotate-180")} />
+                                        </button>
+                                    </CardHeader>
+                                    {clientSectionOpen.contract && (
+                                        <CardContent className="space-y-4 pt-0 animate-in fade-in duration-200">
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-sm text-muted-foreground">Status</span>
+                                                <Badge variant="outline" className="capitalize">{selectedClient.status}</Badge>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-sm text-muted-foreground">Start Date</span>
+                                                <span className="text-sm font-medium">Jan 01, 2023</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-sm text-muted-foreground">Renewal Date</span>
+                                                <span className="text-sm font-medium">Jan 01, 2025</span>
+                                            </div>
+                                            <div className="flex justify-between border-b pb-2">
+                                                <span className="text-sm text-muted-foreground">Payment Terms</span>
+                                                <span className="text-sm font-medium">Net 30</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-muted-foreground">SLA Level</span>
+                                                <span className="text-sm font-medium text-blue-600">Enterprise Gold</span>
+                                            </div>
+                                        </CardContent>
+                                    )}
                                 </Card>
                             </div>
 
@@ -714,355 +799,220 @@ export default function Clients() {
                             <div className="md:col-span-2 space-y-6">
                                 {/* Sites Management */}
                                 <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                        <CardTitle className="text-base">Site Locations</CardTitle>
-                                        <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => setIsAddSiteOpen(true)}>
-                                            <Plus className="h-3 w-3" /> Add Site
-                                        </Button>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        <div className="divide-y max-h-[250px] overflow-y-auto">
-                                            {selectedClient.sites.length === 0 && <p className="p-6 text-muted-foreground text-sm">No sites configured.</p>}
-                                            {selectedClient.sites.map(site => (
-                                                <div key={site.id} className="p-4 flex items-center justify-between hover:bg-muted transition-colors group/site">
-                                                    <div className="flex items-start gap-3 text-sm">
-                                                        <div className="mt-1"><MapPin className="h-4 w-4 text-blue-500" /></div>
-                                                        <div>
-                                                            <p className="font-semibold text-foreground">{site.name}</p>
-                                                            <p className="text-xs text-muted-foreground">{site.address}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <Badge variant={site.risk_level === 'high' ? 'destructive' : site.risk_level === 'medium' ? 'warning' : 'outline'} className="capitalize h-5 text-[10px]">
-                                                            {site.risk_level} Risk
-                                                        </Badge>
-                                                        <div className="flex items-center gap-1 opacity-0 group-hover/site:opacity-100 transition-opacity">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 w-7 p-0"
-                                                                onClick={() => {
-                                                                    setEditSiteData(site);
-                                                                    setSelectedSiteId(site.id);
-                                                                    setIsEditSiteOpen(true);
-                                                                }}
-                                                            >
-                                                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                                onClick={() => {
-                                                                    setSelectedSiteId(site.id);
-                                                                    setIsDeleteSiteConfirmOpen(true);
-                                                                }}
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                    <CardHeader className="pb-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <button
+                                                className="flex items-center gap-2"
+                                                onClick={() => setClientSectionOpen(p => ({ ...p, sites: !p.sites }))}
+                                            >
+                                                <CardTitle className="text-base">Site Locations</CardTitle>
+                                                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", clientSectionOpen.sites && "rotate-180")} />
+                                            </button>
+                                            <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => setIsAddSiteOpen(true)}>
+                                                <Plus className="h-3 w-3" /> Add Site
+                                            </Button>
                                         </div>
-                                    </CardContent>
+                                    </CardHeader>
+                                    {clientSectionOpen.sites && (
+                                        <CardContent className="pt-0 space-y-3 animate-in fade-in duration-200">
+                                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-2">
+                                                <Input value={siteSearch} onChange={(e) => setSiteSearch(e.target.value)} placeholder="Search site name or address" />
+                                                <select className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={siteRiskFilter} onChange={(e) => setSiteRiskFilter(e.target.value as any)}>
+                                                    <option value="all">All Risk</option>
+                                                    <option value="low">Low</option>
+                                                    <option value="medium">Medium</option>
+                                                    <option value="high">High</option>
+                                                </select>
+                                                <Button variant={sitePanelView === 'list' ? 'secondary' : 'outline'} size="sm" className="h-9 px-2" onClick={() => setSitePanelView('list')}><List className="h-3.5 w-3.5" /></Button>
+                                                <Button variant={sitePanelView === 'grid' ? 'secondary' : 'outline'} size="sm" className="h-9 px-2" onClick={() => setSitePanelView('grid')}><LayoutGrid className="h-3.5 w-3.5" /></Button>
+                                            </div>
+
+                                            {sitePanelView === 'list' ? (
+                                                <div className="rounded-xl border border-border/60 overflow-hidden max-h-[280px] overflow-y-auto">
+                                                    {filteredSelectedSites.length === 0 && <p className="p-6 text-muted-foreground text-sm text-center">No sites match this filter.</p>}
+                                                    {filteredSelectedSites.map(site => {
+                                                        const riskDot = site.risk_level === 'high' ? 'bg-red-500' : site.risk_level === 'medium' ? 'bg-amber-500' : 'bg-emerald-500';
+                                                        const riskBadge = site.risk_level === 'high' ? 'bg-red-500/10 text-red-600 border-red-500/20' : site.risk_level === 'medium' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+                                                        return (
+                                                            <div key={site.id} className="flex items-center justify-between p-3.5 border-b border-border/40 last:border-b-0 hover:bg-muted/20 transition-colors group/site">
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                    <span className={cn('h-2 w-2 rounded-full shrink-0', riskDot)} />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-sm font-semibold text-foreground truncate">{site.name}</p>
+                                                                        <p className="text-[11px] text-muted-foreground truncate">{site.address}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 shrink-0">
+                                                                    <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize', riskBadge)}>{site.risk_level}</span>
+                                                                    <div className="flex items-center gap-1 opacity-0 group-hover/site:opacity-100 transition-opacity">
+                                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditSiteData(site); setSelectedSiteId(site.id); setIsEditSiteOpen(true); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500 hover:bg-red-50" onClick={() => { setSelectedSiteId(site.id); setIsDeleteSiteConfirmOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    {filteredSelectedSites.length === 0 && <p className="md:col-span-2 p-4 text-muted-foreground text-xs text-center border border-border rounded-md">No sites match this filter.</p>}
+                                                    {filteredSelectedSites.map(site => (
+                                                        <div key={site.id} className="rounded-lg border border-border p-2.5 bg-background/70 hover:bg-muted/20 transition-colors">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div>
+                                                                    <p className="font-semibold text-xs">{site.name}</p>
+                                                                    <p className="text-[10px] text-muted-foreground mt-0.5">{site.address}</p>
+                                                                </div>
+                                                                <Badge variant={site.risk_level === 'high' ? 'destructive' : site.risk_level === 'medium' ? 'warning' : 'outline'} className="capitalize h-4 text-[9px] px-1.5">{site.risk_level}</Badge>
+                                                            </div>
+                                                            <div className="flex justify-end gap-1 mt-2">
+                                                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditSiteData(site); setSelectedSiteId(site.id); setIsEditSiteOpen(true); }}><Pencil className="h-3 w-3 text-blue-600" /></Button>
+                                                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => { setSelectedSiteId(site.id); setIsDeleteSiteConfirmOpen(true); }}><Trash2 className="h-3 w-3" /></Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    )}
                                 </Card>
 
                                 {/* Recent Activity Feed */}
                                 <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                        <CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" /> Recent Activity</CardTitle>
+                                    <CardHeader className="pb-3">
+                                        <button
+                                            className="w-full flex items-center justify-between"
+                                            onClick={() => setClientSectionOpen(p => ({ ...p, activity: !p.activity }))}
+                                        >
+                                            <CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" /> Recent Activity</CardTitle>
+                                            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", clientSectionOpen.activity && "rotate-180")} />
+                                        </button>
                                     </CardHeader>
-                                    <CardContent className="p-0">
-                                        <div className="divide-y max-h-[400px] overflow-y-auto">
-                                            {recentActivity.length === 0 && (
-                                                <EmptyState
-                                                    icon={Inbox}
-                                                    title="No Recent Activity"
-                                                    description="Recent shifts, incidents, and invoices will appear here."
-                                                    size="md"
-                                                />
-                                            )}
-                                            {recentActivity.map((item: any, i) => (
-                                                <div key={i} className="p-4 flex gap-3 text-sm hover:bg-muted transition-colors">
-                                                    <div className="mt-0.5 shrink-0">
-                                                        {item.activityType === 'shift' && <Calendar className="h-4 w-4 text-blue-500" />}
-                                                        {item.activityType === 'incident' && <Siren className="h-4 w-4 text-red-500" />}
-                                                        {item.activityType === 'invoice' && <FileCheck className="h-4 w-4 text-green-500" />}
+                                    {clientSectionOpen.activity && (
+                                        <CardContent className="p-0 animate-in fade-in duration-200">
+                                            <div className="divide-y max-h-[400px] overflow-y-auto">
+                                                {recentActivity.length === 0 && (
+                                                    <div className="p-12 text-center text-muted-foreground">
+                                                        <Inbox className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                                        <p>No recent activity found for this client.</p>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex justify-between">
-                                                            <p className="font-medium text-foreground">
-                                                                {item.activityType === 'shift' && `Shift at ${item.site?.name || 'Site'}`}
-                                                                {item.activityType === 'incident' && `${item.type} Incident Reported`}
-                                                                {item.activityType === 'invoice' && `Invoice Generated #${item.invoice_number}`}
-                                                            </p>
-                                                            <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                                                                {new Date(item.date).toLocaleDateString()}
-                                                            </span>
+                                                )}
+                                                {recentActivity.map((activity, idx) => {
+                                                    const isIncident = activity.activityType === 'incident';
+                                                    const isInvoice = activity.activityType === 'invoice';
+                                                    const iconBg = isIncident ? 'bg-red-500/10 text-red-600' : isInvoice ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary';
+                                                    const Icon = isIncident ? AlertTriangle : isInvoice ? DollarSign : Clock;
+                                                    const title = isIncident ? 'Incident Reported' : isInvoice ? `Invoice ${activity.status}` : 'Security Shift';
+                                                    const sub = activity.activityType === 'shift' ? `${activity.site?.name || 'Site'} · ${new Date(activity.date).toLocaleString()}` : isIncident ? `${activity.type} · ${activity.site?.name}` : `$${activity.amount?.toLocaleString()} · ${new Date(activity.date).toLocaleDateString()}`;
+                                                    return (
+                                                        <div key={idx} className="flex items-start gap-3 p-4 border-b border-border/40 last:border-b-0 hover:bg-muted/20 transition-colors">
+                                                            <div className={cn('h-8 w-8 rounded-xl flex items-center justify-center shrink-0', iconBg)}>
+                                                                <Icon className="h-4 w-4" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-foreground">{title}</p>
+                                                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>
+                                                            </div>
+                                                            <p className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">{new Date(activity.date).toLocaleDateString()}</p>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                                            {item.activityType === 'shift' && `Officer: ${item.officer?.full_name || 'Unassigned'}`}
-                                                            {item.activityType === 'incident' && `Severity: ${item.severity} • Status: ${item.status}`}
-                                                            {item.activityType === 'invoice' && `Amount: $${item.amount.toLocaleString()} • Status: ${item.status}`}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </CardContent>
+                                                    );
+                                                })}
+                                            </div>
+                                        </CardContent>
+                                    )}
                                 </Card>
                             </div>
                         </div>
                     </TabsContent>
 
-                    {/* 2. OPERATIONS TAB (SHIFTS) */}
-                    <TabsContent value="operations">
+                    {/* Financials Tab */}
+                    <TabsContent value="financials" className="space-y-4">
                         <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <CardTitle className="text-base">Shift History</CardTitle>
-                                <Badge variant="outline">{details.shifts.length} Total Records</Badge>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Billing & Financial Overview</CardTitle>
                             </CardHeader>
-                            <CardContent className="p-0">
-                                {isLoadingDetails ? (
-                                    <div className="p-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                                ) : (
-                                    <div className="divide-y">
-                                        {details.shifts.length === 0 && <p className="p-6 text-muted-foreground text-sm">No shift history found.</p>}
-                                        {details.shifts.slice(0, 10).map((shift: any) => (
-                                            <div key={shift.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="p-2 bg-slate-100 rounded-md">
-                                                        <Calendar className="h-4 w-4 text-slate-500" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-sm">{new Date(shift.start_time).toLocaleDateString()} <span className="text-muted-foreground font-normal">at {shift.site?.name}</span></p>
-                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                                            <span>{new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                            <span>•</span>
-                                                            <span className="flex items-center gap-1"><UserIcon className="h-3 w-3" /> {shift.officer?.full_name || 'Unassigned'}</span>
-                                                        </div>
+                            <CardContent>
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="space-y-6">
+                                        <div className="space-y-4">
+                                            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Service Rates</h3>
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>Standard Hourly Rate</Label>
+                                                    <div className="relative">
+                                                        <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                        <Input type="number" className="pl-9" value={billingRates.standard} onChange={e => setBillingRates(p => ({ ...p, standard: parseInt(e.target.value) }))} />
                                                     </div>
                                                 </div>
-                                                <Badge variant={shift.status === 'completed' ? 'success' : shift.status === 'assigned' ? 'default' : 'secondary'} className="capitalize">
-                                                    {shift.status}
-                                                </Badge>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Holiday Rate</Label>
+                                                        <Input type="number" value={billingRates.holiday} onChange={e => setBillingRates(p => ({ ...p, holiday: parseInt(e.target.value) }))} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Emergency Rate</Label>
+                                                        <Input type="number" value={billingRates.emergency} onChange={e => setBillingRates(p => ({ ...p, emergency: parseInt(e.target.value) }))} />
+                                                    </div>
+                                                </div>
+                                                <Button onClick={handleSaveRates} className="w-full">Save Financial Settings</Button>
                                             </div>
-                                        ))}
-                                        {details.shifts.length > 10 && (
-                                            <div className="p-3 text-center border-t bg-slate-50">
-                                                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">View All Shift History</Button>
-                                            </div>
-                                        )}
+                                        </div>
                                     </div>
-                                )}
+                                    <div className="bg-muted/30 rounded-xl p-6 border border-border/50">
+                                        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Financial Health</h3>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm">Paid to Date</span>
+                                                <span className="font-bold text-green-600">${(details.stats.totalSpend - details.stats.outstandingBalance).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm">Outstanding</span>
+                                                <span className="font-bold text-red-600">${details.stats.outstandingBalance.toLocaleString()}</span>
+                                            </div>
+                                            <div className="pt-4 border-t">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-semibold">Lifetime Value</span>
+                                                    <span className="text-lg font-bold">${details.stats.totalSpend.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
 
-                    {/* 4. USERS TAB */}
-                    <TabsContent value="users">
+                    <TabsContent value="users" className="space-y-4">
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-base">Portal Users</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Manage access for this client's portal.</p>
-                                </div>
+                                <CardTitle className="text-lg text-slate-800">Authorized Client Users</CardTitle>
                                 <Button size="sm" onClick={() => setIsAddUserOpen(true)} className="gap-2">
                                     <UserPlus className="h-4 w-4" /> Add User
                                 </Button>
                             </CardHeader>
                             <CardContent>
-                                <div className="rounded-md border">
-                                    <div className="grid grid-cols-12 bg-slate-50 p-3 text-xs font-semibold uppercase text-muted-foreground border-b">
-                                        <div className="col-span-4">User</div>
-                                        <div className="col-span-4">Email</div>
-                                        <div className="col-span-2">Role</div>
-                                        <div className="col-span-2 text-right">Actions</div>
-                                    </div>
-                                    {details.users.length === 0 ? (
-                                        <div className="p-8 text-center text-muted-foreground text-sm">
-                                            No users created for this client yet.
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y relative max-h-[400px] overflow-y-auto">
-                                            {details.users.map((u: any) => (
-                                                <div key={u.id} className="grid grid-cols-12 p-3 items-center text-sm hover:bg-slate-50 transition-colors">
-                                                    <div className="col-span-4 font-medium flex items-center gap-2">
-                                                        <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">
-                                                            {u.full_name?.substring(0, 2).toUpperCase() || 'U'}
-                                                        </div>
-                                                        {u.full_name}
-                                                    </div>
-                                                    <div className="col-span-4 text-muted-foreground">{u.email}</div>
-                                                    <div className="col-span-2">
-                                                        <Badge variant="outline" className="capitalize">{u.role}</Badge>
-                                                    </div>
-                                                    <div className="col-span-2 text-right flex justify-end gap-2">
-                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600">
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600">
-                                                            <Key className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                <div className="space-y-3">
+                                    {details.users.length === 0 && (
+                                        <div className="text-center py-12 border-2 border-dashed rounded-xl">
+                                            <UserPlus className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-20" />
+                                            <p className="text-muted-foreground">No authorized portal users for this client.</p>
                                         </div>
                                     )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    {/* 3. FINANCIALS TAB */}
-                    <TabsContent value="financials">
-                        <div className="grid md:grid-cols-3 gap-6 mb-6">
-                            <Card>
-                                <CardContent className="p-4 pt-6 text-center">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Outstanding Balance</p>
-                                    <p className={`text-2xl font-bold mt-2 ${details.stats.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        ${details.stats.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardContent className="p-4 pt-6 text-center">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Billed (Lifetime)</p>
-                                    <p className="text-2xl font-bold mt-2 text-slate-900">
-                                        ${details.stats.totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardContent className="p-4 pt-6 text-center">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Payment Terms</p>
-                                    <p className="text-xl font-semibold mt-2 text-slate-700">Net 30</p>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        <div className="grid md:grid-cols-3 gap-6">
-                            <div className="md:col-span-2 space-y-6">
-                                {/* SPEND BY SITE ANALYSIS */}
-                                <Card>
-                                    <CardHeader><CardTitle className="text-base">Spend by Site (Est.)</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {spendBySite.map((item, i) => (
-                                                <div key={i} className="space-y-1">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="font-medium">{item.name}</span>
-                                                        <span>${item.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                    </div>
-                                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-blue-500 rounded-full"
-                                                            style={{ width: `${Math.min(100, (item.value / (spendBySite[0]?.value || 1)) * 100)}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {spendBySite.length === 0 && <p className="text-sm text-muted-foreground">No shift data available for estimation.</p>}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card>
-                                    <CardHeader><CardTitle className="text-base">Invoice History</CardTitle></CardHeader>
-                                    <CardContent className="p-0">
-                                        <div className="divide-y">
-                                            {details.invoices.length === 0 && <p className="p-6 text-muted-foreground text-sm">No invoices found.</p>}
-                                            {details.invoices.map((inv: any) => (
-                                                <div key={inv.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="p-2 bg-slate-100 rounded-md">
-                                                            <FileText className="h-4 w-4 text-slate-500" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium text-sm text-slate-900">{inv.invoice_number}</p>
-                                                            <p className="text-xs text-muted-foreground">Issued: {new Date(inv.issue_date).toLocaleDateString()}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right flex flex-col items-end gap-1">
-                                                        <span className="font-bold text-sm">${inv.amount.toLocaleString()}</span>
-                                                        <Badge variant={inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'destructive' : 'secondary'} className="capitalize text-[10px] h-5 px-1.5">
-                                                            {inv.status}
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            <div>
-                                <Card className="h-full">
-                                    <CardHeader><CardTitle className="text-base">Rate Card</CardTitle></CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">Standard Rate ($/hr)</Label>
-                                            <Input
-                                                type="number"
-                                                value={billingRates.standard}
-                                                onChange={(e) => setBillingRates(p => ({ ...p, standard: Number(e.target.value) }))}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">Holiday Rate ($/hr)</Label>
-                                            <Input
-                                                type="number"
-                                                value={billingRates.holiday}
-                                                onChange={(e) => setBillingRates(p => ({ ...p, holiday: Number(e.target.value) }))}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">Emergency Rate ($/hr)</Label>
-                                            <Input
-                                                type="number"
-                                                value={billingRates.emergency}
-                                                onChange={(e) => setBillingRates(p => ({ ...p, emergency: Number(e.target.value) }))}
-                                            />
-                                        </div>
-                                        <Button className="w-full mt-4" onClick={handleSaveRates} disabled={updateClientMutation.isPending}>
-                                            {updateClientMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            <Save className="mr-2 h-4 w-4" /> Save Rates
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    {/* 4. USERS TAB */}
-                    <TabsContent value="users">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div className="space-y-1">
-                                    <CardTitle className="text-base">Client User Accounts</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Manage access for this client.</p>
-                                </div>
-                                <Button size="sm" className="gap-2" onClick={() => setIsAddUserOpen(true)}>
-                                    <UserPlus className="h-4 w-4" /> Add User
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="divide-y">
-                                    {details.users.length === 0 && <p className="p-6 text-muted-foreground text-sm">No users found for this client.</p>}
                                     {details.users.map((user: any) => (
-                                        <div key={user.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar fallback={user.full_name[0]} className="h-9 w-9 bg-slate-200" />
+                                        <div key={user.id} className="flex items-center justify-between p-4 border rounded-xl hover:bg-slate-50 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <Avatar
+                                                    className="h-10 w-10 border-2 border-white shadow-sm"
+                                                    fallback={user.full_name?.substring(0, 2).toUpperCase() || "??"}
+                                                />
                                                 <div>
-                                                    <p className="text-sm font-medium">{user.full_name}</p>
+                                                    <p className="font-semibold">{user.full_name}</p>
                                                     <p className="text-xs text-muted-foreground">{user.email}</p>
                                                 </div>
                                             </div>
-                                            <div>
-                                                {user.is_temporary_password && (
-                                                    <Badge variant="warning" className="text-[10px]">Temp Password</Badge>
-                                                )}
+                                            <div className="flex items-center gap-3">
+                                                <Badge variant="outline" className="text-[10px] uppercase">Access Granted</Badge>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500"><Lock className="h-4 w-4" /></Button>
                                             </div>
                                         </div>
                                     ))}
@@ -1072,40 +1022,35 @@ export default function Clients() {
                     </TabsContent>
                 </Tabs>
 
-                {/* ADD / EDIT SITE DIALOG (Scoped to Client View) */}
-                <Dialog open={isAddSiteOpen || isEditSiteOpen} onOpenChange={(val) => {
-                    if (!val) {
-                        setIsAddSiteOpen(false);
-                        setIsEditSiteOpen(false);
-                    }
-                }}>
-                    <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden">
-                        <DialogHeader className="px-6 py-6 border-b">
-                            <DialogTitle className="text-xl">{isEditSiteOpen ? 'Edit Site Location' : 'Add New Site Location'}</DialogTitle>
+                {/* ADD SITE DIALOG */}
+                <Dialog open={isAddSiteOpen} onOpenChange={setIsAddSiteOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add New Site</DialogTitle>
                         </DialogHeader>
-                        <div className="p-6 space-y-4">
-                            <div className="space-y-1">
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
                                 <Label>Site Name</Label>
                                 <Input
-                                    value={isEditSiteOpen ? (editSiteData.name || '') : newSite.name}
-                                    onChange={e => isEditSiteOpen ? setEditSiteData(p => ({ ...p, name: e.target.value })) : setNewSite(p => ({ ...p, name: e.target.value }))}
-                                    placeholder="e.g. North Warehouse"
+                                    placeholder="e.g. West Wing Pharmacy"
+                                    value={newSite.name}
+                                    onChange={e => setNewSite(p => ({ ...p, name: e.target.value }))}
                                 />
                             </div>
-                            <div className="space-y-1">
-                                <Label>Full Address</Label>
+                            <div className="space-y-2">
+                                <Label>Site Address</Label>
                                 <Input
-                                    value={isEditSiteOpen ? (editSiteData.address || '') : newSite.address}
-                                    onChange={e => isEditSiteOpen ? setEditSiteData(p => ({ ...p, address: e.target.value })) : setNewSite(p => ({ ...p, address: e.target.value }))}
-                                    placeholder="123 Industrial Rd"
+                                    placeholder="Full street address"
+                                    value={newSite.address}
+                                    onChange={e => setNewSite(p => ({ ...p, address: e.target.value }))}
                                 />
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <Label>Risk Level</Label>
                                 <select
-                                    className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                                    value={isEditSiteOpen ? (editSiteData.risk_level || 'low') : newSite.risk_level}
-                                    onChange={(e) => isEditSiteOpen ? setEditSiteData(p => ({ ...p, risk_level: e.target.value as any })) : setNewSite(p => ({ ...p, risk_level: e.target.value as any }))}
+                                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    value={newSite.risk_level}
+                                    onChange={e => setNewSite(p => ({ ...p, risk_level: e.target.value as any }))}
                                 >
                                     <option value="low">Low Risk</option>
                                     <option value="medium">Medium Risk</option>
@@ -1113,83 +1058,68 @@ export default function Clients() {
                                 </select>
                             </div>
                         </div>
-                        <DialogFooter className="px-6 py-4 bg-slate-50 border-t">
-                            <Button variant="outline" onClick={() => {
-                                setIsAddSiteOpen(false);
-                                setIsEditSiteOpen(false);
-                            }}>Cancel</Button>
-                            <Button
-                                onClick={() => {
-                                    if (isEditSiteOpen && selectedSiteId) {
-                                        updateSiteMutation.mutate({ id: selectedSiteId, data: editSiteData });
-                                    } else {
-                                        handleAddSite();
-                                    }
-                                }}
-                                disabled={createSiteMutation.isPending || updateSiteMutation.isPending}
-                            >
-                                {(createSiteMutation.isPending || updateSiteMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isEditSiteOpen ? 'Save Changes' : 'Save Location'}
-                            </Button>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsAddSiteOpen(false)}>Cancel</Button>
+                            <Button onClick={handleAddSite}>Add Site</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
 
-                {/* DELETE SITE CONFIRM DIALOG */}
+                {/* EDIT SITE DIALOG */}
+                <Dialog open={isEditSiteOpen} onOpenChange={setIsEditSiteOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Site Details</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Site Name</Label>
+                                <Input
+                                    placeholder="Site Name"
+                                    value={editSiteData.name || ''}
+                                    onChange={e => setEditSiteData(p => ({ ...p, name: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Site Address</Label>
+                                <Input
+                                    placeholder="Site Address"
+                                    value={editSiteData.address || ''}
+                                    onChange={e => setEditSiteData(p => ({ ...p, address: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Risk Level</Label>
+                                <select
+                                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    value={editSiteData.risk_level || 'low'}
+                                    onChange={e => setEditSiteData(p => ({ ...p, risk_level: e.target.value as any }))}
+                                >
+                                    <option value="low">Low Risk</option>
+                                    <option value="medium">Medium Risk</option>
+                                    <option value="high">High Risk</option>
+                                </select>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditSiteOpen(false)}>Cancel</Button>
+                            <Button onClick={() => selectedSiteId && updateSiteMutation.mutate({ id: selectedSiteId, data: editSiteData })}>Save Changes</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* DELETE SITE CONFIRM */}
                 <Dialog open={isDeleteSiteConfirmOpen} onOpenChange={setIsDeleteSiteConfirmOpen}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Delete Site Location</DialogTitle>
+                            <DialogTitle>Remove Site</DialogTitle>
                         </DialogHeader>
-                        <div className="py-4 text-center space-y-2">
-                            <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-2" />
-                            <p className="font-semibold">Are you sure you want to delete this site?</p>
-                            <p className="text-sm text-muted-foreground">This will permanently remove the location. Past shift data associated with this site may be affected.</p>
+                        <div className="py-4 text-center">
+                            <p className="text-muted-foreground">Are you sure you want to remove this site? This site will no longer appear in the schedule or active deployments.</p>
                         </div>
                         <DialogFooter>
                             <Button variant="ghost" onClick={() => setIsDeleteSiteConfirmOpen(false)}>Cancel</Button>
-                            <Button
-                                variant="destructive"
-                                onClick={() => selectedSiteId && deleteSiteMutation.mutate(selectedSiteId)}
-                                disabled={deleteSiteMutation.isPending}
-                            >
-                                {deleteSiteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Delete Site
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
-                {/* ADD USER DIALOG */}
-                <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-                    <DialogContent className="sm:max-w-[450px]">
-                        <DialogHeader>
-                            <DialogTitle>Create Client User</DialogTitle>
-                        </DialogHeader>
-                        <div className="py-4 space-y-4">
-                            <div className="p-3 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-100 flex gap-2">
-                                <Lock className="h-4 w-4 mt-0.5 shrink-0" />
-                                <span>User will be required to change their password upon first login.</span>
-                            </div>
-                            <div className="space-y-1">
-                                <Label>Full Name</Label>
-                                <Input value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} placeholder="John Doe" />
-                            </div>
-                            <div className="space-y-1">
-                                <Label>Email Address</Label>
-                                <Input type="email" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="user@company.com" />
-                            </div>
-                            <div className="space-y-1">
-                                <Label>Temporary Password</Label>
-                                <Input type="text" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} placeholder="e.g. Temp1234" />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
-                            <Button onClick={() => createUserMutation.mutate()} disabled={createUserMutation.isPending}>
-                                {createUserMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Create User
-                            </Button>
+                            <Button variant="destructive" onClick={() => selectedSiteId && deleteSiteMutation.mutate(selectedSiteId)}>Confirm Deletion</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -1197,196 +1127,536 @@ export default function Clients() {
         );
     }
 
-    // --- STANDARD LIST VIEW ---
+    // --- DIRECTORY VIEW ---
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight">Clients & Sites</h2>
-                    <p className="text-sm text-muted-foreground">Manage client contracts and site locations.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative w-full max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search clients by name, contact or address..." className="pl-10 h-11 bg-card/50 border-border/50 rounded-2xl" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <div className="space-y-6 animate-in fade-in duration-500">
+            {/* ── HEADER BAND ── */}
+            <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden relative z-10">
+                <div className="p-5 lg:p-6 relative">
+                    {/* Title row */}
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-1">
+                                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
+                                    <Building2 className="h-4 w-4 text-primary" />
+                                </div>
+                                <h1 className="text-lg font-bold tracking-tight text-foreground">Client Directory</h1>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Manage clients, sites, billing, and portal access.</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['clients'] })} className="h-9 rounded-xl gap-2 text-xs">
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Refresh</span>
+                            </Button>
+                            <Button size="sm" onClick={() => setIsAddOpen(true)} className="h-9 rounded-xl px-4 gap-2 text-xs font-semibold">
+                                <Plus className="h-3.5 w-3.5" /> Add Client
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="flex items-center bg-card border border-border/50 rounded-2xl p-1 shadow-sm">
-                        <Button
-                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setViewMode('grid')}
-                            title="Grid View"
-                        >
-                            <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setViewMode('list')}
-                            title="List View"
-                        >
-                            <List className="h-4 w-4" />
-                        </Button>
+                    {/* Stat strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+                        <StatPill icon={Building2} label="Total" value={directoryStats.total} />
+                        <StatPill icon={CheckCircle2} label="Active" value={directoryStats.active} accent="text-emerald-600 dark:text-emerald-400" />
+                        <StatPill icon={Sparkles} label="Prospect" value={directoryStats.prospect} accent="text-amber-600 dark:text-amber-400" />
+                        <StatPill icon={AlertTriangle} label="Terminated" value={directoryStats.terminated} accent="text-red-600 dark:text-red-400" />
+                        <StatPill icon={MapPin} label="Total Sites" value={directoryStats.sites} accent="text-blue-600 dark:text-blue-400" />
                     </div>
 
-                    <Button className="gap-2" onClick={() => setIsAddOpen(true)}><Plus className="h-4 w-4" /> Add Client</Button>
+                    {/* Toolbar */}
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                        {/* Search */}
+                        <div className="relative flex-1 lg:w-72 min-w-0">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            <input
+                                placeholder="Search clients, contacts..."
+                                className="w-full h-9 pl-10 pr-4 rounded-xl border border-border/50 bg-background text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all duration-200"
+                                value={filter}
+                                onChange={(e) => setFilter(e.target.value)}
+                            />
+                            {filter && <button onClick={() => setFilter('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X className="h-4 w-4" /></button>}
+                        </div>
+
+                        {/* Filter toggle */}
+                        <Button variant="outline" size="sm" onClick={() => setFiltersOpen(v => !v)} className={cn('h-9 rounded-xl gap-1.5 shrink-0 transition-all duration-200 text-xs px-3', filtersOpen && 'border-primary/50 text-primary bg-primary/5')}>
+                            <Filter className="h-4 w-4" /> Filters
+                            {activeFilters.length > 0 && (
+                                <span className="h-2 w-2 rounded-full bg-primary" />
+                            )}
+                        </Button>
+
+                        {/* View toggle */}
+                        <div className="flex items-center bg-muted/40 rounded-xl p-0.5 gap-0.5 shrink-0 border border-border/40 h-9 ml-auto">
+                            {(['grid', 'list'] as const).map(v => (
+                                <button key={v} onClick={() => setViewMode(v)} className={cn('px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all duration-200 h-full', viewMode === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                                    {v}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Expandable filters */}
+                    {filtersOpen && (
+                        <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-border/50 animate-in slide-in-from-top-2 duration-200">
+                            <div className="flex flex-wrap gap-1.5">
+                                {(['all', 'active', 'prospect', 'terminated'] as const).map(s => (
+                                    <button
+                                        key={s}
+                                        onClick={() => {
+                                            if (s === 'all') {
+                                                setActiveFilters([]);
+                                            } else {
+                                                if (activeFilters.includes(s)) {
+                                                    setActiveFilters(activeFilters.filter(f => f !== s));
+                                                } else {
+                                                    setActiveFilters([...activeFilters, s]);
+                                                }
+                                            }
+                                        }}
+                                        className={cn('px-3 py-1 rounded-full text-xs font-semibold border transition-all capitalize',
+                                            (s === 'all' && activeFilters.length === 0) || activeFilters.includes(s)
+                                                ? 'bg-primary text-primary-foreground border-transparent'
+                                                : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                                        )}
+                                    >
+                                        {s === 'all' ? 'All Status' : s}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {isLoading && <div className="text-center py-8 text-muted-foreground">Loading clients...</div>}
 
-            {viewMode === 'grid' ? (
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredData.map(client => (
-                        <Card key={client.id} className="flex flex-col group hover:shadow-xl hover:shadow-primary/5 transition-all duration-300" onClick={() => handleViewClient(client)}>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-6 pt-6 border-b">
-                                <div className="space-y-1">
-                                    <CardTitle className="text-lg font-bold flex items-center gap-2 group-hover:text-primary transition-colors">
-                                        <Building2 className="h-5 w-5 text-primary/70" />
-                                        {client.name}
-                                    </CardTitle>
-                                    <p className="text-xs text-muted-foreground font-medium line-clamp-1">{client.address}</p>
-                                </div>
-                                <Badge className="text-[10px] h-5 px-2" variant={client.status === 'active' ? 'success' : 'secondary'}>{client.status}</Badge>
-                            </CardHeader>
-                            <CardContent className="p-5 pt-4 flex-1">
-                                <div className="text-sm space-y-1.5 mb-4">
-                                    <p><span className="text-muted-foreground">Contact:</span> {client.contact_name}</p>
-                                    <p><span className="text-muted-foreground">Email:</span> {client.email}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Locations ({client.sites.length})</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {client.sites.slice(0, 3).map(site => (
-                                            <Badge key={site.id} variant="outline" className="text-xs px-2 h-6 flex items-center gap-1">
-                                                <MapPin className="h-3 w-3" /> {site.name}
-                                            </Badge>
-                                        ))}
-                                        {client.sites.length > 3 && <Badge variant="outline" className="text-xs px-2 h-6">+{client.sites.length - 3}</Badge>}
-                                        {client.sites.length === 0 && <span className="text-xs text-muted-foreground italic">No sites</span>}
+            {isLoading ? (
+                <div className="h-96 flex flex-col items-center justify-center gap-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+                    <p className="text-muted-foreground animate-pulse">Loading directory...</p>
+                </div>
+            ) : filteredData.length === 0 ? (
+                <div className="h-96 flex flex-col items-center justify-center border-2 border-dashed rounded-3xl bg-muted/20">
+                    <EmptyState
+                        icon={Building2}
+                        title="No Clients Found"
+                        description={filter ? `No clients matching "${filter}"` : "You haven't added any clients yet."}
+                    />
+                    {!filter && <Button onClick={() => setIsAddOpen(true)} className="mt-4">Register First Client</Button>}
+                </div>
+            ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                    {filteredData.map(client => {
+                        const isActive = client.status === 'active';
+                        const isProspect = client.status === 'prospect';
+                        const statusColor = isActive ? 'text-emerald-500' : isProspect ? 'text-blue-500' : 'text-red-500';
+                        const statusBg = isActive ? 'bg-emerald-500/10' : isProspect ? 'bg-blue-500/10' : 'bg-red-500/10';
+                        const statusBorder = isActive ? 'border-emerald-500/20' : isProspect ? 'border-blue-500/20' : 'border-red-500/20';
+
+                        return (
+                            <div
+                                key={client.id}
+                                className="group relative bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl overflow-hidden cursor-pointer hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 transition-all duration-500 flex flex-col ring-1 ring-black/5 dark:ring-white/5"
+                                onClick={() => handleViewClient(client)}
+                            >
+                                {/* Top Gradient Line */}
+                                <div className={cn('absolute inset-x-0 top-0 h-1 opacity-80 group-hover:opacity-100 transition-opacity', isActive ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : isProspect ? 'bg-gradient-to-r from-blue-400 to-blue-600' : 'bg-gradient-to-r from-red-400 to-red-600')} />
+
+                                <div className="p-4 flex flex-col flex-1">
+                                    {/* Header Section */}
+                                    <div className="flex items-start justify-between gap-3 mb-4 mt-0.5">
+                                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                                            <div className="relative shrink-0 mt-0.5">
+                                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-primary border border-primary/20 transition-all duration-500 group-hover:scale-110 shadow-inner">
+                                                    <Building2 className="h-4.5 w-4.5" />
+                                                </div>
+                                                <span className={cn('absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card shadow-sm', isActive ? 'bg-emerald-500' : isProspect ? 'bg-blue-500' : 'bg-red-500')} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-sm font-bold text-foreground leading-tight truncate group-hover:text-primary transition-colors pr-1">{client.name}</h3>
+                                                <div className="flex items-center gap-1 mt-1 text-muted-foreground">
+                                                    <MapPin className="h-3 w-3 shrink-0 opacity-70" />
+                                                    <p className="text-[10px] font-medium truncate">{client.address || 'Central Headquarters'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Badge className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border shadow-sm shrink-0', statusBg, statusColor, statusBorder)}>
+                                            {client.status}
+                                        </Badge>
+                                    </div>
+
+                                    {/* Info Panel */}
+                                    <div className="bg-muted/30 rounded-xl p-3 mb-4 border border-border/40 group-hover:bg-muted/50 transition-colors">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">
+                                                    <UserIcon className="h-2.5 w-2.5" /> Contact
+                                                </div>
+                                                <p className="text-[11px] font-semibold text-foreground truncate">{client.contact_name || 'Unassigned'}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80">
+                                                    <Mail className="h-2.5 w-2.5" /> Email
+                                                </div>
+                                                <p className="text-[11px] font-semibold text-foreground truncate">{client.email || 'No Email'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Operational sites summary */}
+                                    <div className="mb-4 flex-1">
+                                        <div className="flex items-center justify-between mb-2 px-0.5">
+                                            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70">Operational Sites</p>
+                                            <span className="text-[9px] font-black tabular-nums bg-primary/10 text-primary px-1.5 py-0.25 rounded-md border border-primary/20">{client.sites.length}</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {client.sites.length > 0 ? (
+                                                <>
+                                                    {client.sites.slice(0, 2).map((site, idx) => (
+                                                        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-lg bg-background border border-border/60 text-[9px] font-semibold text-foreground transition-all duration-300 group-hover:border-primary/30 shadow-sm">
+                                                            {site.name}
+                                                        </span>
+                                                    ))}
+                                                    {client.sites.length > 2 && (
+                                                        <span className="text-[9px] text-muted-foreground font-bold pl-0.5 self-center">+{client.sites.length - 2}</span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="w-full text-center py-2 rounded-xl border border-dashed border-border/40 bg-muted/10">
+                                                    <p className="text-[10px] text-muted-foreground italic font-medium">No sites provisioned</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Elegant Footer */}
+                                    <div className="pt-3 mt-auto border-t border-border/60 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary transition-all duration-500 group-hover:text-primary-foreground shadow-sm">
+                                                <Activity className="h-3.5 w-3.5" />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-muted-foreground group-hover:text-foreground transition-colors">Operations</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-primary text-[10px] font-bold uppercase tracking-wider opacity-0 -translate-x-3 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-400">
+                                            Details <ChevronRight className="h-3 w-3" />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="mt-4 pt-4 border-t flex justify-end">
-                                    <span className="text-xs font-bold text-primary flex items-center gap-1 group-hover:gap-2 transition-all">View 360° <ArrowLeft className="h-3 w-3 rotate-180" /></span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                            </div>
+                        );
+                    })}
                 </div>
             ) : (
-                <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm">
+                <div className="rounded-2xl border border-border/40 bg-card overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-muted/50 border-b">
+                        <table className="w-full">
+                            <thead className="bg-muted/40 border-b border-border/50">
                                 <tr>
-                                    <th className="h-10 px-4 text-left font-medium text-muted-foreground">Client</th>
-                                    <th className="h-10 px-4 text-left font-medium text-muted-foreground">Contact</th>
-                                    <th className="h-10 px-4 text-left font-medium text-muted-foreground">Status</th>
-                                    <th className="h-10 px-4 text-left font-medium text-muted-foreground">Sites</th>
-                                    <th className="h-10 px-4 text-right font-medium text-muted-foreground">Actions</th>
+                                    <th className="h-12 px-6 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">Client Entity</th>
+                                    <th className="h-12 px-6 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">Main Contact</th>
+                                    <th className="h-12 px-6 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground text-center">Status</th>
+                                    <th className="h-12 px-6 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">Operational Sites</th>
+                                    <th className="h-12 px-6 text-right font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y">
-                                {filteredData.map(client => (
-                                    <tr key={client.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => handleViewClient(client)}>
-                                        <td className="p-4 align-middle">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                                                    {client.name.substring(0, 2).toUpperCase()}
+                            <tbody className="divide-y divide-border/30">
+                                {filteredData.map(client => {
+                                    const isActive = client.status === 'active';
+                                    const isProspect = client.status === 'prospect';
+                                    const dot = isActive ? 'bg-emerald-500' : isProspect ? 'bg-blue-500' : 'bg-red-500';
+                                    const badge = isActive ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : isProspect ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-red-500/10 text-red-600 border-red-500/20';
+                                    return (
+                                        <tr
+                                            key={client.id}
+                                            className="hover:bg-primary/[0.02] transition-colors cursor-pointer group"
+                                            onClick={() => handleViewClient(client)}
+                                        >
+                                            <td className="p-4 px-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative shrink-0">
+                                                        <div className="h-11 w-11 rounded-xl bg-primary/5 flex items-center justify-center text-primary ring-1 ring-primary/10 group-hover:bg-primary/10 transition-all duration-300">
+                                                            <Building2 className="h-5 w-5" />
+                                                        </div>
+                                                        <span className={cn('absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background shadow-sm', dot)} />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="font-bold text-foreground group-hover:text-primary transition-colors text-sm truncate leading-none mb-1">{client.name}</span>
+                                                        <span className="text-[11px] text-muted-foreground truncate font-medium flex items-center gap-1 opacity-80">
+                                                            <MapPin className="h-2.5 w-2.5" /> {client.address || 'Central Headquarters'}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{client.name}</span>
-                                                    <span className="text-xs text-muted-foreground">{client.address}</span>
+                                            </td>
+                                            <td className="p-4 px-6">
+                                                <div className="space-y-0.5">
+                                                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                        <UserIcon className="h-3 w-3 text-muted-foreground" /> {client.contact_name || '—'}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground font-medium pl-4.5">{client.email || '—'}</p>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 align-middle">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-xs">{client.contact_name}</span>
-                                                <span className="text-xs text-muted-foreground">{client.email}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 align-middle">
-                                            <Badge variant={client.status === 'active' ? 'success' : 'secondary'}>{client.status}</Badge>
-                                        </td>
-                                        <td className="p-4 align-middle">
-                                            <div className="flex flex-wrap gap-1">
-                                                {client.sites.slice(0, 2).map(site => (
-                                                    <Badge key={site.id} variant="outline" className="text-[10px] h-5">{site.name}</Badge>
-                                                ))}
-                                                {client.sites.length > 2 && <span className="text-xs text-muted-foreground">+{client.sites.length - 2} more</span>}
-                                                {client.sites.length === 0 && <span className="text-xs text-muted-foreground italic">No sites</span>}
-                                            </div>
-                                        </td>
-                                        <td className="p-4 align-middle text-right">
-                                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleViewClient(client); }}>View 360°</Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {filteredData.length === 0 && (
-                                    <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No clients found matching your search.</td></tr>
-                                )}
+                                            </td>
+                                            <td className="p-4 px-6 text-center">
+                                                <span className={cn('inline-flex px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter border shadow-none shrink-0', badge)}>{client.status}</span>
+                                            </td>
+                                            <td className="p-4 px-6">
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {client.sites.length > 0 ? (
+                                                        <>
+                                                            {client.sites.slice(0, 2).map((site, idx) => (
+                                                                <span key={idx} className="text-[10px] px-2.5 py-1 rounded-lg bg-background border border-border/50 text-foreground font-bold shadow-sm group-hover:border-primary/20 transition-colors">
+                                                                    {site.name}
+                                                                </span>
+                                                            ))}
+                                                            {client.sites.length > 2 && <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg">+{client.sites.length - 2}</span>}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-[10px] text-muted-foreground/40 italic font-medium">No sites provisioned</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 px-6 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                                                    <Button variant="ghost" size="sm" className="h-8 rounded-xl text-[10px] font-bold uppercase tracking-tight gap-1.5 hover:bg-primary/10 hover:text-primary" onClick={(e) => { e.stopPropagation(); handleViewClient(client); }}>
+                                                        Profile <ExternalLink className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 </div>
-            )}
+            )
+            }
+
 
             {/* ADD CLIENT MODAL */}
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
+            <Dialog open={isAddOpen} onOpenChange={(open) => {
+                setIsAddOpen(open);
+                if (!open) resetClientForm();
+            }}>
+                <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden">
                     <DialogHeader className="px-6 py-6 border-b">
                         <DialogTitle className="text-xl">Add New Client</DialogTitle>
                     </DialogHeader>
-                    <div className="p-6 space-y-6">
-                        <div className="space-y-1">
-                            <Label>Company Name</Label>
-                            <Input value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corp" />
+
+                    <div className="p-6">
+                        {/* Progress Bar */}
+                        <div className="w-full bg-muted rounded-full h-2 mb-6 overflow-hidden">
+                            <div
+                                className="bg-primary h-full transition-all duration-300 ease-out rounded-full"
+                                style={{ width: `${((newClientStep + 1) / clientCreationSteps.length) * 100}%` }}
+                            />
                         </div>
 
-                        <div>
-                            <h4 className="text-sm font-semibold text-slate-900 mb-4 border-b pb-2 mt-2">Point of Contact</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <Label>Contact Name</Label>
-                                    <Input value={newClient.contact_name} onChange={e => setNewClient(p => ({ ...p, contact_name: e.target.value }))} placeholder="Jane Doe" />
+                        {/* Step Indicator */}
+                        <StepIndicator
+                            steps={clientCreationSteps}
+                            currentStep={newClientStep}
+                            onStepClick={(step) => step < newClientStep && setNewClientStep(step)}
+                            className="mb-8 hidden sm:flex"
+                            size="sm"
+                        />
+
+                        <p className="sm:hidden text-xs text-muted-foreground mb-5">Step {newClientStep + 1} of {clientCreationSteps.length}: {clientCreationSteps[newClientStep].label}</p>
+
+                        {/* Step Content */}
+                        <div className="min-h-[200px]">
+                            {newClientStep === 0 && (
+                                <StaggerContainer className="space-y-4" show={true}>
+                                    <div className="space-y-2">
+                                        <Label className="text-base">Company Name *</Label>
+                                        <Input
+                                            value={newClient.name}
+                                            onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))}
+                                            placeholder="e.g. Acme Corporation"
+                                            className={`h-11 ${showClientStepErrors && clientStepErrors.company ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
+                                        />
+                                        {showClientStepErrors && clientStepErrors.company && (
+                                            <p className="text-xs text-destructive">Company name is required to continue.</p>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">The legal name of the client organization</p>
+                                    </div>
+
+                                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900">
+                                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                                            <strong>Tip:</strong> Use the official company name as it appears on contracts and invoices.
+                                        </p>
+                                    </div>
+                                </StaggerContainer>
+                            )}
+
+                            {newClientStep === 1 && (
+                                <StaggerContainer className="space-y-4" show={true}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Contact Name *</Label>
+                                            <Input
+                                                value={newClient.contact_name}
+                                                onChange={e => setNewClient(p => ({ ...p, contact_name: e.target.value }))}
+                                                placeholder="Jane Doe"
+                                                className={showClientStepErrors && clientStepErrors.contactName ? 'border-destructive focus-visible:ring-destructive/20' : ''}
+                                            />
+                                            {showClientStepErrors && clientStepErrors.contactName && (
+                                                <p className="text-xs text-destructive">Contact name is required.</p>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Email Address *</Label>
+                                            <Input
+                                                type="email"
+                                                value={newClient.email}
+                                                onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))}
+                                                placeholder="jane@company.com"
+                                                className={showClientStepErrors && (clientStepErrors.emailRequired || clientStepErrors.emailFormat) ? 'border-destructive focus-visible:ring-destructive/20' : ''}
+                                            />
+                                            {showClientStepErrors && clientStepErrors.emailRequired && (
+                                                <p className="text-xs text-destructive">Email is required.</p>
+                                            )}
+                                            {showClientStepErrors && !clientStepErrors.emailRequired && clientStepErrors.emailFormat && (
+                                                <p className="text-xs text-destructive">Enter a valid email address.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-100 dark:border-amber-900">
+                                        <p className="text-sm text-amber-800 dark:text-amber-300">
+                                            This person will receive all notifications and can access the client portal.
+                                        </p>
+                                    </div>
+                                </StaggerContainer>
+                            )}
+
+                            {newClientStep === 2 && (
+                                <StaggerContainer className="space-y-4" show={true}>
+                                    <div className="space-y-2">
+                                        <Label>Billing Address</Label>
+                                        <Input
+                                            value={newClient.address}
+                                            onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))}
+                                            placeholder="123 Corporate Blvd, Suite 100, City, State 12345"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Account Status</Label>
+                                        <select
+                                            className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                                            value={newClient.status}
+                                            onChange={(e) => setNewClient(p => ({ ...p, status: e.target.value as any }))}
+                                        >
+                                            <option value="active">Active - Services can begin immediately</option>
+                                            <option value="prospect">Prospect - Still in negotiation</option>
+                                        </select>
+                                    </div>
+                                </StaggerContainer>
+                            )}
+
+                            {newClientStep === 3 && (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                                    <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Company</span>
+                                            <span className="font-medium">{newClient.name || '—'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Contact</span>
+                                            <span className="font-medium">{newClient.contact_name || '—'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Email</span>
+                                            <span className="font-medium">{newClient.email || '—'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Address</span>
+                                            <span className="font-medium">{newClient.address || '—'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Status</span>
+                                            <Badge variant={newClient.status === 'active' ? 'success' : 'default'}>
+                                                {newClient.status}
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    {(!newClient.name || !newClient.contact_name || !newClient.email ? (
+                                        <Shimmer className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-100 dark:border-red-900">
+                                            <p className="text-sm text-red-800 dark:text-red-300">
+                                                Please complete all required fields (marked with *) before creating the client.
+                                            </p>
+                                        </Shimmer>
+                                    ) : null)}
                                 </div>
-                                <div className="space-y-1">
-                                    <Label>Email Address</Label>
-                                    <Input value={newClient.email} onChange={e => setNewClient(p => ({ ...p, email: e.target.value }))} placeholder="jane@acme.com" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label>Billing Address</Label>
-                            <Input value={newClient.address} onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))} placeholder="123 Corporate Blvd" />
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label>Account Status</Label>
-                            <select
-                                className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                                value={newClient.status}
-                                onChange={(e) => setNewClient(p => ({ ...p, status: e.target.value as any }))}
-                            >
-                                <option value="active">Active</option>
-                                <option value="prospect">Prospect</option>
-                            </select>
+                            )}
                         </div>
                     </div>
-                    <DialogFooter className="px-6 py-4 bg-slate-50 border-t">
-                        <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                        <Button onClick={handleAddClient} disabled={createClientMutation.isPending}>
-                            {createClientMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Create Client
-                        </Button>
+
+                    <DialogFooter className="px-6 py-4 bg-muted/30 border-t flex items-center justify-between gap-3">
+                        <PressButton
+                            variant="outline"
+                            onClick={() => {
+                                if (newClientStep === 0) {
+                                    setIsAddOpen(false);
+                                    resetClientForm();
+                                } else {
+                                    setNewClientStep(prev => prev - 1);
+                                    setShowClientStepErrors(false);
+                                }
+                            }}
+                        >
+                            {newClientStep === 0 ? 'Cancel' : '← Back'}
+                        </PressButton>
+
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                                Step {newClientStep + 1} of {clientCreationSteps.length}
+                            </span>
+
+                            {newClientStep < clientCreationSteps.length - 1 ? (
+                                <Button
+                                    onClick={() => {
+                                        if (!canProceedClientStep) {
+                                            setShowClientStepErrors(true);
+                                            return;
+                                        }
+                                        setShowClientStepErrors(false);
+                                        setNewClientStep(prev => prev + 1);
+                                    }}
+                                >
+                                    Continue →
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => {
+                                        if (clientStepErrors.company) {
+                                            setNewClientStep(0);
+                                            setShowClientStepErrors(true);
+                                            return;
+                                        }
+                                        if (clientStepErrors.contactName || clientStepErrors.emailRequired || clientStepErrors.emailFormat) {
+                                            setNewClientStep(1);
+                                            setShowClientStepErrors(true);
+                                            return;
+                                        }
+                                        setShowClientStepErrors(false);
+                                        handleAddClient();
+                                    }}
+                                    disabled={createClientMutation.isPending}
+                                >
+                                    {createClientMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Create Client
+                                </Button>
+                            )}
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+
+            {/* Global UI feedback components */}
+            <SuccessComponent />
+            <ConfettiComponent />
+        </div >
     );
 }

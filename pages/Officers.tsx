@@ -1,1451 +1,831 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Avatar, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Tabs, TabsList, TabsTrigger, TabsContent, Label, Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, cn } from '../components/ui';
-import { Checkbox } from '../components/Checkbox';
-import { db } from '../lib/db';
-import { Officer, Certification } from '../lib/types';
-import { Search, Shield, ChevronLeft, ChevronRight, UserPlus, Loader2, Phone, Mail, Briefcase, ArrowLeft, Printer, Edit, Save, Plus, Trash2, FileCheck, AlertCircle, XCircle, LayoutGrid, List, CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Calendar, Clock, DollarSign, FileText, CalendarDays, Download } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  cn
+} from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { db } from '../lib/db';
+import type { Certification, Officer } from '../lib/types';
+import {
+  AlertTriangle,
+  Award,
+  Briefcase,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  Filter,
+  Loader2,
+  Mail,
+  MoreVertical,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Search,
+  Shield,
+  Trash2,
+  TrendingUp,
+  UserCheck,
+  UserCog,
+  Users,
+  X,
+  Zap,
+} from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
-import { BulkActionBar } from '../components/BulkActionBar';
-import { FloatingActionButton } from '../components/FloatingActionButton';
-import { QuickFilterChips } from '../components/QuickFilterChips';
-import { OfficersPageSkeleton, CardSkeleton } from '../components/Skeleton';
-import { ContextMenu, ContextMenuWrapper, officerContextMenu, useContextMenu } from '../components/ContextMenu';
-import { SmartToastProvider, useSmartToastContext, toastPresets } from '../components/SmartToast';
-import { AnimatedCounter } from '../components/AnimatedCounter';
-import { CopyableText } from '../components/CopyableText';
-import { HighlightedText } from '../components/HighlightedText';
-import { ImageLightbox, useImageLightbox } from '../components/ImageLightbox';
-import { InlineEdit } from '../components/InlineEdit';
-import { StickyTableContainer, StickyTable, StickyTableHeader, StickyTableBody, StickyTableRow, StickyTableCell, StickyResizableHeaderCell } from '../components/StickyTable';
-import { DragDropSort, SimpleSortableList } from '../components/DragDropSort';
-import { AutoSaveIndicator, useAutoSave } from '../components/AutoSaveIndicator';
-import { FileDragUpload } from '../components/FileDragUpload';
 
-type SortKey = 'full_name' | 'badge_number' | 'employment_status' | 'email';
+type DirectoryView = 'roster' | 'workload' | 'table';
+type SortBy = 'name' | 'upcoming' | 'hours' | 'incidents';
 
+const EMPLOYMENT_STATUSES: Array<{ value: Officer['employment_status']; label: string }> = [
+  { value: 'active', label: 'Active' },
+  { value: 'onboarding', label: 'Onboarding' },
+  { value: 'terminated', label: 'Terminated' }
+];
+
+/* ── helpers ── */
+function complianceState(expiryIso: string): 'ok' | 'expiring' | 'expired' {
+  const now = Date.now();
+  const expiry = new Date(expiryIso).getTime();
+  if (expiry < now) return 'expired';
+  if (expiry < now + 30 * 24 * 60 * 60 * 1000) return 'expiring';
+  return 'ok';
+}
+
+function statusMeta(s: Officer['employment_status']) {
+  if (s === 'active') return { dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', label: 'Active' };
+  if (s === 'onboarding') return { dot: 'bg-amber-500', badge: 'bg-amber-500/10   text-amber-600   dark:text-amber-400   border-amber-500/20', label: 'Onboarding' };
+  return { dot: 'bg-red-500', badge: 'bg-red-500/10     text-red-600     dark:text-red-400     border-red-500/20', label: 'Terminated' };
+}
+
+/* ── small sub-components ── */
+function CompliancePill({ state }: { state: 'ok' | 'expiring' | 'expired' }) {
+  if (state === 'expired') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"><AlertTriangle className="h-2.5 w-2.5" />Expired</span>;
+  if (state === 'expiring') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"><Clock className="h-2.5 w-2.5" />Expiring</span>;
+  return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"><CheckCircle2 className="h-2.5 w-2.5" />Compliant</span>;
+}
+
+function StatPill({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-border/40 bg-card px-4 py-3 min-w-0 transition-all duration-200 hover:border-border/60 hover:shadow-sm">
+      <div className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider', accent ?? 'text-muted-foreground')}>
+        <Icon className="h-3 w-3 shrink-0" />{label}
+      </div>
+      <p className="text-xl font-bold text-foreground tabular-nums leading-none mt-1 tracking-tight">{value}</p>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
 export default function Officers() {
-    const { profile, organization } = useAuth();
-    const { addToast } = useToast();
-    const queryClient = useQueryClient();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'full_name', direction: 'asc' });
+  const { organization, profile } = useAuth();
+  const { addToast } = useToast();
+  const queryClient = useQueryClient();
+  const canEdit = profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'ops_manager';
 
-    // Pagination State
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = viewMode === 'list' ? 10 : 6;
+  const [view, setView] = useState<DirectoryView>('roster');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | Officer['employment_status']>('all');
+  const [complianceFilter, setComplianceFilter] = useState<'all' | 'ok' | 'expiring' | 'expired'>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-    // Add Officer Sheet State
-    const [isAddOpen, setIsAddOpen] = useState(false);
-    const [newOfficer, setNewOfficer] = useState({
-        full_name: '',
-        email: '',
-        badge_number: '',
-        phone: '',
-        skills: '',
-        employment_status: 'active' as Officer['employment_status'],
-        image_url: ''
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newOfficer, setNewOfficer] = useState({ full_name: '', email: '', phone: '', badge_number: '', employment_status: 'active' as Officer['employment_status'], skills: '' });
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editData, setEditData] = useState<Partial<Officer>>({});
+
+  const [isAddCertOpen, setIsAddCertOpen] = useState(false);
+  const [newCert, setNewCert] = useState({ name: '', number: '', expiry_date: '', type: 'guard_card' as Certification['type'] });
+
+  /* ── queries ── */
+  const { data: officers = [], isLoading } = useQuery({
+    queryKey: ['officers', organization?.id],
+    enabled: !!organization,
+    queryFn: async () => { if (!organization) return []; const { data } = await db.officers.select(organization.id); return data || []; }
+  });
+  const { data: shifts = [] } = useQuery({
+    queryKey: ['officer-shifts', organization?.id],
+    enabled: !!organization,
+    queryFn: async () => { if (!organization) return []; const { data } = await db.getFullSchedule(organization.id); return data || []; }
+  });
+  const { data: timeEntries = [] } = useQuery({
+    queryKey: ['officer-time', organization?.id],
+    enabled: !!organization,
+    queryFn: async () => { if (!organization) return []; const { data } = await db.getFullTimeEntries(organization.id); return data || []; }
+  });
+  const { data: incidents = [] } = useQuery({
+    queryKey: ['officer-incidents', organization?.id],
+    enabled: !!organization,
+    queryFn: async () => { if (!organization) return []; const { data } = await db.getFullIncidents(organization.id); return data || []; }
+  });
+
+  /* ── mutations ── */
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const payload: Partial<Officer> = { organization_id: organization?.id || '', full_name: newOfficer.full_name, email: newOfficer.email, phone: newOfficer.phone, badge_number: newOfficer.badge_number, employment_status: newOfficer.employment_status, skills: newOfficer.skills.split(',').map(s => s.trim()).filter(Boolean), certifications: [] };
+      const { error } = await db.officers.create(payload as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['officers'] }); setIsAddOpen(false); setNewOfficer({ full_name: '', email: '', phone: '', badge_number: '', employment_status: 'active', skills: '' }); addToast({ type: 'success', title: 'Officer Added', description: 'New officer is now in your roster.' }); }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Officer> }) => { await db.officers.update(id, updates); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['officers'] }); setIsEditOpen(false); addToast({ type: 'success', title: 'Profile Updated' }); }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => db.officers.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['officers'] }); setSelectedOfficerId(null); addToast({ type: 'info', title: 'Officer Removed' }); }
+  });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: async (status: Officer['employment_status']) => { await Promise.all(selectedIds.map(id => db.officers.update(id, { employment_status: status }))); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['officers'] }); setSelectedIds([]); addToast({ type: 'success', title: 'Bulk Update Complete' }); }
+  });
+
+  /* ── analytics ── */
+  const analyticsByOfficer = useMemo(() => {
+    const map = new Map<string, { upcoming: number; hours30d: number; incidents: number; compliance: 'ok' | 'expiring' | 'expired' }>();
+    const now = Date.now();
+    const in30 = now - 30 * 24 * 60 * 60 * 1000;
+    officers.forEach(officer => {
+      const upcoming = shifts.filter((s: any) => s.officer_id === officer.id && new Date(s.start_time).getTime() >= now && s.status !== 'completed').length;
+      const hours30d = timeEntries.filter((e: any) => e.officer_id === officer.id && new Date(e.clock_in).getTime() >= in30).reduce((sum: number, e: any) => sum + (e.total_hours || 0), 0);
+      const incidentCount = incidents.filter((i: any) => i.officer_id === officer.id).length;
+      let compliance: 'ok' | 'expiring' | 'expired' = 'ok';
+      for (const cert of officer.certifications || []) {
+        const expiry = new Date(cert.expiry_date).getTime();
+        if (expiry < now) { compliance = 'expired'; break; }
+        if (expiry < now + 30 * 24 * 60 * 60 * 1000) compliance = 'expiring';
+      }
+      map.set(officer.id, { upcoming, hours30d, incidents: incidentCount, compliance });
     });
-    const [newOfficerFile, setNewOfficerFile] = useState<File | null>(null);
-
-    const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
-
-    // Edit Officer State
-    const [isEditOpen, setIsEditOpen] = useState(false);
-    const [editOfficerFile, setEditOfficerFile] = useState<File | null>(null);
-    const [editOfficerData, setEditOfficerData] = useState<Partial<Officer>>({});
-
-    const fileToDataUrl = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    };
-
-    // Delete Officer State
-    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-
-    // Financial State (Local Editing)
-    const [financials, setFinancials] = useState({
-        base_rate: 0,
-        overtime_rate: 0,
-        deductions: [] as Array<{ name: string, amount: number }>
-    });
-    const [isSavingFinance, setIsSavingFinance] = useState(false);
-    const [newDeduction, setNewDeduction] = useState({ name: '', amount: '' });
-
-    // Certifications State
-    const [isAddCertOpen, setIsAddCertOpen] = useState(false);
-    const [newCert, setNewCert] = useState<Partial<Certification>>({
-        name: '',
-        number: '',
-        type: 'guard_card',
-        expiry_date: '',
-        status: 'active'
-    });
-
-    // Multi-select State
-    const [selectedOfficers, setSelectedOfficers] = useState<Set<string>>(new Set());
-    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-
-    // Quick Filter State
-    const [activeFilters, setActiveFilters] = useState<string[]>([]);
-
-    // Row Highlighting
-    const [highlightedId, setHighlightedId] = useState<string | null>(null);
-
-    // Profile Specific State & Hooks (Must be at top level)
-    const [noteText, setNoteText] = useState('');
-
-    // Auto-save hook for officer profile
-    const { status: autoSaveStatus, lastSaved, triggerSave } = useAutoSave({
-        onSave: async () => {
-            // Auto-save is handled by individual InlineEdit components
-            // This is just for visual feedback
-            await new Promise(resolve => setTimeout(resolve, 500));
-        },
-        debounceMs: 1500
-    });
-
-    useEffect(() => {
-        if (highlightedId) {
-            const timer = setTimeout(() => setHighlightedId(null), 2000);
-            return () => clearTimeout(timer);
-        }
-    }, [highlightedId]);
-
-    // Image Lightbox
-    const { isOpen: isLightboxOpen, currentIndex, images, openLightbox, closeLightbox, navigateTo } = useImageLightbox();
-
-    // Update local financial state when officer is selected
-    useEffect(() => {
-        if (selectedOfficer) {
-            setFinancials({
-                base_rate: selectedOfficer.financials?.base_rate || 20,
-                overtime_rate: selectedOfficer.financials?.overtime_rate || 30,
-                deductions: selectedOfficer.financials?.deductions || []
-            });
-            setNoteText(selectedOfficer.notes || '');
-        }
-    }, [selectedOfficer]);
-
-    // --- QUERIES ---
-    const { data: officers = [], isLoading: isLoadingOfficers } = useQuery({
-        queryKey: ['officers', organization?.id],
-        enabled: !!organization,
-        queryFn: async () => {
-            if (!organization) return [];
-            const { data } = await db.officers.select(organization.id);
-            return data || [];
-        }
-    });
-
-    const { data: officerDetails } = useQuery({
-        queryKey: ['officerDetails', selectedOfficer?.id],
-        enabled: !!selectedOfficer,
-        queryFn: async () => {
-            if (!selectedOfficer || !organization) return null;
-            const [shiftsRes, entriesRes, incidentsRes] = await Promise.all([
-                db.getFullSchedule(organization.id),
-                db.getFullTimeEntries(organization.id),
-                db.getFullIncidents(organization.id)
-            ]);
-
-            const shifts = (shiftsRes.data || []).filter(s => s.officer_id === selectedOfficer.id);
-            // Sort shifts: Future first, then past
-            shifts.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-
-            const entries = (entriesRes.data || []).filter(e => e.officer_id === selectedOfficer.id);
-            const incidents = (incidentsRes.data || []).filter(i => i.officer_id === selectedOfficer.id);
-            const totalHours = entries.reduce((acc, curr) => acc + curr.total_hours, 0);
-
-            return {
-                shifts,
-                entries,
-                incidents,
-                stats: {
-                    totalHours,
-                    incidentCount: incidents.length,
-                    shiftCount: shifts.length
-                }
-            };
-        }
-    });
-
-    // --- MUTATION ---
-    const createOfficerMutation = useMutation({
-        mutationFn: async (officerData: any) => {
-            const { data, error } = await db.officers.create(officerData);
-            if (error) throw error;
-            return data;
-        },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['officers'] });
-            addToast({ type: 'success', title: "Officer Added", description: `${data.full_name} has been onboarded.` });
-
-            db.audit_logs.create({
-                action: 'create',
-                organization_id: organization?.id || '',
-                description: `Onboarded new officer: ${data.full_name}`,
-                performed_by: profile?.full_name || 'System',
-                performed_by_id: profile?.id || 'system',
-                target_resource: 'Officer',
-                target_id: data.id,
-                timestamp: new Date().toISOString()
-            });
-
-            setIsAddOpen(false);
-            setNewOfficer({
-                full_name: '',
-                email: '',
-                badge_number: '',
-                phone: '',
-                skills: '',
-                employment_status: 'active',
-                image_url: ''
-            });
-            setNewOfficerFile(null);
-            setHighlightedId(data.id);
-        }
-    });
-
-    const updateOfficerMutation = useMutation({
-        mutationFn: async ({ id, updates }: { id: string, updates: Partial<Officer> }) => {
-            await db.officers.update(id, updates);
-        },
-        onSuccess: (data, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['officers'] });
-            addToast({ type: 'success', title: "Profile Updated", description: "Changes saved." });
-
-            db.audit_logs.create({
-                action: 'update',
-                organization_id: organization?.id || '',
-                description: `Updated officer profile details.`,
-                performed_by: profile?.full_name || 'System',
-                performed_by_id: profile?.id || 'system',
-                target_resource: 'Officer',
-                target_id: variables.id,
-                timestamp: new Date().toISOString()
-            });
-
-            setIsEditOpen(false);
-            if (selectedOfficer && selectedOfficer.id === variables.id) {
-                setSelectedOfficer(prev => prev ? ({ ...prev, ...variables.updates }) : null);
-            }
-            setHighlightedId(variables.id);
-        }
-    });
-
-    const deleteOfficerMutation = useMutation({
-        mutationFn: async (id: string) => {
-            await db.officers.delete(id);
-        },
-        onSuccess: (data, id) => {
-            queryClient.invalidateQueries({ queryKey: ['officers'] });
-
-            // Audit Log
-            db.audit_logs.create({
-                action: 'delete',
-                description: `Deleted officer: ${officers.find(o => o.id === id)?.full_name || id}`,
-                performed_by: profile?.full_name || 'System',
-                performed_by_id: profile?.id || 'system',
-                target_resource: 'Officer',
-                target_id: id,
-                organization_id: organization?.id || '',
-                timestamp: new Date().toISOString()
-            });
-
-            setIsDeleteConfirmOpen(false);
-            setSelectedOfficer(null); // Return to directory
-            addToast({ type: 'info', title: "Officer Deleted", description: "Officer removed from system." });
-        }
-    });
-
-    const handleAddOfficer = async () => {
-        if (!newOfficer.full_name || !newOfficer.badge_number) {
-            alert("Name and Badge Number are required.");
-            return;
-        }
-
-        let imageUrl = '';
-        if (newOfficerFile) {
-            try {
-                imageUrl = await fileToDataUrl(newOfficerFile);
-            } catch (e) {
-                console.error("Error reading file", e);
-            }
-        }
-
-        const officerData = {
-            ...newOfficer,
-            image_url: imageUrl,
-            organization_id: organization?.id,
-            skills: newOfficer.skills.split(',').map(s => s.trim()).filter(s => s.length > 0)
-        };
-        createOfficerMutation.mutate(officerData);
-    };
-
-    const handleSaveFinancials = async () => {
-        if (!selectedOfficer) return;
-        setIsSavingFinance(true);
-        const updates = {
-            financials: {
-                base_rate: Number(financials.base_rate),
-                overtime_rate: Number(financials.overtime_rate),
-                deductions: financials.deductions
-            }
-        };
-
-        await db.officers.update(selectedOfficer.id, updates);
-
-        // Audit Log
-        db.audit_logs.create({
-            action: 'update',
-            organization_id: organization?.id || '',
-            description: `Updated financials for officer: ${selectedOfficer.full_name}`,
-            performed_by: profile?.full_name || 'System',
-            performed_by_id: profile?.id || 'system',
-            target_resource: 'Officer',
-            target_id: selectedOfficer.id,
-            timestamp: new Date().toISOString()
-        });
-
-        // Update local view
-        setSelectedOfficer(prev => prev ? ({ ...prev, ...updates }) : null);
-        queryClient.invalidateQueries({ queryKey: ['officers'] });
-        setIsSavingFinance(false);
-        addToast({ type: 'success', title: "Financials Saved", description: "Rates updated successfully." });
-    };
-
-    const addDeduction = () => {
-        if (!newDeduction.name || !newDeduction.amount) return;
-        setFinancials(prev => ({
-            ...prev,
-            deductions: [...prev.deductions, { name: newDeduction.name, amount: Number(newDeduction.amount) }]
-        }));
-        setNewDeduction({ name: '', amount: '' });
-    };
-
-    const removeDeduction = (index: number) => {
-        setFinancials(prev => ({
-            ...prev,
-            deductions: prev.deductions.filter((_, i) => i !== index)
-        }));
-    };
-
-    // --- CERTIFICATION HANDLERS ---
-    const handleAddCertification = () => {
-        if (!selectedOfficer || !newCert.name || !newCert.expiry_date) return;
-
-        const cert: Certification = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: newCert.name!,
-            number: newCert.number || 'N/A',
-            issue_date: new Date().toISOString(), // Default to today for demo
-            expiry_date: new Date(newCert.expiry_date!).toISOString(),
-            type: newCert.type as any,
-            status: 'active'
-        };
-
-        const updatedCerts = [...(selectedOfficer.certifications || []), cert];
-        updateOfficerMutation.mutate({
-            id: selectedOfficer.id,
-            updates: { certifications: updatedCerts }
-        });
-
-        setSelectedOfficer(prev => prev ? ({ ...prev, certifications: updatedCerts }) : null);
-        setIsAddCertOpen(false);
-        setNewCert({ name: '', number: '', type: 'guard_card', expiry_date: '', status: 'active' });
-    };
-
-    const handleDeleteCertification = (certId: string) => {
-        if (!selectedOfficer) return;
-        if (!confirm("Are you sure you want to remove this license?")) return;
-
-        const updatedCerts = (selectedOfficer.certifications || []).filter(c => c.id !== certId);
-        updateOfficerMutation.mutate({
-            id: selectedOfficer.id,
-            updates: { certifications: updatedCerts }
-        });
-
-        setSelectedOfficer(prev => prev ? ({ ...prev, certifications: updatedCerts }) : null);
-    };
-
-    const getCertStatusColor = (cert: Certification) => {
-        const now = new Date();
-        const expiry = new Date(cert.expiry_date);
-        const daysUntil = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-        if (daysUntil < 0) return 'destructive'; // Expired
-        if (daysUntil < 30) return 'warning'; // Expiring soon
-        return 'success'; // Valid
-    };
-
-    // Multi-select Handlers
-    const toggleOfficerSelection = (officerId: string) => {
-        setSelectedOfficers(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(officerId)) {
-                newSet.delete(officerId);
-            } else {
-                newSet.add(officerId);
-            }
-            return newSet;
-        });
-    };
-
-    const toggleAllOfficers = () => {
-        if (selectedOfficers.size === currentOfficers.length) {
-            setSelectedOfficers(new Set());
-        } else {
-            setSelectedOfficers(new Set(currentOfficers.map(o => o.id)));
-        }
-    };
-
-    const clearSelection = () => {
-        setSelectedOfficers(new Set());
-        setIsMultiSelectMode(false);
-    };
-
-    const handleBulkDelete = () => {
-        if (!confirm(`Are you sure you want to delete ${selectedOfficers.size} officers?`)) return;
-
-        selectedOfficers.forEach(id => {
-            deleteOfficerMutation.mutate(id);
-        });
-        clearSelection();
-    };
-
-    const handleBulkExport = () => {
-        const selectedData = officers.filter(o => selectedOfficers.has(o.id));
-        const csv = [
-            ['Name', 'Badge Number', 'Email', 'Phone', 'Status'].join(','),
-            ...selectedData.map(o => [
-                o.full_name,
-                o.badge_number,
-                o.email,
-                o.phone,
-                o.employment_status
-            ].join(','))
-        ].join('\n');
-
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `officers-export-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-
-        addToast({ type: 'success', title: 'Export Complete', description: `${selectedData.length} officers exported.` });
-        clearSelection();
-    };
-
-    const handleSort = (key: SortKey) => {
-        setSortConfig(current => ({
-            key,
-            direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
-        }));
-    };
-
-    const filteredOfficers = officers.filter(o => {
-        // Search term filter
-        const matchesSearch =
-            o.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            o.badge_number.toLowerCase().includes(searchTerm.toLowerCase());
-
-        // Quick filter chips
-        if (activeFilters.length === 0) return matchesSearch;
-
-        const matchesFilters = activeFilters.some(filter => {
-            switch (filter) {
-                case 'active':
-                    return o.employment_status === 'active';
-                case 'onboarding':
-                    return o.employment_status === 'onboarding';
-                case 'terminated':
-                    return o.employment_status === 'terminated';
-                default:
-                    return true;
-            }
-        });
-
-        return matchesSearch && matchesFilters;
-    }).sort((a, b) => {
-        const aVal = String(a[sortConfig.key as keyof Officer] || '').toLowerCase();
-        const bVal = String(b[sortConfig.key as keyof Officer] || '').toLowerCase();
-
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-    });
-
-    const totalPages = Math.ceil(filteredOfficers.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const currentOfficers = filteredOfficers.slice(startIndex, startIndex + itemsPerPage);
-
-    const handleNextPage = () => { if (currentPage < totalPages) setCurrentPage(prev => prev + 1); };
-    const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(prev => prev - 1); };
-
-
-    // --- FULL PAGE PROFILE VIEW ---
-    if (selectedOfficer) {
-
-        return (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedOfficer(null)} className="pl-0 gap-1 text-muted-foreground hover:text-foreground">
-                                <ArrowLeft className="h-4 w-4" /> Back to Directory
-                            </Button>
-                        </div>
-                        <AutoSaveIndicator
-                            status={autoSaveStatus}
-                            lastSaved={lastSaved}
-                        />
-                    </div>
-
-                    <Card className="border-none overflow-hidden shadow-2xl glass-panel relative">
-                        <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent dark:from-primary/30 dark:via-primary/10 dark:to-transparent">
-                            <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-                        </div>
-                        <div className="px-8 pb-8">
-                            <div className="relative flex justify-between items-end -mt-12 mb-6">
-                                <div className="flex items-end gap-6">
-                                    <Avatar src={selectedOfficer.image_url} fallback={selectedOfficer.full_name.charAt(0)} className="h-32 w-32 border-4 border-background text-4xl shadow-md object-cover" />
-                                    <div className="mb-2 space-y-1">
-                                        <h1 className="text-3xl font-bold tracking-tight">
-                                            <InlineEdit
-                                                value={selectedOfficer.full_name}
-                                                onSave={(value) => {
-                                                    triggerSave();
-                                                    updateOfficerMutation.mutate({
-                                                        id: selectedOfficer.id,
-                                                        updates: { full_name: value }
-                                                    });
-                                                }}
-                                                className="text-3xl font-bold"
-                                            />
-                                        </h1>
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="text-muted-foreground font-normal">
-                                                <Shield className="h-3 w-3 mr-1" />
-                                                <InlineEdit
-                                                    value={selectedOfficer.badge_number}
-                                                    onSave={(value) => {
-                                                        triggerSave();
-                                                        updateOfficerMutation.mutate({
-                                                            id: selectedOfficer.id,
-                                                            updates: { badge_number: value }
-                                                        });
-                                                    }}
-                                                    displayClassName="font-mono"
-                                                />
-                                            </Badge>
-                                            <Badge variant={selectedOfficer.employment_status === 'active' ? 'success' : 'secondary'} className="uppercase">
-                                                {selectedOfficer.employment_status}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 mb-2">
-                                    <Button variant="outline" size="sm" className="gap-2">
-                                        <Printer className="h-4 w-4" /> Print
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        className="gap-2"
-                                        onClick={() => {
-                                            setEditOfficerData({
-                                                full_name: selectedOfficer.full_name,
-                                                email: selectedOfficer.email,
-                                                phone: selectedOfficer.phone,
-                                                badge_number: selectedOfficer.badge_number,
-                                                employment_status: selectedOfficer.employment_status,
-                                                skills: selectedOfficer.skills.join(', ') as any, // Temporary cast for editing
-                                                image_url: selectedOfficer.image_url
-                                            });
-                                            setEditOfficerFile(null);
-                                            setIsEditOpen(true);
-                                        }}
-                                    >
-                                        <Edit className="h-4 w-4" /> Edit Profile
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="bg-transparent border-red-900/50 text-red-400 hover:bg-red-950/50 hover:text-red-300 hover:border-red-900"
-                                        onClick={() => setIsDeleteConfirmOpen(true)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-2">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</p>
-                                    <p className="text-sm font-medium">
-                                        <InlineEdit
-                                            value={selectedOfficer.email}
-                                            onSave={(value) => {
-                                                triggerSave();
-                                                updateOfficerMutation.mutate({
-                                                    id: selectedOfficer.id,
-                                                    updates: { email: value }
-                                                });
-                                            }}
-                                        />
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone</p>
-                                    <p className="text-sm font-medium">
-                                        <InlineEdit
-                                            value={selectedOfficer.phone}
-                                            onSave={(value) => {
-                                                triggerSave();
-                                                updateOfficerMutation.mutate({
-                                                    id: selectedOfficer.id,
-                                                    updates: { phone: value }
-                                                });
-                                            }}
-                                        />
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Hours (Lifetime)</p>
-                                    <p className="text-sm font-medium">{(officerDetails?.stats?.totalHours ?? 0).toFixed(1)} Hrs</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Incident Reports</p>
-                                    <p className="text-sm font-medium">{officerDetails?.stats?.incidentCount ?? 0}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-
-                    {/* Delete and Edit dialogs were moved to the bottom of the main component */}
-
-                    <Tabs defaultValue="overview" className="space-y-4">
-                        <TabsList className="bg-card border border-border p-1 h-auto gap-2">
-                            <TabsTrigger value="overview" className="h-9">Overview</TabsTrigger>
-                            <TabsTrigger value="schedule" className="h-9">Schedule & Shifts</TabsTrigger>
-                            <TabsTrigger value="history" className="h-9">Activity Log</TabsTrigger>
-                            <TabsTrigger value="financials" className="h-9">Financials</TabsTrigger>
-                        </TabsList>
-
-                        {/* OVERVIEW TAB */}
-                        <TabsContent value="overview" className="space-y-6">
-                            <div className="grid md:grid-cols-2 gap-6">
-                                {/* Certifications Card */}
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                        <CardTitle className="text-base font-semibold">Licenses & Certifications</CardTitle>
-                                        <Button variant="outline" size="sm" onClick={() => setIsAddCertOpen(true)} className="h-7 text-xs gap-1">
-                                            <Plus className="h-3 w-3" /> Add License
-                                        </Button>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        <div className="divide-y">
-                                            {selectedOfficer.certifications?.length === 0 && <p className="p-6 text-sm text-muted-foreground text-center">No certifications on file.</p>}
-                                            {selectedOfficer.certifications?.map(cert => {
-                                                const status = getCertStatusColor(cert);
-                                                return (
-                                                    <div key={cert.id} className="p-4 flex items-center justify-between hover:bg-muted transition-colors">
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`mt-1 p-1.5 rounded-full ${status === 'destructive' ? 'bg-red-100 text-red-600' : status === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
-                                                                <FileCheck className="h-4 w-4" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm font-medium">{cert.name}</p>
-                                                                <p className="text-xs text-muted-foreground font-mono">{cert.number}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className={`text-xs font-semibold ${status === 'destructive' ? 'text-red-600' : status === 'warning' ? 'text-amber-600' : 'text-green-600'}`}>
-                                                                {new Date(cert.expiry_date).toLocaleDateString()}
-                                                            </p>
-                                                            <button onClick={() => handleDeleteCertification(cert.id)} className="text-[10px] text-muted-foreground hover:text-red-600 underline">Remove</button>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Skills & Notes */}
-                                <div className="space-y-6">
-                                    <Card>
-                                        <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Specialized Skills</CardTitle></CardHeader>
-                                        <CardContent>
-                                            <div className="flex flex-wrap gap-2">
-                                                {selectedOfficer.skills.length === 0 && <p className="text-sm text-muted-foreground">No skills listed.</p>}
-                                                {selectedOfficer.skills.map((skill, i) => (
-                                                    <Badge key={i} variant="secondary" className="px-3 py-1 text-xs uppercase tracking-wide">
-                                                        {skill}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Internal Notes</CardTitle></CardHeader>
-                                        <CardContent>
-                                            <textarea
-                                                className="w-full min-h-[100px] text-sm p-3 rounded-md border bg-muted/20 focus:outline-none focus:ring-1 focus:ring-primary"
-                                                placeholder="Add internal notes about this officer..."
-                                                value={noteText}
-                                                onChange={(e) => setNoteText(e.target.value)}
-                                            />
-                                            <div className="flex justify-end mt-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="text-xs h-7 hover:bg-primary/10 hover:text-primary transition-colors"
-                                                    onClick={() => {
-                                                        triggerSave();
-                                                        updateOfficerMutation.mutate({
-                                                            id: selectedOfficer.id,
-                                                            updates: { notes: noteText }
-                                                        });
-                                                    }}
-                                                >
-                                                    <Save className="h-3 w-3 mr-1" /> Save Note
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            </div>
-                        </TabsContent>
-
-                        {/* SCHEDULE TAB */}
-                        <TabsContent value="schedule">
-                            <Card>
-                                <CardHeader><CardTitle className="text-base">Upcoming & Recent Shifts</CardTitle></CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="divide-y">
-                                        {officerDetails?.shifts.length === 0 && (
-                                            <EmptyState
-                                                icon={CalendarDays}
-                                                title="No Shifts Assigned"
-                                                description="This officer doesn't have any upcoming or recent shifts."
-                                                size="md"
-                                            />
-                                        )}
-                                        {officerDetails?.shifts.map(shift => {
-                                            const isFuture = new Date(shift.start_time) > new Date();
-                                            return (
-                                                <div key={shift.id} className={`p-4 flex items-center justify-between ${isFuture ? 'bg-card' : 'bg-muted/50 opacity-75'}`}>
-                                                    <div className="flex items-center gap-4">
-                                                        <div className={`p-2 rounded-lg ${isFuture ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                                            <Calendar className="h-5 w-5" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium text-sm">{new Date(shift.start_time).toLocaleDateString()} at {shift.site?.name}</p>
-                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                <Clock className="h-3 w-3" />
-                                                                <span>{new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Badge variant={shift.status === 'completed' ? 'success' : shift.status === 'assigned' ? 'default' : 'secondary'} className="capitalize">
-                                                        {isFuture ? 'Upcoming' : shift.status}
-                                                    </Badge>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        {/* HISTORY TAB */}
-                        <TabsContent value="history">
-                            <Card>
-                                <CardHeader><CardTitle className="text-base">Activity Log</CardTitle></CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="divide-y">
-                                        {officerDetails?.entries.map(entry => (
-                                            <div key={entry.id} className="p-4 flex items-start gap-4">
-                                                <div className="mt-1 p-1.5 rounded-full bg-green-100 text-green-700"><CheckCircle2 className="h-4 w-4" /></div>
-                                                <div>
-                                                    <p className="text-sm font-medium">Clocked in at {entry.shift?.site?.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(entry.clock_in).toLocaleString()} • {(entry.total_hours ?? 0).toFixed(2)} hrs logged</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {officerDetails?.incidents.map(incident => (
-                                            <div key={incident.id} className="p-4 flex items-start gap-4 bg-red-50/50">
-                                                <div className="mt-1 p-1.5 rounded-full bg-red-100 text-red-700"><AlertCircle className="h-4 w-4" /></div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-red-900">Reported {incident.type} Incident</p>
-                                                    <p className="text-xs text-red-700/70">{new Date(incident.reported_at).toLocaleString()} • {incident.site?.name}</p>
-                                                    <p className="text-xs mt-1 text-slate-600 italic">"{incident.description}"</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {(officerDetails?.entries.length === 0 && officerDetails?.incidents.length === 0) && (
-                                            <p className="p-8 text-center text-muted-foreground">No activity history found.</p>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        {/* FINANCIALS TAB */}
-                        <TabsContent value="financials">
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <Card>
-                                    <CardHeader><CardTitle className="text-base">Pay Rates</CardTitle></CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">Base Hourly Rate</Label>
-                                            <div className="relative">
-                                                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input
-                                                    type="number"
-                                                    className="pl-8"
-                                                    value={financials.base_rate}
-                                                    onChange={(e) => setFinancials(p => ({ ...p, base_rate: Number(e.target.value) }))}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">Overtime Rate</Label>
-                                            <div className="relative">
-                                                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input
-                                                    type="number"
-                                                    className="pl-8"
-                                                    value={financials.overtime_rate}
-                                                    onChange={(e) => setFinancials(p => ({ ...p, overtime_rate: Number(e.target.value) }))}
-                                                />
-                                            </div>
-                                        </div>
-                                        <Button onClick={handleSaveFinancials} disabled={isSavingFinance} className="w-full mt-2">
-                                            {isSavingFinance && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Save Rates
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-
-                                <Card>
-                                    <CardHeader><CardTitle className="text-base">Recurring Deductions</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-3 mb-4">
-                                            {financials.deductions.map((d, i) => (
-                                                <div key={i} className="flex justify-between items-center p-2 rounded border border-border bg-muted/30 text-sm">
-                                                    <span>{d.name}</span>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="font-semibold text-red-600">-${d.amount.toFixed(2)}</span>
-                                                        <button onClick={() => removeDeduction(i)} className="text-muted-foreground hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {financials.deductions.length === 0 && <p className="text-xs text-muted-foreground italic">No deductions set.</p>}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Input placeholder="Description" value={newDeduction.name} onChange={e => setNewDeduction(p => ({ ...p, name: e.target.value }))} className="text-xs h-8" />
-                                            <Input type="number" placeholder="Amount" value={newDeduction.amount} onChange={e => setNewDeduction(p => ({ ...p, amount: e.target.value }))} className="text-xs h-8" />
-                                        </div>
-                                        <Button variant="secondary" size="sm" onClick={addDeduction} className="w-full mt-2 h-8 text-xs">Add Deduction</Button>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
+    return map;
+  }, [officers, shifts, timeEntries, incidents]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return officers
+      .filter(o => {
+        if (statusFilter !== 'all' && o.employment_status !== statusFilter) return false;
+        const a = analyticsByOfficer.get(o.id);
+        if (complianceFilter !== 'all' && a?.compliance !== complianceFilter) return false;
+        if (attentionOnly && !(a?.compliance === 'expired' || a?.compliance === 'expiring' || (a?.incidents || 0) > 0)) return false;
+        if (!q) return true;
+        return `${o.full_name} ${o.email} ${o.badge_number} ${(o.skills || []).join(' ')}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => {
+        if (sortBy === 'name') return a.full_name.localeCompare(b.full_name);
+        const as = analyticsByOfficer.get(a.id), bs = analyticsByOfficer.get(b.id);
+        if (sortBy === 'upcoming') return (bs?.upcoming || 0) - (as?.upcoming || 0);
+        if (sortBy === 'hours') return (bs?.hours30d || 0) - (as?.hours30d || 0);
+        return (bs?.incidents || 0) - (as?.incidents || 0);
+      });
+  }, [officers, search, statusFilter, complianceFilter, attentionOnly, sortBy, analyticsByOfficer]);
+
+  const rosterStats = useMemo(() => ({
+    total: officers.length,
+    active: officers.filter(o => o.employment_status === 'active').length,
+    onboarding: officers.filter(o => o.employment_status === 'onboarding').length,
+    expiring: officers.filter(o => analyticsByOfficer.get(o.id)?.compliance === 'expiring').length,
+    expired: officers.filter(o => analyticsByOfficer.get(o.id)?.compliance === 'expired').length,
+  }), [officers, analyticsByOfficer]);
+
+  const weekStart = useMemo(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1)); d.setHours(0, 0, 0, 0); return d; }, []);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }), [weekStart]);
+
+  const selectedOfficer = useMemo(() => officers.find(o => o.id === selectedOfficerId) || null, [officers, selectedOfficerId]);
+
+  const openEdit = (officer: Officer) => {
+    setEditData({ id: officer.id, full_name: officer.full_name, email: officer.email, phone: officer.phone, badge_number: officer.badge_number, employment_status: officer.employment_status, skills: officer.skills, financials: officer.financials, certifications: officer.certifications, notes: officer.notes });
+    setIsEditOpen(true);
+  };
+
+  const addCertification = () => {
+    if (!selectedOfficer || !newCert.name || !newCert.expiry_date) return;
+    const cert: Certification = { id: Math.random().toString(36).slice(2, 9), name: newCert.name, number: newCert.number || 'N/A', type: newCert.type, status: 'active', issue_date: new Date().toISOString(), expiry_date: new Date(newCert.expiry_date).toISOString() };
+    updateMutation.mutate({ id: selectedOfficer.id, updates: { certifications: [...(selectedOfficer.certifications || []), cert] } });
+    setIsAddCertOpen(false);
+    setNewCert({ name: '', number: '', expiry_date: '', type: 'guard_card' });
+  };
+
+  const removeCertification = (certId: string) => {
+    if (!selectedOfficer) return;
+    updateMutation.mutate({ id: selectedOfficer.id, updates: { certifications: (selectedOfficer.certifications || []).filter(c => c.id !== certId) } });
+  };
+
+  if (isLoading) return <div className="h-[calc(100vh-100px)] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
+  /* ── RENDER ── */
+  return (
+    <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
+
+      {/* ── HEADER BAND ── */}
+      <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden relative z-10">
+        <div className="p-5 lg:p-6 relative">
+          {/* Title row */}
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
-
-                {/* Re-attach the cert modal here since it's needed for the profile view */}
-                <Dialog open={isAddCertOpen} onOpenChange={setIsAddCertOpen}>
-                    <DialogContent className="sm:max-w-[450px]">
-                        <DialogHeader><DialogTitle>Add License</DialogTitle></DialogHeader>
-                        <div className="space-y-4 py-4">
-                            {/* ... cert form ... */}
-                            <div className="space-y-1">
-                                <Label>License Name</Label>
-                                <Input value={newCert.name} onChange={(e) => setNewCert(p => ({ ...p, name: e.target.value }))} />
-                            </div>
-                            <div className="space-y-1">
-                                <Label>License Number</Label>
-                                <Input value={newCert.number} onChange={(e) => setNewCert(p => ({ ...p, number: e.target.value }))} />
-                            </div>
-                            <div className="space-y-1">
-                                <Label>Expiration Date</Label>
-                                <Input type="date" value={newCert.expiry_date} onChange={(e) => setNewCert(p => ({ ...p, expiry_date: e.target.value }))} />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsAddCertOpen(false)}>Cancel</Button>
-                            <Button onClick={handleAddCertification}>Add License</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <h1 className="text-lg font-bold tracking-tight text-foreground">Officer Roster</h1>
+              </div>
+              <p className="text-xs text-muted-foreground">Manage personnel, certifications, workload &amp; compliance.</p>
             </div>
-        );
-    }
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['officers'] })} className="h-9 rounded-xl gap-2 text-xs">
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+              {canEdit && (
+                <Button size="sm" onClick={() => setIsAddOpen(true)} className="h-9 rounded-xl px-4 gap-2 text-xs font-semibold">
+                  <Plus className="h-3.5 w-3.5" /> Add Officer
+                </Button>
+              )}
+            </div>
+          </div>
 
-    // --- STANDARD LIST VIEW ---
-    return (
-        <div className="space-y-4">
-            {/* Search & Header */}
-            <div className="flex items-center justify-between">
-                <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Search officers..."
-                        className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                    />
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-card border border-border rounded-lg p-1">
-                        <Button
-                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setViewMode('grid')}
-                            title="Grid View"
-                        >
-                            <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setViewMode('list')}
-                            title="List View"
-                        >
-                            <List className="h-4 w-4" />
-                        </Button>
-                    </div>
-                    <Button
-                        variant={isMultiSelectMode ? 'secondary' : 'outline'}
-                        size="sm"
-                        onClick={() => setIsMultiSelectMode(!isMultiSelectMode)}
-                        className="gap-2"
-                    >
-                        <CheckCircle2 className="h-4 w-4" />
-                        {isMultiSelectMode ? 'Done' : 'Select'}
-                    </Button>
-                    <Button onClick={() => setIsAddOpen(true)} className="gap-2">
-                        <UserPlus className="h-4 w-4" /> Add Officer
-                    </Button>
-                </div>
+          {/* Stat strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+            <StatPill icon={Users} label="Total" value={rosterStats.total} />
+            <StatPill icon={UserCheck} label="Active" value={rosterStats.active} accent="text-emerald-600 dark:text-emerald-400" />
+            <StatPill icon={Zap} label="Onboarding" value={rosterStats.onboarding} accent="text-amber-600 dark:text-amber-400" />
+            <StatPill icon={Clock} label="Expiring" value={rosterStats.expiring} accent="text-orange-600 dark:text-orange-400" />
+            <StatPill icon={AlertTriangle} label="Expired" value={rosterStats.expired} accent="text-red-600 dark:text-red-400" />
+          </div>
+
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            {/* Search */}
+            <div className="relative flex-1 lg:w-72 min-w-0">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search name, badge, skills…"
+                className="w-full h-9 pl-10 pr-4 rounded-xl border border-border/50 bg-background text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all duration-200"
+              />
+              {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X className="h-4 w-4" /></button>}
             </div>
 
-            {/* Quick Filter Chips */}
-            {!isLoadingOfficers && (
-                <QuickFilterChips
-                    chips={[
-                        { id: 'active', label: 'Active', count: officers.filter(o => o.employment_status === 'active').length, variant: 'success' },
-                        { id: 'onboarding', label: 'Onboarding', count: officers.filter(o => o.employment_status === 'onboarding').length, variant: 'info' },
-                        { id: 'terminated', label: 'Terminated', count: officers.filter(o => o.employment_status === 'terminated').length, variant: 'default' }
-                    ]}
-                    selectedChips={activeFilters}
-                    onToggle={(filterId) => {
-                        if (activeFilters.includes(filterId)) {
-                            setActiveFilters(activeFilters.filter(f => f !== filterId));
-                        } else {
-                            setActiveFilters([...activeFilters, filterId]);
-                        }
-                    }}
-                    onClearAll={() => setActiveFilters([])}
-                    title="Filter by Status"
-                />
-            )}
+            {/* Filter toggle */}
+            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(v => !v)} className={cn('h-9 rounded-xl gap-1.5 shrink-0 transition-all duration-200 text-xs px-3', filtersOpen && 'border-primary/50 text-primary bg-primary/5')}>
+              <Filter className="h-4 w-4" /> Filters
+              {(statusFilter !== 'all' || complianceFilter !== 'all' || attentionOnly) && (
+                <span className="h-2 w-2 rounded-full bg-primary" />
+              )}
+            </Button>
 
-            {isLoadingOfficers ? (
-                <OfficersPageSkeleton />
-            ) : (
-                <>
-                    {viewMode === 'grid' ? (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {currentOfficers.map((officer) => (
-                                <ContextMenuWrapper
-                                    items={officerContextMenu(officer, {
-                                        onView: () => setSelectedOfficer(officer),
-                                        onEdit: () => {
-                                            setSelectedOfficer(officer);
-                                            setEditOfficerData(officer);
-                                            setIsEditOpen(true);
-                                        },
-                                        onDelete: () => {
-                                            setSelectedOfficer(officer);
-                                            setIsDeleteConfirmOpen(true);
-                                        },
-                                        onCopyEmail: () => {
-                                            navigator.clipboard.writeText(officer.email);
-                                            addToast({ type: 'success', title: 'Copied!', description: 'Email copied to clipboard' });
-                                        }
-                                    })}
-                                    className={cn(
-                                        "overflow-hidden group transition-all hover:scale-[1.01] duration-200",
-                                        isMultiSelectMode ? "cursor-default" : "cursor-pointer hover:shadow-md"
-                                    )}
-                                >
-                                    <Card className={cn(
-                                        "overflow-hidden group transition-all hover:scale-[1.01] duration-200",
-                                        isMultiSelectMode ? "cursor-default" : "cursor-pointer hover:shadow-md"
-                                    )} onClick={() => !isMultiSelectMode && setSelectedOfficer(officer)}>
-                                        <div className="bg-muted/50 p-4 flex items-center gap-4 border-b">
-                                            {isMultiSelectMode && (
-                                                <Checkbox
-                                                    checked={selectedOfficers.has(officer.id)}
-                                                    onChange={() => toggleOfficerSelection(officer.id)}
-                                                    className="shrink-0"
-                                                />
-                                            )}
-                                            <Avatar src={officer.image_url} fallback={officer.full_name.charAt(0)} className="h-12 w-12 object-cover" />
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-semibold truncate">
-                                                    <HighlightedText text={officer.full_name} searchTerm={searchTerm} />
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground truncate">
-                                                    <CopyableText text={officer.email} displayText={officer.email} />
-                                                </p>
-                                            </div>
-                                            {!isMultiSelectMode && (
-                                                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Button variant="ghost" size="icon">
-                                                        <ChevronRight className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <CardContent className="p-4 space-y-4">
-                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                <div>
-                                                    <p className="text-muted-foreground text-xs">Badge #</p>
-                                                    <p className="font-medium">
-                                                        <CopyableText text={officer.badge_number} />
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-muted-foreground text-xs">Phone</p>
-                                                    <p className="font-medium">
-                                                        <CopyableText text={officer.phone} />
-                                                    </p>
-                                                </div>
-                                            </div>
+            {/* Sort */}
+            <div className="relative shrink-0">
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="h-9 rounded-xl border border-border/50 bg-background px-3 pr-8 text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 appearance-none min-w-[130px] transition-all duration-200 font-medium cursor-pointer">
+                <option value="name">Sort: Name</option>
+                <option value="upcoming">Sort: Upcoming</option>
+                <option value="hours">Sort: 30d Hours</option>
+                <option value="incidents">Sort: Incidents</option>
+              </select>
+              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none rotate-90" />
+            </div>
 
-                                            <div className="flex gap-2">
-                                                {officer.certifications?.some(c => getCertStatusColor(c) === 'destructive') ? (
-                                                    <Badge variant="destructive" className="text-[10px] gap-1 px-1.5"><AlertCircle className="h-3 w-3" /> License Expired</Badge>
-                                                ) : officer.certifications?.some(c => getCertStatusColor(c) === 'warning') ? (
-                                                    <Badge variant="warning" className="text-[10px] gap-1 px-1.5"><AlertCircle className="h-3 w-3" /> License Expiring</Badge>
-                                                ) : (
-                                                    <Badge variant="success" className="text-[10px] gap-1 px-1.5"><Shield className="h-3 w-3" /> Compliant</Badge>
-                                                )}
-                                            </div>
+            {/* View */}
+            <div className="flex items-center bg-muted/40 rounded-xl p-0.5 gap-0.5 shrink-0 border border-border/40 h-9">
+              {(['roster', 'workload', 'table'] as DirectoryView[]).map(v => (
+                <button key={v} onClick={() => setView(v)} className={cn('px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all duration-200 h-full', view === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                                            <div className="pt-2 flex items-center justify-between border-t mt-2">
-                                                <span className="text-green-600 text-xs font-medium flex items-center gap-1">
-                                                    <Shield className="h-3 w-3" />
-                                                    {officer.employment_status.toUpperCase()}
-                                                </span>
-                                                {!isMultiSelectMode && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 text-xs font-bold text-primary flex items-center gap-1 group-hover/card:gap-2 transition-all p-0 hover:bg-transparent"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedOfficer(officer);
-                                                        }}
-                                                    >
-                                                        View 360° Profile <ArrowLeft className="h-3 w-3 rotate-180" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </ContextMenuWrapper>
-                            ))}
-                        </div>
-                    ) : (
-                        // List view implementation with StickyTable
-                        <StickyTableContainer maxHeight="600px">
-                            <StickyTable className="table-fixed min-w-full">
-                                <StickyTableHeader>
-                                    <tr>
-                                        {isMultiSelectMode && (
-                                            <StickyTableCell isHeader className="w-10" style={{ width: '40px', minWidth: '40px' }}>
-                                                <Checkbox
-                                                    checked={selectedOfficers.size === currentOfficers.length && currentOfficers.length > 0}
-                                                    onChange={toggleAllOfficers}
-                                                />
-                                            </StickyTableCell>
-                                        )}
-                                        <StickyResizableHeaderCell id="officer-name" defaultWidth={300} minWidth={200}>Officer</StickyResizableHeaderCell>
-                                        <StickyResizableHeaderCell id="badge-num" defaultWidth={120} minWidth={80}>Badge #</StickyResizableHeaderCell>
-                                        <StickyResizableHeaderCell id="status" defaultWidth={120} minWidth={100}>Status</StickyResizableHeaderCell>
-                                        <StickyResizableHeaderCell id="actions" defaultWidth={100} minWidth={80} className="text-right">Actions</StickyResizableHeaderCell>
-                                    </tr>
-                                </StickyTableHeader>
-                                <StickyTableBody>
-                                    {currentOfficers.map(officer => (
-                                        <div key={officer.id} className="contents">
-                                            <StickyTableRow
-                                                className={cn(
-                                                    "group",
-                                                    !isMultiSelectMode && "cursor-pointer",
-                                                    officer.id === highlightedId && "bg-yellow-100/50 dark:bg-yellow-900/20"
-                                                )}
-                                                onClick={() => !isMultiSelectMode && setSelectedOfficer(officer)}
-                                            >
-                                                {isMultiSelectMode && (
-                                                    <div onClick={e => e.stopPropagation()}>
-                                                        <StickyTableCell>
-                                                            <Checkbox
-                                                                checked={selectedOfficers.has(officer.id)}
-                                                                onChange={() => toggleOfficerSelection(officer.id)}
-                                                            />
-                                                        </StickyTableCell>
-                                                    </div>
-                                                )}
-                                                <StickyTableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar src={officer.image_url} fallback={officer.full_name.charAt(0)} className="h-8 w-8 object-cover" />
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium">
-                                                                <HighlightedText text={officer.full_name} searchTerm={searchTerm} />
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                <CopyableText text={officer.email} displayText={officer.email} />
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </StickyTableCell>
-                                                <StickyTableCell className="font-mono">
-                                                    <CopyableText text={officer.badge_number} />
-                                                </StickyTableCell>
-                                                <StickyTableCell>
-                                                    <Badge variant={officer.employment_status === 'active' ? 'success' : 'secondary'} className="capitalize">
-                                                        {officer.employment_status}
-                                                    </Badge>
-                                                </StickyTableCell>
-                                                <StickyTableCell className="text-right">
-                                                    {!isMultiSelectMode && (
-                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedOfficer(officer);
-                                                                    setEditOfficerData({
-                                                                        ...officer,
-                                                                        skills: officer.skills.join(', ') as any
-                                                                    });
-                                                                    setEditOfficerFile(null);
-                                                                    setIsEditOpen(true);
-                                                                }}
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedOfficer(officer);
-                                                                    setIsDeleteConfirmOpen(true);
-                                                                }}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-primary"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedOfficer(officer);
-                                                                }}
-                                                            >
-                                                                <ChevronRight className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </StickyTableCell>
-                                            </StickyTableRow>
-                                        </div>
-                                    ))}
-                                </StickyTableBody>
-                            </StickyTable>
-                        </StickyTableContainer>
-                    )}
-                </>
-            )}
-
-            {/* Bulk Action Bar */}
-            {selectedOfficers.size > 0 && (
-                <BulkActionBar
-                    selectedCount={selectedOfficers.size}
-                    totalCount={currentOfficers.length}
-                    onSelectAll={toggleAllOfficers}
-                    onDeselectAll={() => setSelectedOfficers(new Set())}
-                    onClose={clearSelection}
-                    itemName="officers"
-                    actions={[
-                        {
-                            id: 'export',
-                            label: 'Export',
-                            icon: Download,
-                            onClick: handleBulkExport,
-                            variant: 'secondary'
-                        },
-                        {
-                            id: 'delete',
-                            label: 'Delete',
-                            icon: Trash2,
-                            onClick: handleBulkDelete,
-                            variant: 'destructive'
-                        }
-                    ]}
-                />
-            )}
-
-            {/* Pagination Footer */}
-            {filteredOfficers.length > 0 && (
-                <div className="flex items-center justify-between py-4 border-t mt-4">
-                    <p className="text-xs text-muted-foreground">
-                        Page {currentPage} of {totalPages} ({filteredOfficers.length} officers)
-                    </p>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={currentPage === 1}>Previous</Button>
-                        <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage === totalPages}>Next</Button>
-                    </div>
-                </div>
-            )}
-
-            {/* Floating Action Button */}
-            {!selectedOfficer && (
-                <FloatingActionButton
-                    mainLabel="Add Officer"
-                    onMainClick={() => setIsAddOpen(true)}
-                />
-            )}
-
-            {/* ADD OFFICER SHEET (Replaced Dialog) */}
-            <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <SheetContent>
-                    <SheetHeader>
-                        <SheetTitle>Onboard New Officer</SheetTitle>
-                    </SheetHeader>
-                    <div className="py-6 space-y-6">
-                        <div className="flex justify-center">
-                            <div className="w-full max-w-xs">
-                                <FileDragUpload
-                                    onFilesSelected={(files) => setNewOfficerFile(files[0])}
-                                    title="Officer Photo"
-                                    description="Upload a profile picture"
-                                    className="h-40"
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <Label>First & Last Name</Label>
-                            <Input value={newOfficer.full_name} onChange={(e) => setNewOfficer(p => ({ ...p, full_name: e.target.value }))} placeholder="e.g. James Godonu" />
-                        </div>
-                        <div className="space-y-1">
-                            <Label>Badge Number</Label>
-                            <Input value={newOfficer.badge_number} onChange={(e) => setNewOfficer(p => ({ ...p, badge_number: e.target.value }))} placeholder="e.g. S-4501" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <Label>Email</Label>
-                                <Input value={newOfficer.email} onChange={(e) => setNewOfficer(p => ({ ...p, email: e.target.value }))} placeholder="email@company.com" />
-                            </div>
-                            <div className="space-y-1">
-                                <Label>Phone</Label>
-                                <Input value={newOfficer.phone} onChange={(e) => setNewOfficer(p => ({ ...p, phone: e.target.value }))} placeholder="(555) 000-0000" />
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <Label>Skills (comma separated)</Label>
-                            <Input value={newOfficer.skills} onChange={(e) => setNewOfficer(p => ({ ...p, skills: e.target.value }))} placeholder="armed, cpr, k9" />
-                        </div>
-                        <div className="space-y-1">
-                            <Label>Employment Status</Label>
-                            <select
-                                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                value={newOfficer.employment_status}
-                                onChange={(e) => setNewOfficer(p => ({ ...p, employment_status: e.target.value as any }))}
-                            >
-                                <option value="active">Active</option>
-                                <option value="onboarding">Onboarding</option>
-                                <option value="terminated">Terminated</option>
-                            </select>
-                        </div>
-                    </div>
-                    <SheetFooter>
-                        <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                        <Button onClick={handleAddOfficer} disabled={createOfficerMutation.isPending}>
-                            {createOfficerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Complete Onboarding
-                        </Button>
-                    </SheetFooter>
-                </SheetContent>
-            </Sheet>
-
-            {/* Image Lightbox */}
-            <ImageLightbox
-                images={images}
-                currentIndex={currentIndex}
-                isOpen={isLightboxOpen}
-                onClose={closeLightbox}
-                onNavigate={navigateTo}
-            />
-
-            {/* EDIT OFFICER DIALOG */}
-            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Edit Officer Profile</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="flex justify-center mb-4">
-                            <div className="w-full max-w-xs">
-                                <FileDragUpload
-                                    onFilesSelected={(files) => setEditOfficerFile(files[0])}
-                                    title="Update Profile Photo"
-                                    className="h-32"
-                                    existingFiles={editOfficerData.image_url ? [editOfficerData.image_url] : []}
-                                    onRemoveExisting={() => setEditOfficerData(prev => ({ ...prev, image_url: '' }))}
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Full Name</Label>
-                            <Input
-                                value={editOfficerData.full_name || ''}
-                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, full_name: e.target.value }))}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Badge Number</Label>
-                                <Input
-                                    value={editOfficerData.badge_number || ''}
-                                    onChange={(e) => setEditOfficerData(prev => ({ ...prev, badge_number: e.target.value }))}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Status</Label>
-                                <select
-                                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                                    value={editOfficerData.employment_status || 'active'}
-                                    onChange={(e) => setEditOfficerData(prev => ({ ...prev, employment_status: e.target.value as any }))}
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="onboarding">Onboarding</option>
-                                    <option value="terminated">Terminated</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Email</Label>
-                            <Input
-                                value={editOfficerData.email || ''}
-                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, email: e.target.value }))}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Phone</Label>
-                            <Input
-                                value={editOfficerData.phone || ''}
-                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, phone: e.target.value }))}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Skills (Comma separated)</Label>
-                            <Input
-                                value={editOfficerData.skills as any || ''}
-                                onChange={(e) => setEditOfficerData(prev => ({ ...prev, skills: e.target.value as any }))}
-                                placeholder="First Aid, K9, Armed"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                        <Button onClick={async () => {
-                            if (!selectedOfficer) return;
-
-                            // Process skills back to array
-                            const skillsString = editOfficerData.skills as unknown as string;
-                            const skillsArray = skillsString && typeof skillsString === 'string'
-                                ? skillsString.split(',').map(s => s.trim()).filter(s => s.length > 0)
-                                : selectedOfficer.skills;
-
-                            const updates = {
-                                ...editOfficerData,
-                                skills: skillsArray,
-                                image_url: editOfficerData.image_url // Keep existing URL unless overridden below
-                            };
-
-                            if (editOfficerFile) {
-                                updates.image_url = await fileToDataUrl(editOfficerFile);
-                            }
-
-                            updateOfficerMutation.mutate({ id: selectedOfficer.id, updates });
-                        }}>
-                            Save Changes
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* DELETE CONFIRM DIALOG */}
-            <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Officer</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 text-center space-y-2">
-                        <div className="flex justify-center mb-4">
-                            <div className="p-3 bg-red-100 rounded-full animate-bounce">
-                                <AlertCircle className="h-6 w-6 text-red-600" />
-                            </div>
-                        </div>
-                        <p className="font-semibold text-lg">{selectedOfficer?.full_name}</p>
-                        <p className="text-muted-foreground text-sm">
-                            Are you sure you want to delete this officer? This action cannot be undone.
-                        </p>
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 text-left mt-4">
-                            <strong>Warning:</strong> Deleting an officer does not delete their past history in shifts/reports,
-                            but they will no longer be assignable.
-                        </div>
-                    </div>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="ghost" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
-                        <Button
-                            variant="destructive"
-                            onClick={() => selectedOfficer && deleteOfficerMutation.mutate(selectedOfficer.id)}
-                        >
-                            Delete Permanently
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+          {/* Expandable filters */}
+          {filtersOpen && (
+            <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-border/50 animate-in slide-in-from-top-2 duration-200">
+              {/* Status pills */}
+              <div className="flex flex-wrap gap-1.5">
+                {(['all', 'active', 'onboarding', 'terminated'] as const).map(s => (
+                  <button key={s} onClick={() => setStatusFilter(s)} className={cn('px-3 py-1 rounded-full text-xs font-semibold border transition-all capitalize', statusFilter === s ? 'bg-primary text-primary-foreground border-transparent' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground')}>
+                    {s === 'all' ? 'All Status' : s}
+                  </button>
+                ))}
+              </div>
+              <div className="w-px h-6 bg-border/60 self-center hidden sm:block" />
+              {/* Compliance pills */}
+              <div className="flex flex-wrap gap-1.5">
+                {(['all', 'ok', 'expiring', 'expired'] as const).map(c => (
+                  <button key={c} onClick={() => setComplianceFilter(c)} className={cn('px-3 py-1 rounded-full text-xs font-semibold border transition-all capitalize', complianceFilter === c ? 'bg-primary text-primary-foreground border-transparent' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground')}>
+                    {c === 'all' ? 'All Compliance' : c === 'ok' ? 'Compliant' : c}
+                  </button>
+                ))}
+              </div>
+              <div className="w-px h-6 bg-border/60 self-center hidden sm:block" />
+              <button onClick={() => setAttentionOnly(v => !v)} className={cn('flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all', attentionOnly ? 'bg-amber-500 text-white border-transparent' : 'border-border text-muted-foreground hover:border-amber-400 hover:text-foreground')}>
+                <AlertTriangle className="h-3 w-3" /> Needs Attention
+              </button>
+              <button onClick={() => { setStatusFilter('all'); setComplianceFilter('all'); setAttentionOnly(false); }} className="px-3 py-1 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-all">
+                Reset
+              </button>
+            </div>
+          )}
         </div>
-    );
+      </div>
+
+      {/* ── BULK ACTION BAR ── */}
+      {selectedIds.length > 0 && canEdit && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/5 animate-in slide-in-from-top-2 duration-200">
+          <p className="text-sm font-semibold text-primary">{selectedIds.length} officer{selectedIds.length > 1 ? 's' : ''} selected</p>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => bulkStatusMutation.mutate('active')} disabled={bulkStatusMutation.isPending}>Set Active</Button>
+            <Button size="sm" variant="outline" onClick={() => bulkStatusMutation.mutate('onboarding')} disabled={bulkStatusMutation.isPending}>Set Onboarding</Button>
+            <Button size="sm" variant="outline" className="text-red-600 hover:text-red-600 border-red-200 hover:border-red-300" onClick={() => bulkStatusMutation.mutate('terminated')} disabled={bulkStatusMutation.isPending}>Terminate</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>Clear</Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-border/40 bg-card flex flex-col">
+
+        {/* ROSTER VIEW */}
+        {view === 'roster' && (
+          <div className="h-full overflow-y-auto p-4">
+            {filtered.length === 0 ? (
+              <EmptyState icon={Users} title="No officers match this view" description="Adjust filters or onboard a new officer." action={canEdit ? { label: 'Add Officer', onClick: () => setIsAddOpen(true), icon: Plus } : undefined} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                {filtered.map(officer => {
+                  const analytics = analyticsByOfficer.get(officer.id);
+                  const selected = selectedIds.includes(officer.id);
+                  const sm = statusMeta(officer.employment_status);
+                  return (
+                    <div
+                      key={officer.id}
+                      onClick={() => setSelectedOfficerId(officer.id)}
+                      className={cn(
+                        'group relative rounded-2xl border text-left cursor-pointer transition-all duration-300 overflow-hidden bg-card hover:shadow-md',
+                        selected ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border/40 hover:border-border/60'
+                      )}
+                    >
+                      {/* Top accent strip */}
+                      <div className={cn('h-1 w-full', sm.dot)} />
+
+                      <div className="p-4">
+                        {/* Header row */}
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {canEdit && (
+                              <input type="checkbox" checked={selected} onClick={e => e.stopPropagation()}
+                                onChange={() => setSelectedIds(prev => prev.includes(officer.id) ? prev.filter(id => id !== officer.id) : [...prev, officer.id])}
+                                className="h-3.5 w-3.5 rounded border-border accent-primary shrink-0"
+                              />
+                            )}
+                            <div className="relative shrink-0">
+                              <Avatar src={officer.image_url} fallback={officer.full_name[0]} className="h-10 w-10 ring-2 ring-background" />
+                              <span className={cn('absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background', sm.dot)} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">{officer.full_name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">{officer.email || '—'}</p>
+                            </div>
+                          </div>
+                          <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0', sm.badge)}>{sm.label}</span>
+                        </div>
+
+                        {/* Metadata grid */}
+                        <div className="grid grid-cols-2 gap-4 mb-4 pt-1">
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Badge #</p>
+                            <p className="text-sm font-semibold text-foreground tracking-tight">{officer.badge_number}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Phone</p>
+                            <p className="text-sm font-semibold text-foreground tracking-tight">{officer.phone || '—'}</p>
+                          </div>
+                        </div>
+
+                        {/* Status tags */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/30">
+                          <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 bg-background/50', sm.badge)}>{sm.label}</span>
+                          <CompliancePill state={analytics?.compliance || 'ok'} />
+                        </div>
+
+                        {/* Skills */}
+                        {!!officer.skills?.length && (
+                          <div className="mt-2.5 flex flex-wrap gap-1">
+                            {officer.skills.slice(0, 3).map(skill => (
+                              <span key={skill} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground font-medium border border-border/50">{skill}</span>
+                            ))}
+                            {officer.skills.length > 3 && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground border border-border/50">+{officer.skills.length - 3}</span>}
+                          </div>
+                        )}
+
+                        {/* Hover arrow */}
+                        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ChevronRight className="h-4 w-4 text-primary" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* WORKLOAD VIEW */}
+        {view === 'workload' && (
+          <div className="h-full overflow-auto">
+            <div className="min-w-[900px]">
+              {/* Header */}
+              <div className="grid sticky top-0 z-10 bg-muted/50 backdrop-blur-xl border-b border-border/50 shadow-sm" style={{ gridTemplateColumns: `200px repeat(${weekDays.length}, 1fr)` }}>
+                <div className="p-3 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Officer</div>
+                {weekDays.map(day => {
+                  const isToday = day.toDateString() === new Date().toDateString();
+                  return (
+                    <div key={day.toISOString()} className={cn('p-3 text-center text-[10px] uppercase tracking-wider font-bold border-l border-border/40', isToday ? 'text-primary' : 'text-muted-foreground')}>
+                      {day.toLocaleDateString(undefined, { weekday: 'short' })}<br />
+                      <span className={cn('text-sm font-bold', isToday ? 'text-primary' : 'text-foreground')}>{day.getDate()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filtered.map(officer => {
+                const officerShifts = shifts.filter((s: any) => s.officer_id === officer.id);
+                const sm = statusMeta(officer.employment_status);
+                return (
+                  <div key={officer.id} className="grid border-b border-border/40 hover:bg-muted/10 transition-colors" style={{ gridTemplateColumns: `200px repeat(${weekDays.length}, 1fr)` }}>
+                    <button className="p-3 text-left flex items-center gap-2.5 border-r border-border/40 hover:bg-muted/20 transition-colors" onClick={() => setSelectedOfficerId(officer.id)}>
+                      <div className="relative shrink-0">
+                        <Avatar src={officer.image_url} fallback={officer.full_name[0]} className="h-7 w-7" />
+                        <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background', sm.dot)} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate">{officer.full_name}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">#{officer.badge_number}</p>
+                      </div>
+                    </button>
+                    {weekDays.map(day => {
+                      const key = day.toISOString().slice(0, 10);
+                      const rows = officerShifts.filter((s: any) => new Date(s.start_time).toISOString().slice(0, 10) === key);
+                      const isToday = day.toDateString() === new Date().toDateString();
+                      return (
+                        <div key={`${officer.id}-${key}`} className={cn('p-1.5 border-l border-border/40 min-h-[72px]', isToday && 'bg-primary/[0.02]')}>
+                          <div className="space-y-0.5">
+                            {rows.slice(0, 2).map((shift: any) => (
+                              <div key={shift.id} className={cn('rounded-lg px-1.5 py-1 text-[9px] leading-tight border', shift.status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-primary/10 border-primary/20 text-primary')}>
+                                <p className="font-bold tabular-nums">{new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="truncate opacity-80">{shift.site?.name || 'Site'}</p>
+                              </div>
+                            ))}
+                            {rows.length > 2 && <p className="text-[9px] text-muted-foreground pl-1">+{rows.length - 2} more</p>}
+                            {rows.length === 0 && <p className="text-[9px] text-muted-foreground/40 pl-1 pt-1">—</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TABLE VIEW */}
+        {view === 'table' && (
+          <div className="h-full overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10 border-b border-border/50 bg-muted/50 backdrop-blur-xl shadow-sm">
+                <tr>
+                  {canEdit && <th className="w-10 p-3" />}
+                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Officer</th>
+                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Contact</th>
+                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Status</th>
+                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Compliance</th>
+                  <th className="p-3 text-center text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Upcoming</th>
+                  <th className="p-3 text-center text-[10px] uppercase tracking-wider font-bold text-muted-foreground">30d Hrs</th>
+                  {canEdit && <th className="p-3 text-right text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {filtered.map(officer => {
+                  const a = analyticsByOfficer.get(officer.id);
+                  const sm = statusMeta(officer.employment_status);
+                  return (
+                    <tr key={officer.id} className="hover:bg-muted/20 transition-colors group">
+                      {canEdit && (
+                        <td className="p-3">
+                          <input type="checkbox" checked={selectedIds.includes(officer.id)} onChange={() => setSelectedIds(prev => prev.includes(officer.id) ? prev.filter(id => id !== officer.id) : [...prev, officer.id])} className="h-3.5 w-3.5 rounded accent-primary" />
+                        </td>
+                      )}
+                      <td className="p-3">
+                        <button onClick={() => setSelectedOfficerId(officer.id)} className="flex items-center gap-2.5 text-left hover:text-primary transition-colors">
+                          <div className="relative shrink-0">
+                            <Avatar src={officer.image_url} fallback={officer.full_name[0]} className="h-8 w-8" />
+                            <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background', sm.dot)} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{officer.full_name}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">#{officer.badge_number}</p>
+                          </div>
+                        </button>
+                      </td>
+                      <td className="p-3 text-xs text-muted-foreground">
+                        <div className="flex flex-col gap-0.5">
+                          {officer.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{officer.email}</span>}
+                          {officer.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{officer.phone}</span>}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border', sm.badge)}>{sm.label}</span>
+                      </td>
+                      <td className="p-3"><CompliancePill state={a?.compliance || 'ok'} /></td>
+                      <td className="p-3 text-center font-bold tabular-nums text-sm">{a?.upcoming ?? 0}</td>
+                      <td className="p-3 text-center font-bold tabular-nums text-sm">{(a?.hours30d ?? 0).toFixed(1)}</td>
+                      {canEdit && (
+                        <td className="p-3 text-right">
+                          <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" onClick={() => setSelectedOfficerId(officer.id)} title="View profile"><UserCog className="h-3.5 w-3.5" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(officer)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="py-16 flex items-center justify-center">
+                <EmptyState icon={Users} title="No officers found" description="Try adjusting your search or filters." />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── ADD OFFICER DIALOG ── */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Shield className="h-5 w-5 text-primary" /> Onboard Officer</DialogTitle>
+        </DialogHeader>
+        <DialogContent>
+          <div className="space-y-3">
+            <Input placeholder="Full name *" value={newOfficer.full_name} onChange={e => setNewOfficer(p => ({ ...p, full_name: e.target.value }))} />
+            <Input placeholder="Email" value={newOfficer.email} onChange={e => setNewOfficer(p => ({ ...p, email: e.target.value }))} />
+            <Input placeholder="Phone" value={newOfficer.phone} onChange={e => setNewOfficer(p => ({ ...p, phone: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Badge number *" value={newOfficer.badge_number} onChange={e => setNewOfficer(p => ({ ...p, badge_number: e.target.value }))} />
+              <select className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={newOfficer.employment_status} onChange={e => setNewOfficer(p => ({ ...p, employment_status: e.target.value as Officer['employment_status'] }))}>
+                {EMPLOYMENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <Input placeholder="Skills (comma-separated)" value={newOfficer.skills} onChange={e => setNewOfficer(p => ({ ...p, skills: e.target.value }))} />
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+          <Button disabled={createMutation.isPending || !newOfficer.full_name || !newOfficer.badge_number} onClick={() => createMutation.mutate()}>
+            {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Add Officer
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* ── EDIT OFFICER DIALOG ── */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5 text-primary" /> Edit Officer</DialogTitle>
+        </DialogHeader>
+        <DialogContent>
+          <div className="space-y-3">
+            <Input placeholder="Full name" value={editData.full_name as string || ''} onChange={e => setEditData(p => ({ ...p, full_name: e.target.value }))} />
+            <Input placeholder="Email" value={editData.email as string || ''} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))} />
+            <Input placeholder="Phone" value={editData.phone as string || ''} onChange={e => setEditData(p => ({ ...p, phone: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Badge number" value={editData.badge_number as string || ''} onChange={e => setEditData(p => ({ ...p, badge_number: e.target.value }))} />
+              <select className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={(editData.employment_status as string) || 'active'} onChange={e => setEditData(p => ({ ...p, employment_status: e.target.value as Officer['employment_status'] }))}>
+                {EMPLOYMENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+          <Button disabled={updateMutation.isPending || !editData.id} onClick={() => updateMutation.mutate({ id: editData.id as string, updates: editData })}>
+            {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save Changes
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* ── ADD CERT DIALOG ── */}
+      <Dialog open={isAddCertOpen} onOpenChange={setIsAddCertOpen}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-primary" /> Add Certification</DialogTitle>
+        </DialogHeader>
+        <DialogContent>
+          <div className="space-y-3">
+            <Input placeholder="Certification name *" value={newCert.name} onChange={e => setNewCert(p => ({ ...p, name: e.target.value }))} />
+            <Input placeholder="Certificate number" value={newCert.number} onChange={e => setNewCert(p => ({ ...p, number: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="date" value={newCert.expiry_date} onChange={e => setNewCert(p => ({ ...p, expiry_date: e.target.value }))} />
+              <select className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={newCert.type} onChange={e => setNewCert(p => ({ ...p, type: e.target.value as Certification['type'] }))}>
+                <option value="guard_card">Guard Card</option>
+                <option value="firearm">Firearm Permit</option>
+                <option value="first_aid">First Aid</option>
+                <option value="cpr">CPR</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsAddCertOpen(false)}>Cancel</Button>
+          <Button onClick={addCertification} disabled={!newCert.name || !newCert.expiry_date}>Add Certification</Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* ── OFFICER DETAIL SHEET ── */}
+      <Sheet open={!!selectedOfficer} onOpenChange={open => !open && setSelectedOfficerId(null)}>
+        {selectedOfficer && (() => {
+          const a = analyticsByOfficer.get(selectedOfficer.id);
+          const sm = statusMeta(selectedOfficer.employment_status);
+          return (
+            <>
+              <SheetHeader>
+                {/* Officer hero */}
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar src={selectedOfficer.image_url} fallback={selectedOfficer.full_name[0]} className="h-14 w-14 ring-2 ring-primary/20" />
+                    <span className={cn('absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-background', sm.dot)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <SheetTitle className="text-lg">{selectedOfficer.full_name}</SheetTitle>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border', sm.badge)}>{sm.label}</span>
+                      <span className="text-[11px] text-muted-foreground font-mono">#{selectedOfficer.badge_number}</span>
+                      <CompliancePill state={a?.compliance || 'ok'} />
+                    </div>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <SheetContent className="space-y-5">
+                {/* Quick status toggle */}
+                {canEdit && (
+                  <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2.5">Quick Status</p>
+                    <div className="flex gap-2">
+                      {EMPLOYMENT_STATUSES.map(s => {
+                        const active = selectedOfficer.employment_status === s.value;
+                        return (
+                          <Button key={s.value} size="sm" variant={active ? 'default' : 'outline'} className={cn('flex-1 text-xs', !active && 'text-muted-foreground')}
+                            onClick={() => updateMutation.mutate({ id: selectedOfficer.id, updates: { employment_status: s.value } })}>
+                            {s.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { icon: TrendingUp, label: 'Upcoming', val: a?.upcoming ?? 0 },
+                    { icon: Clock, label: '30d Hrs', val: (a?.hours30d ?? 0).toFixed(1) },
+                    { icon: Shield, label: 'Incidents', val: a?.incidents ?? 0 },
+                  ].map(({ icon: Icon, label, val }) => (
+                    <div key={label} className="rounded-[1.5rem] border border-border/40 bg-card/60 backdrop-blur-md p-4 text-center glass-card-depth hover-lift group transition-all duration-300">
+                      <Icon className="h-5 w-5 text-muted-foreground mx-auto mb-2 group-hover:text-primary transition-colors" />
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1 group-hover:text-foreground transition-colors">{label}</p>
+                      <p className="text-2xl font-black text-foreground tabular-nums group-hover:text-primary transition-colors">{val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Contact */}
+                <div className="rounded-[1.5rem] border border-border/40 bg-card/60 backdrop-blur-md divide-y divide-border/40 glass-card-depth overflow-hidden">
+                  {[
+                    { icon: Mail, val: selectedOfficer.email, label: 'Email' },
+                    { icon: Phone, val: selectedOfficer.phone, label: 'Phone' },
+                  ].map(({ icon: Icon, val, label }) => (
+                    <div key={label} className="flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors">
+                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-medium text-foreground">{val || <span className="italic text-muted-foreground">Not set</span>}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tabs */}
+                <Tabs defaultValue="compliance">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="compliance" className="flex-1"><Shield className="h-3.5 w-3.5 mr-1.5" />Compliance</TabsTrigger>
+                    <TabsTrigger value="finance" className="flex-1"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Finance</TabsTrigger>
+                    <TabsTrigger value="work" className="flex-1"><Briefcase className="h-3.5 w-3.5 mr-1.5" />Work</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="compliance" className="space-y-3">
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-sm font-semibold">Certifications</p>
+                      {canEdit && <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setIsAddCertOpen(true)}><Plus className="h-3 w-3" />Add</Button>}
+                    </div>
+                    <div className="space-y-2">
+                      {(selectedOfficer.certifications || []).map(cert => {
+                        const state = complianceState(cert.expiry_date);
+                        return (
+                          <div key={cert.id} className={cn('rounded-xl border p-3 flex justify-between gap-2', state === 'expired' ? 'border-red-500/20 bg-red-500/5' : state === 'expiring' ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/60 bg-card/50')}>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{cert.name}</p>
+                              <p className="text-[11px] text-muted-foreground">#{cert.number} · Expires {new Date(cert.expiry_date).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <CompliancePill state={state} />
+                              {canEdit && <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => removeCertification(cert.id)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {!(selectedOfficer.certifications?.length) && <p className="text-xs text-muted-foreground py-2">No certifications on file.</p>}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="finance" className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div className="rounded-[1.5rem] border border-border/40 bg-card/60 backdrop-blur-md p-4 glass-card-depth group hover-lift transition-all duration-300">
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold group-hover:text-foreground transition-colors">Base Rate</p>
+                        <p className="text-3xl font-black mt-1 group-hover:text-primary transition-colors">${selectedOfficer.financials?.base_rate ?? 0}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">per hour</p>
+                      </div>
+                      <div className="rounded-[1.5rem] border border-border/40 bg-card/60 backdrop-blur-md p-4 glass-card-depth group hover-lift transition-all duration-300">
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold group-hover:text-foreground transition-colors">OT Rate</p>
+                        <p className="text-3xl font-black mt-1 group-hover:text-primary transition-colors">${selectedOfficer.financials?.overtime_rate ?? 0}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">per hour</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground px-2">Use Edit Officer to modify financial profile and deductions.</p>
+                  </TabsContent>
+
+                  <TabsContent value="work" className="space-y-2 mt-1">
+                    {[
+                      { label: 'Upcoming Shifts', val: a?.upcoming ?? 0 },
+                      { label: 'Hours (30d)', val: `${(a?.hours30d ?? 0).toFixed(1)} hrs` },
+                      { label: 'Incidents Total', val: a?.incidents ?? 0 },
+                    ].map(({ label, val }) => (
+                      <div key={label} className="flex items-center justify-between rounded-xl border border-border/60 bg-card/50 px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground">{label}</span>
+                        <span className="text-sm font-bold tabular-nums">{val}</span>
+                      </div>
+                    ))}
+                  </TabsContent>
+                </Tabs>
+              </SheetContent>
+
+              <SheetFooter>
+                <div className="flex w-full items-center justify-between gap-2">
+                  {canEdit && (
+                    <Button variant="destructive" size="sm" disabled={deleteMutation.isPending}
+                      onClick={() => { if (confirm(`Delete ${selectedOfficer.full_name}?`)) deleteMutation.mutate(selectedOfficer.id); }}>
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
+                  )}
+                  <div className="ml-auto flex gap-2">
+                    {canEdit && <Button variant="outline" size="sm" onClick={() => openEdit(selectedOfficer)}><Pencil className="h-3.5 w-3.5" /> Edit</Button>}
+                    <Button size="sm" onClick={() => setSelectedOfficerId(null)}>Close</Button>
+                  </div>
+                </div>
+              </SheetFooter>
+            </>
+          );
+        })()}
+      </Sheet>
+    </div>
+  );
 }

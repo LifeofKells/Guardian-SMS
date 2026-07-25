@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { Layout } from './components/Layout';
-import Dashboard from './pages/Dashboard';
+import CommandCenterWorkspace from './pages/CommandCenterWorkspace';
 import Schedule from './pages/Schedule';
+import CalendarView from './pages/CalendarView';
 import Officers from './pages/Officers';
 import Timesheets from './pages/Timesheets';
 import Clients from './pages/Clients';
@@ -13,6 +14,7 @@ import Accounting from './pages/Accounting';
 import Feedback from './pages/Feedback';
 import AuditLogs from './pages/AuditLogs';
 import Resources from './pages/Resources';
+import Messaging from './pages/Messaging';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label } from './components/ui';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -21,7 +23,7 @@ import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
 import { useBreadcrumbs } from './contexts/BreadcrumbContext';
 import { NotificationProvider } from './components/NotificationCenter';
 import { AnimatedPage } from './components/PageTransition';
-import { ActivityFeedProvider } from './components/LiveActivityPulse';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { ClientPortalAuthProvider, useClientPortalAuth } from './contexts/ClientPortalAuthContext';
@@ -47,7 +49,7 @@ const queryClient = new QueryClient({
 function AuthenticatedAppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const { user, mustChangePassword, changePassword, logout } = useAuth();
-  const { pushBreadcrumb, replaceLastBreadcrumb } = useBreadcrumbs();
+  const { pushBreadcrumb, replaceLastBreadcrumb, setTopLevelBreadcrumb } = useBreadcrumbs();
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -114,13 +116,15 @@ function AuthenticatedAppContent() {
 
   const handlePageChange = (page: string, data?: Record<string, any>) => {
     const pageLabels: Record<string, string> = {
-      dashboard: 'Dashboard',
+      dashboard: 'Workspace',
       schedule: 'Schedule',
+      calendar: 'Calendar',
       officers: 'Officers',
       timesheets: 'Timesheets',
       clients: 'Clients & Sites',
       accounting: 'Accounting',
       resources: 'Resources',
+      messaging: 'Messaging',
       reports: 'Reports',
       settings: 'Settings',
       feedback: 'Feedback',
@@ -128,36 +132,32 @@ function AuthenticatedAppContent() {
     };
 
     const label = data?.label || pageLabels[page] || page;
-    
-    if (currentPage === page && data) {
-      replaceLastBreadcrumb({
-        id: `${page}-${Date.now()}`,
-        label,
-        page,
-        data
-      });
-    } else if (currentPage !== page) {
-      pushBreadcrumb({
-        id: `${page}-${Date.now()}`,
-        label,
-        page,
-        data
-      });
+    const isTopLevel = page in pageLabels;
+    const crumb = { id: `${page}-${Date.now()}`, label, page, data };
+
+    if (isTopLevel && !data?.drillDown) {
+      setTopLevelBreadcrumb(crumb);
+    } else if (currentPage === page && data) {
+      replaceLastBreadcrumb(crumb);
+    } else {
+      pushBreadcrumb(crumb);
     }
-    
+
     setCurrentPage(page);
   };
 
   const renderPage = () => {
     const pageContent = (() => {
       switch (currentPage) {
-        case 'dashboard': return <Dashboard />;
+        case 'dashboard': return <CommandCenterWorkspace onNavigate={handlePageChange} />;
         case 'schedule': return <Schedule />;
+        case 'calendar': return <CalendarView />;
         case 'officers': return <Officers />;
         case 'timesheets': return <Timesheets />;
         case 'clients': return <Clients />;
         case 'accounting': return <Accounting />;
         case 'resources': return <Resources />;
+        case 'messaging': return <Messaging />;
         case 'reports': return <Reports />;
         case 'settings': return <Settings />;
         case 'feedback': return <Feedback />;
@@ -193,13 +193,11 @@ function AuthenticatedAppContent() {
 
 function AuthenticatedApp() {
   return (
-    <ActivityFeedProvider demoMode={true} demoInterval={12000}>
-      <NotificationProvider>
-        <BreadcrumbProvider>
-          <AuthenticatedAppContent />
-        </BreadcrumbProvider>
-      </NotificationProvider>
-    </ActivityFeedProvider>
+    <NotificationProvider>
+      <BreadcrumbProvider>
+        <AuthenticatedAppContent />
+      </BreadcrumbProvider>
+    </NotificationProvider>
   );
 }
 

@@ -115,36 +115,36 @@ interface SavedFilter {
 function fuzzyMatch(str: string, pattern: string): boolean {
     pattern = pattern.toLowerCase();
     str = str.toLowerCase();
-    
+
     let patternIdx = 0;
     let strIdx = 0;
-    
+
     while (patternIdx < pattern.length && strIdx < str.length) {
         if (pattern[patternIdx] === str[strIdx]) {
             patternIdx++;
         }
         strIdx++;
     }
-    
+
     return patternIdx === pattern.length;
 }
 
 function calculateMatchScore(str: string, pattern: string): number {
     str = str.toLowerCase();
     pattern = pattern.toLowerCase();
-    
+
     // Exact match gets highest score
     if (str === pattern) return 100;
-    
+
     // Starts with gets high score
     if (str.startsWith(pattern)) return 80;
-    
+
     // Contains gets medium score
     if (str.includes(pattern)) return 60;
-    
+
     // Fuzzy match gets lower score
     if (fuzzyMatch(str, pattern)) return 40;
-    
+
     return 0;
 }
 
@@ -197,7 +197,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         category: 'create',
         action: (ctx) => ctx.navigate('clients')
     },
-    
+
     // VIEW actions
     {
         id: 'view-schedule-today',
@@ -235,7 +235,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         category: 'view',
         action: (ctx) => ctx.navigate('timesheets')
     },
-    
+
     // EXPORT actions
     {
         id: 'export-schedule',
@@ -264,7 +264,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         category: 'export',
         action: (ctx) => ctx.navigate('timesheets')
     },
-    
+
     // SYSTEM actions
     {
         id: 'toggle-theme',
@@ -309,7 +309,7 @@ const QUICK_ACTIONS: QuickAction[] = [
             window.location.reload();
         }
     },
-    
+
     // COMMUNICATION actions
     {
         id: 'send-broadcast',
@@ -318,7 +318,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         icon: Send,
         keywords: ['broadcast', 'message all', 'notify officers', 'announcement'],
         category: 'communication',
-        action: (ctx) => ctx.navigate('officers')
+        action: (ctx) => ctx.navigate('messaging')
     },
     {
         id: 'view-feedback',
@@ -354,7 +354,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                 category: 'Smart Query'
             })
         },
-        
+
         // "show [this week's/today's] overtime"
         {
             patterns: [
@@ -372,7 +372,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                 category: 'Smart Query'
             })
         },
-        
+
         // "find coverage for [site]"
         {
             patterns: [
@@ -393,7 +393,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                 };
             }
         },
-        
+
         // "incidents at [site]" or "incidents this week"
         {
             patterns: [
@@ -414,7 +414,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                 };
             }
         },
-        
+
         // "hours for [officer name]"
         {
             patterns: [
@@ -435,7 +435,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                 };
             }
         },
-        
+
         // "schedule [officer] at [site]"
         {
             patterns: [
@@ -457,7 +457,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                 };
             }
         },
-        
+
         // "go to [page]"
         {
             patterns: [
@@ -486,6 +486,9 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
                     'reports': 'reports',
                     'incidents': 'reports',
                     'settings': 'settings',
+                    'messaging': 'messaging',
+                    'messages': 'messaging',
+                    'chat': 'messaging',
                     'audit': 'audit',
                     'feedback': 'feedback'
                 };
@@ -508,7 +511,7 @@ function createNLPPatterns(context: ActionContext): NLPPattern[] {
 function matchNLPPatterns(query: string, context: ActionContext): SearchResult[] {
     const results: SearchResult[] = [];
     const patterns = createNLPPatterns(context);
-    
+
     for (const { patterns: regexes, handler } of patterns) {
         for (const regex of regexes) {
             const match = query.match(regex);
@@ -521,7 +524,7 @@ function matchNLPPatterns(query: string, context: ActionContext): SearchResult[]
             }
         }
     }
-    
+
     return results;
 }
 
@@ -554,7 +557,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                 console.error('Failed to parse recent searches:', e);
             }
         }
-        
+
         const filters = localStorage.getItem(SAVED_FILTERS_KEY);
         if (filters) {
             try {
@@ -568,7 +571,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
     // Save recent searches to localStorage
     const saveRecentSearch = useCallback((searchQuery: string, resultCount: number) => {
         if (!searchQuery.trim()) return;
-        
+
         setRecentSearches(prev => {
             const newSearch: RecentSearch = {
                 id: Date.now().toString(),
@@ -576,11 +579,11 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                 timestamp: Date.now(),
                 resultCount
             };
-            
+
             // Remove duplicates and add new search at beginning
             const filtered = prev.filter(s => s.query.toLowerCase() !== searchQuery.toLowerCase());
             const updated = [newSearch, ...filtered].slice(0, MAX_RECENT_SEARCHES);
-            
+
             localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
             return updated;
         });
@@ -620,6 +623,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
         { id: 'timesheets', title: 'Timesheets', icon: Clock, keywords: ['hours', 'time', 'clock', 'payroll'] },
         { id: 'reports', title: 'Reports', icon: FileText, keywords: ['analytics', 'data', 'incidents', 'activity'] },
         { id: 'settings', title: 'Settings', icon: Settings, keywords: ['configuration', 'preferences', 'options'] },
+        { id: 'messaging', title: 'Messaging', icon: MessageSquare, keywords: ['chat', 'channels', 'broadcast', 'announcement'] },
         { id: 'audit', title: 'Audit Logs', icon: Activity, keywords: ['logs', 'history', 'activity', 'tracking'] },
     ], []);
 
@@ -637,9 +641,9 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                     type: 'recent',
                     title: 'Recent Searches',
                     icon: History,
-                    action: () => {}
+                    action: () => { }
                 });
-                
+
                 recentSearches.slice(0, 5).forEach(search => {
                     searchResults.push({
                         id: `recent-${search.id}`,
@@ -662,9 +666,9 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                     type: 'filter',
                     title: 'Saved Filters',
                     icon: Bookmark,
-                    action: () => {}
+                    action: () => { }
                 });
-                
+
                 savedFilters.slice(0, 5).forEach(filter => {
                     searchResults.push({
                         id: `filter-${filter.id}`,
@@ -705,7 +709,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                             type: 'action',
                             title: categoryLabels[category] || category,
                             icon: Zap,
-                            action: () => {}
+                            action: () => { }
                         });
 
                         categoryActions.forEach(action => {
@@ -742,7 +746,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                 type: 'nlp',
                 title: 'Smart Suggestions',
                 icon: Sparkles,
-                action: () => {}
+                action: () => { }
             });
             nlpResults.forEach(r => {
                 searchResults.push({ ...r, metadata: { score: 200 } }); // High priority
@@ -753,7 +757,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
         QUICK_ACTIONS.forEach(action => {
             const titleScore = calculateMatchScore(action.title, q);
             const descScore = calculateMatchScore(action.description, q);
-            const keywordScore = action.keywords.some(k => 
+            const keywordScore = action.keywords.some(k =>
                 k.toLowerCase().includes(q) || calculateMatchScore(k, q) > 50
             ) ? 70 : 0;
             const maxScore = Math.max(titleScore, descScore, keywordScore);
@@ -782,7 +786,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             const titleScore = calculateMatchScore(p.title, q);
             const keywordScore = p.keywords?.some(k => calculateMatchScore(k, q) > 0) ? 50 : 0;
             const totalScore = Math.max(titleScore, keywordScore);
-            
+
             if (totalScore > 0) {
                 searchResults.push({
                     id: p.id,
@@ -802,7 +806,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             const badgeScore = o.badge_number ? calculateMatchScore(o.badge_number, q) : 0;
             const emailScore = o.email ? calculateMatchScore(o.email, q) : 0;
             const maxScore = Math.max(nameScore, badgeScore, emailScore);
-            
+
             if (maxScore > 0) {
                 searchResults.push({
                     id: o.id,
@@ -821,7 +825,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             const nameScore = calculateMatchScore(s.name, q);
             const addressScore = calculateMatchScore(s.address, q);
             const maxScore = Math.max(nameScore, addressScore);
-            
+
             if (maxScore > 0) {
                 searchResults.push({
                     id: s.id,
@@ -841,7 +845,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             const descScore = calculateMatchScore(i.description, q);
             const siteScore = i.site?.name ? calculateMatchScore(i.site.name, q) : 0;
             const maxScore = Math.max(typeScore, descScore, siteScore);
-            
+
             if (maxScore > 0) {
                 searchResults.push({
                     id: i.id,
@@ -1023,7 +1027,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                                     <div className={cn(
                                         "p-1.5 rounded-md shrink-0 transition-colors",
                                         result.id.includes('header') ? "bg-transparent" :
-                                        idx === selectedIndex ? "bg-primary text-white" : "bg-muted/70 text-muted-foreground"
+                                            idx === selectedIndex ? "bg-primary text-white" : "bg-muted/70 text-muted-foreground"
                                     )}>
                                         <result.icon className={cn(
                                             "h-4 w-4",
@@ -1035,7 +1039,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                                             <p className={cn(
                                                 "font-medium text-[13px] truncate",
                                                 result.id.includes('header') ? "text-muted-foreground/50 uppercase tracking-wider text-[10px]" :
-                                                idx === selectedIndex ? "text-primary" : "text-foreground"
+                                                    idx === selectedIndex ? "text-primary" : "text-foreground"
                                             )}>{result.title}</p>
                                             {!result.id.includes('header') && (
                                                 <div className="flex items-center gap-2 shrink-0">
@@ -1047,8 +1051,8 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                                                     <span className={cn(
                                                         "text-[10px] uppercase font-bold tracking-tight shrink-0",
                                                         result.type === 'action' ? "text-primary/50" :
-                                                        result.type === 'nlp' ? "text-amber-500/50" :
-                                                        "text-muted-foreground/40"
+                                                            result.type === 'nlp' ? "text-amber-500/50" :
+                                                                "text-muted-foreground/40"
                                                     )}>
                                                         {result.type === 'nlp' ? 'smart' : result.type}
                                                     </span>
@@ -1078,7 +1082,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
 
                 {/* Footer */}
                 <div className="px-4 py-2 border-t border-border/30 bg-muted/10 flex items-center justify-between">
-                    <p className="text-[10px] text-muted-foreground/50 font-medium">GUARDIAN COMMAND</p>
+                    <p className="text-[10px] text-muted-foreground/50 font-medium">PRO GUARD COMMAND</p>
                     <div className="flex items-center gap-4 opacity-50">
                         <div className="flex items-center gap-1.5">
                             <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
