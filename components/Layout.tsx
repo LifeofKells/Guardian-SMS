@@ -88,14 +88,14 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, badge, isExpan
           : "w-full gap-2.5 px-2.5 py-1.5 justify-start text-left",
         active
           ? collapsed
-            ? "bg-primary/15 text-primary"
-            : "bg-accent text-foreground"
-          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            ? "bg-white/20 text-white"
+            : "bg-white text-[#1e293b] font-semibold shadow-sm"
+          : "text-slate-300 hover:text-white hover:bg-white/10"
       )}
     >
       {/* Active indicator */}
       {active && !collapsed && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-r bg-primary" />
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-r bg-teal-500" />
       )}
 
       <div className="relative shrink-0 flex items-center justify-center">
@@ -160,8 +160,8 @@ function NavSubItem({ icon: Icon, label, active, onClick, collapsed }: NavItemPr
           className={cn(
             "w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-300 mx-auto group",
             active
-              ? "bg-primary/15 text-primary"
-              : "text-muted-foreground/60 hover:text-foreground hover:bg-muted/50"
+              ? "bg-white/20 text-white"
+              : "text-slate-400 hover:text-white hover:bg-white/10"
           )}
         >
           <Icon className="h-3.5 w-3.5 transition-transform duration-300 group-hover:scale-110" />
@@ -175,26 +175,26 @@ function NavSubItem({ icon: Icon, label, active, onClick, collapsed }: NavItemPr
       className={cn(
         "flex items-center w-full gap-2.5 pl-8 pr-3 py-1.5 rounded-lg transition-all duration-300 group relative text-left",
         active
-          ? "text-primary font-semibold bg-primary/5"
-          : "text-muted-foreground/70 hover:text-foreground hover:bg-muted/30"
+          ? "text-teal-400 font-semibold"
+          : "text-slate-400 hover:text-white hover:bg-white/10"
       )}
     >
       {/* Tree connector */}
       <span className={cn(
         "absolute left-[18px] top-0 bottom-0 w-[1.5px] transition-colors duration-300",
-        active ? "bg-primary/30" : "bg-border/50"
+        active ? "bg-teal-500/40" : "bg-white/10"
       )} />
       <span className={cn(
         "absolute left-[18px] top-1/2 w-2.5 h-[1.5px] rounded-r transition-colors duration-300",
-        active ? "bg-primary/50" : "bg-border/50"
+        active ? "bg-teal-500/60" : "bg-white/10"
       )} />
       <Icon className={cn(
         "h-3.5 w-3.5 shrink-0 relative z-10 transition-transform duration-300 group-hover:scale-110",
-        active ? "text-primary" : "text-muted-foreground/50"
+        active ? "text-teal-400" : "text-slate-400"
       )} />
       <span className={cn(
         "truncate text-[12.5px] relative z-10",
-        active ? "font-semibold text-primary" : "font-medium"
+        active ? "font-semibold text-teal-400" : "font-medium"
       )}>{label}</span>
     </button>
   );
@@ -204,9 +204,9 @@ function NavSubItem({ icon: Icon, label, active, onClick, collapsed }: NavItemPr
    NAV SECTIONS — grouped with subtle section headers
    ======================================================================== */
 function SectionLabel({ label, collapsed }: { label: string; collapsed?: boolean }) {
-  if (collapsed) return <div className="my-1.5 mx-2 h-px bg-border" />;
+  if (collapsed) return <div className="my-1.5 mx-2 h-px bg-white/10" />;
   return (
-    <div className="my-1.5 mx-2 h-px bg-border" />
+    <div className="my-1.5 mx-2 h-px bg-white/10" />
   );
 }
 
@@ -410,7 +410,7 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
       {/* Top fade */}
       <div
         className={cn(
-          "absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-card to-transparent z-10 pointer-events-none transition-opacity duration-300",
+          "absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[#1e293b] to-transparent z-10 pointer-events-none transition-opacity duration-300",
           canScrollUp ? "opacity-100" : "opacity-0"
         )}
       />
@@ -430,11 +430,11 @@ function ScrollableMenu({ children, className }: { children?: React.ReactNode, c
       {/* Bottom fade + arrow */}
       <div
         className={cn(
-          "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-card to-transparent z-10 pointer-events-none transition-opacity duration-300 flex justify-center items-end pb-1",
+          "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#1e293b] to-transparent z-10 pointer-events-none transition-opacity duration-300 flex justify-center items-end pb-1",
           canScrollDown ? "opacity-100" : "opacity-0"
         )}
       >
-        <ChevronDown className="h-4 w-4 text-muted-foreground/50 animate-bounce" />
+        <ChevronDown className="h-4 w-4 text-slate-400 animate-bounce" />
       </div>
     </div>
   );
@@ -640,14 +640,14 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           ═══════════════════════════════════════════════ */}
       <div data-tour="sidebar" className={cn(
         "hidden md:flex h-full flex-col z-20 transition-all duration-500 ease-in-out relative min-h-0",
-        "bg-card border-r border-border/30",
+        "bg-[#1e293b] border-r border-[#334155]",
         isCollapsed ? "w-[72px]" : "w-[256px]"
       )}>
 
         {/* Collapse toggle pill */}
         <button
           onClick={toggleCollapse}
-          className="absolute -right-3 top-8 z-50 h-6 w-6 rounded-full border border-border/50 bg-card shadow-md flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted transition-all duration-300 focus:outline-none"
+          className="absolute -right-3 top-8 z-50 h-6 w-6 rounded-full border border-slate-200 bg-white shadow-md flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-slate-50 transition-all duration-300 focus:outline-none"
         >
           <ChevronLeft className={cn("h-3 w-3 transition-transform duration-300", isCollapsed && "rotate-180")} />
         </button>
@@ -656,13 +656,13 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
 
           {/* Logo header */}
           <div className={cn(
-            "flex items-center border-b shrink-0 border-border transition-all duration-300 overflow-hidden h-12",
+            "flex items-center border-b shrink-0 border-white/10 transition-all duration-300 overflow-hidden h-12",
             isCollapsed ? "justify-center px-0" : "px-3"
           )}>
             <div className="flex items-center gap-2.5">
-              <img src={logoUrl} className="h-6 w-6 shrink-0 object-contain" alt="Logo" />
+              <img src={logoUrl} className="h-6 w-6 shrink-0 object-contain brightness-0 invert" alt="Logo" />
               <span className={cn(
-                "text-sm font-semibold tracking-tight text-foreground transition-all duration-200 whitespace-nowrap",
+                "text-sm font-semibold tracking-tight text-white transition-all duration-200 whitespace-nowrap",
                 isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
               )}>
                 {companyName}
@@ -675,11 +675,11 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
             <div className="px-2 pt-2 pb-1 shrink-0">
               <button
                 onClick={() => setIsCommandOpen(true)}
-                className="flex w-full items-center gap-2 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors duration-150"
+                className="flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-white/10 hover:text-white transition-colors duration-150"
               >
                 <Search className="h-3 w-3 shrink-0" />
                 <span className="flex-1 text-left truncate">Search…</span>
-                <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-border px-1 font-mono text-[9px] text-muted-foreground">
+                <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-white/10 px-1 font-mono text-[9px] text-slate-400">
                   ⌘K
                 </kbd>
               </button>
@@ -692,15 +692,15 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           </ScrollableMenu>
 
           {/* User card at bottom */}
-          <div className={cn("shrink-0 border-t border-border py-2.5", isCollapsed ? "px-2" : "px-2.5")}>
+          <div className={cn("shrink-0 border-t border-white/10 py-2.5", isCollapsed ? "px-2" : "px-2.5")}>
             <div className={cn(
               "flex items-center gap-2 rounded-md transition-colors duration-150 cursor-default",
               isCollapsed ? "justify-center" : "px-2 py-1.5"
             )}>
-              <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-6 w-6 shrink-0 text-[10px]" />
+              <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-6 w-6 shrink-0 text-[10px] bg-white/10 border-white/20" />
               <div className={cn("flex flex-col overflow-hidden transition-all duration-200 text-left", isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100")}>
-                <span className="truncate text-xs font-medium text-foreground">{profile?.full_name || user?.displayName || 'User'}</span>
-                <span className="truncate text-[10px] text-muted-foreground capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
+                <span className="truncate text-xs font-medium text-white">{profile?.full_name || user?.displayName || 'User'}</span>
+                <span className="truncate text-[10px] text-slate-400 capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
               </div>
             </div>
           </div>
@@ -713,15 +713,15 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
           <div
-            className="fixed inset-y-0 left-0 z-50 w-[240px] bg-card border-r border-border flex flex-col transition-transform duration-200 animate-in slide-in-from-left"
+            className="fixed inset-y-0 left-0 z-50 w-[240px] bg-[#1e293b] border-r border-[#334155] flex flex-col transition-transform duration-200 animate-in slide-in-from-left"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex h-14 items-center justify-between border-b border-border/30 px-4 shrink-0">
-              <div className="flex items-center gap-2.5 font-bold text-primary" style={{ color: branding.primary_color }}>
-                <img src={logoUrl} className="h-8 w-8 shrink-0 object-contain" alt="Logo" />
-                <span className="text-base tracking-tight text-foreground">{companyName}</span>
+            <div className="flex h-14 items-center justify-between border-b border-white/10 px-4 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <img src={logoUrl} className="h-7 w-7 shrink-0 object-contain brightness-0 invert" alt="Logo" />
+                <span className="text-base font-semibold tracking-tight text-white">{companyName}</span>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)} className="text-slate-300 hover:text-white hover:bg-white/10">
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -730,12 +730,12 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
               <NavMenu currentPage={currentPage} setPage={setPage} onItemClick={() => setIsMobileMenuOpen(false)} />
             </ScrollableMenu>
 
-            <div className="mt-auto p-3 shrink-0 border-t border-border/30">
-              <div className="flex items-center gap-2.5 rounded-xl p-2 bg-muted/20">
-                <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-8 w-8" />
+            <div className="mt-auto p-3 shrink-0 border-t border-white/10">
+              <div className="flex items-center gap-2.5 rounded-xl p-2 bg-white/5">
+                <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-8 w-8 bg-white/10 border-white/20" />
                 <div className="flex flex-col overflow-hidden">
-                  <span className="truncate text-[13px] font-semibold">{profile?.full_name || user?.displayName || 'User'}</span>
-                  <span className="truncate text-[11px] text-muted-foreground capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
+                  <span className="truncate text-[13px] font-semibold text-white">{profile?.full_name || user?.displayName || 'User'}</span>
+                  <span className="truncate text-[11px] text-slate-400 capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
                 </div>
               </div>
             </div>
@@ -749,7 +749,7 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       <div className="flex flex-col h-full overflow-hidden relative">
 
         {/* Top bar */}
-        <header className="flex items-center gap-4 px-4 lg:px-6 h-14 border-b border-border bg-background shrink-0 z-30 sticky top-0">
+        <header className="flex items-center gap-4 px-4 lg:px-6 h-14 border-b border-slate-200 bg-white shrink-0 z-30 sticky top-0">
           {/* Mobile menu button */}
           <Button variant="ghost" size="icon" className="md:hidden -ml-1" onClick={() => setIsMobileMenuOpen(true)}>
             <Menu className="h-5 w-5" />

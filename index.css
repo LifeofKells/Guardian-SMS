@@ -2,27 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Obsidian Design System ────────────────────────────────────────────────── */
+/* ── Clean Command Design System ───────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap');
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
 
-    /* ── Obsidian Dark (Default) ── */
-    --background: 240 6% 4%;       /* #09090b */
+    /* ── Clean Command Light (Default) ── */
+    --background: 210 40% 98%;       /* slate-50 #f8fafc */
+    --foreground: 222 47% 11%;       /* slate-900 */
+
+    --card: 0 0% 100%;               /* white */
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Deep teal — reads well on white */
+    --primary: 172 72% 37%;          /* teal-600 #0d9488 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;        /* slate-100 */
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%; /* slate-500 */
+
+    --accent: 210 40% 93%;           /* slate-200 */
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;           /* slate-200 */
+    --input: 214 32% 91%;
+    --ring: 172 72% 37%;
+
+    --radius: 0.5rem;
+
+    /* Surface elevation tokens */
+    --surface-0: 210 40% 98%;        /* page bg */
+    --surface-1: 0 0% 100%;          /* card */
+    --surface-2: 210 40% 96%;        /* raised element */
+    --surface-3: 210 40% 93%;        /* hover / active bg */
+
+    /* Sidebar tokens — always navy regardless of mode */
+    --sidebar-bg: 222 47% 17%;       /* slate-800 #1e293b */
+    --sidebar-fg: 210 40% 96%;       /* slate-100 */
+    --sidebar-muted: 215 20% 55%;    /* slate-400 */
+    --sidebar-border: 217 33% 25%;   /* slate-700 */
+    --sidebar-active-bg: 0 0% 100%;  /* white pill for active state */
+    --sidebar-active-fg: 222 47% 17%;/* navy text on white pill */
+    --sidebar-hover-bg: 217 33% 25%; /* slate-700 hover */
+
+    /* Status colors */
+    --success: 142 71% 45%;          /* green-500 */
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
+  }
+
+  .dark {
+    color-scheme: dark;
+    /* ── Obsidian Dark (toggled via .dark class) ── */
+    --background: 240 6% 4%;
     --foreground: 0 0% 95%;
 
-    --card: 240 4% 7%;             /* #111113 */
+    --card: 240 4% 7%;
     --card-foreground: 0 0% 95%;
 
     --popover: 240 4% 7%;
     --popover-foreground: 0 0% 95%;
 
-    /* Teal/Cyan accent */
-    --primary: 172 66% 50%;        /* teal-400 */
+    --primary: 172 66% 50%;
     --primary-foreground: 240 6% 4%;
 
     --secondary: 240 4% 12%;
@@ -41,60 +95,14 @@
     --input: 240 4% 14%;
     --ring: 172 66% 50%;
 
-    --radius: 0.375rem;
+    --surface-0: 240 6% 4%;
+    --surface-1: 240 4% 7%;
+    --surface-2: 240 4% 10%;
+    --surface-3: 240 4% 14%;
 
-    /* Surface elevation tokens */
-    --surface-0: 240 6% 4%;        /* page bg */
-    --surface-1: 240 4% 7%;        /* card */
-    --surface-2: 240 4% 10%;       /* raised element */
-    --surface-3: 240 4% 14%;       /* hover / active bg */
-
-    /* Status colors */
     --success: 160 84% 40%;
     --warning: 38 92% 50%;
     --info: 217 91% 60%;
-  }
-
-  .dark {
-    /* Already dark-first; these are identical to root.
-       Kept so toggling .dark class doesn't break. */
-  }
-
-  .light, :root:not(.dark) {
-    /* Light mode override — secondary theme */
-    color-scheme: light;
-    --background: 0 0% 98%;
-    --foreground: 240 6% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 240 6% 10%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 10%;
-
-    --primary: 172 66% 40%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 4% 94%;
-    --secondary-foreground: 240 6% 10%;
-
-    --muted: 240 4% 94%;
-    --muted-foreground: 240 4% 46%;
-
-    --accent: 240 4% 92%;
-    --accent-foreground: 240 6% 10%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 172 66% 40%;
-
-    --surface-0: 0 0% 98%;
-    --surface-1: 0 0% 100%;
-    --surface-2: 240 4% 96%;
-    --surface-3: 240 4% 92%;
   }
 }
 
