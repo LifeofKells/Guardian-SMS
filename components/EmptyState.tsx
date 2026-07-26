@@ -40,23 +40,23 @@ export function EmptyState({
   const sizeClasses = {
     sm: {
       container: 'p-4',
-      icon: 'h-8 w-8',
+      icon: 'h-6 w-6',
       iconWrapper: 'p-2',
-      title: 'text-sm',
+      title: 'text-sm font-semibold',
       description: 'text-xs'
     },
     md: {
       container: 'p-8',
-      icon: 'h-12 w-12',
+      icon: 'h-10 w-10',
       iconWrapper: 'p-3',
-      title: 'text-base',
+      title: 'text-base font-semibold',
       description: 'text-sm'
     },
     lg: {
       container: 'p-12',
-      icon: 'h-16 w-16',
+      icon: 'h-12 w-12',
       iconWrapper: 'p-4',
-      title: 'text-lg',
+      title: 'text-lg font-semibold',
       description: 'text-base'
     }
   };
@@ -74,31 +74,29 @@ export function EmptyState({
         className={cn(
           'flex flex-col items-center justify-center text-center',
           sizeClasses[size].container,
-          'rounded-2xl border-2 border-dashed border-primary/20 bg-gradient-to-b from-primary/5 via-transparent to-transparent',
+          'rounded-2xl border border-slate-200 bg-slate-50/50',
           className
         )}
         style={{ animationDelay: `${animationDelay}ms` }}
       >
-        {/* Animated icon with glow */}
         {Icon && (
           <div className="relative mb-4">
-            <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse" />
             <div className={cn(
-              'relative rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 shadow-lg',
+              'relative rounded-2xl bg-white border border-slate-200 shadow-sm',
               sizeClasses[size].iconWrapper,
-              'p-5'
+              'p-4'
             )}>
-              <Icon className={cn(sizeClasses[size].icon, 'text-primary')} />
+              <Icon className={cn(sizeClasses[size].icon, 'text-slate-700')} />
             </div>
           </div>
         )}
 
-        <h3 className={cn('font-bold text-foreground mb-1.5', sizeClasses[size].title, 'text-lg')}>
+        <h3 className={cn('text-slate-900 mb-1.5', sizeClasses[size].title)}>
           {title}
         </h3>
         {description && (
           <p className={cn(
-            'max-w-sm mx-auto leading-relaxed text-muted-foreground',
+            'max-w-sm mx-auto leading-relaxed text-slate-500',
             sizeClasses[size].description
           )}>
             {description}
@@ -107,16 +105,16 @@ export function EmptyState({
 
         {/* Tips / Getting Started */}
         {tips && tips.length > 0 && (
-          <div className="mt-5 w-full max-w-sm space-y-2">
+          <div className="mt-6 w-full max-w-sm space-y-2">
             {tips.map((tip, i) => (
               <div
                 key={i}
-                className="flex items-start gap-2.5 text-left rounded-xl border border-border/60 bg-card/60 px-3.5 py-2.5 text-sm transition-all hover:bg-muted/40 hover:border-primary/30 group"
+                className="flex items-start gap-3 w-full text-left rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm transition-all hover:border-slate-300"
               >
-                <div className="rounded-full bg-primary/10 p-1 mt-0.5 shrink-0 group-hover:bg-primary/20 transition-colors">
-                  <Lightbulb className="h-3 w-3 text-primary" />
+                <div className="rounded-full bg-slate-100 p-1 mt-0.5 shrink-0">
+                  <Lightbulb className="h-4 w-4 text-slate-600" />
                 </div>
-                <span className="text-muted-foreground">{tip}</span>
+                <span className="text-slate-600">{tip}</span>
               </div>
             ))}
           </div>
@@ -124,16 +122,15 @@ export function EmptyState({
 
         {/* Actions */}
         {(action || secondaryAction) && (
-          <div className="mt-5 flex items-center gap-2 flex-wrap justify-center">
+          <div className="mt-6 flex items-center gap-3 flex-wrap justify-center">
             {action && (
-              <Button onClick={action.onClick} size="sm" className="gap-1.5">
+              <Button onClick={action.onClick} size="sm" className="gap-2 shadow-sm">
                 {action.icon && <action.icon className="h-4 w-4" />}
                 {action.label}
-                <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
               </Button>
             )}
             {secondaryAction && (
-              <Button onClick={secondaryAction.onClick} variant="outline" size="sm" className="gap-1.5">
+              <Button onClick={secondaryAction.onClick} variant="outline" size="sm" className="gap-2">
                 {secondaryAction.icon && <secondaryAction.icon className="h-4 w-4" />}
                 {secondaryAction.label}
               </Button>
@@ -150,29 +147,29 @@ export function EmptyState({
         className={cn(
           'flex flex-col items-center justify-center text-center',
           sizeClasses[size].container,
-          'rounded-2xl bg-gradient-to-b from-muted/50 via-transparent to-transparent',
+          'rounded-2xl border border-slate-100 bg-white',
           className
         )}
       >
         {/* Stacked icons illustration */}
-        <div className="relative mb-5  h-20 w-20 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-2xl bg-muted/50 transform rotate-6" />
-          <div className="absolute inset-0 rounded-2xl bg-muted/80 transform -rotate-3" />
-          <div className="relative rounded-2xl bg-card border border-border shadow-sm p-4">
+        <div className="relative mb-6 h-24 w-24 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-2xl border border-slate-200 bg-slate-50 transform rotate-6" />
+          <div className="absolute inset-0 rounded-2xl border border-slate-200 bg-slate-50 transform -rotate-3" />
+          <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
             {Icon ? (
-              <Icon className="h-10 w-10 text-muted-foreground/60" />
+              <Icon className="h-12 w-12 text-slate-400" />
             ) : (
-              <Sparkles className="h-10 w-10 text-muted-foreground/60" />
+              <Sparkles className="h-12 w-12 text-slate-400" />
             )}
           </div>
         </div>
 
-        <h3 className={cn('font-bold text-foreground mb-1.5', sizeClasses[size].title, 'text-lg')}>
+        <h3 className={cn('text-slate-900 mb-1.5', sizeClasses[size].title)}>
           {title}
         </h3>
         {description && (
           <p className={cn(
-            'max-w-xs mx-auto leading-relaxed text-muted-foreground',
+            'max-w-xs mx-auto leading-relaxed text-slate-500',
             sizeClasses[size].description
           )}>
             {description}
@@ -180,15 +177,15 @@ export function EmptyState({
         )}
 
         {(action || secondaryAction) && (
-          <div className="mt-5 flex items-center gap-2 flex-wrap justify-center">
+          <div className="mt-6 flex items-center gap-3 flex-wrap justify-center">
             {action && (
-              <Button onClick={action.onClick} size="sm" className="gap-1.5">
+              <Button onClick={action.onClick} size="sm" className="gap-2 shadow-sm">
                 {action.icon && <action.icon className="h-4 w-4" />}
                 {action.label}
               </Button>
             )}
             {secondaryAction && (
-              <Button onClick={secondaryAction.onClick} variant="outline" size="sm" className="gap-1.5">
+              <Button onClick={secondaryAction.onClick} variant="outline" size="sm" className="gap-2 bg-white">
                 {secondaryAction.icon && <secondaryAction.icon className="h-4 w-4" />}
                 {secondaryAction.label}
               </Button>
@@ -203,32 +200,32 @@ export function EmptyState({
     <div className={cn(
       variants[variant],
       sizeClasses[size].container,
-      'text-muted-foreground',
+      'text-slate-500',
       className
     )}>
       {Icon && (
         <div className={cn(
-          'rounded-full bg-muted mb-3',
+          'rounded-full bg-slate-100 mb-4',
           sizeClasses[size].iconWrapper,
           variant === 'compact' && 'mb-0'
         )}>
           <Icon className={cn(
             sizeClasses[size].icon,
-            'opacity-50'
+            'text-slate-400'
           )} />
         </div>
       )}
 
       <div className={cn(variant === 'compact' && 'flex-1')}>
         <p className={cn(
-          'font-semibold text-foreground mb-1',
+          'text-slate-900 mb-1',
           sizeClasses[size].title
         )}>
           {title}
         </p>
         {description && (
           <p className={cn(
-            'max-w-xs mx-auto leading-relaxed',
+            'max-w-xs mx-auto leading-relaxed text-slate-500',
             sizeClasses[size].description,
             variant === 'compact' && 'mx-0 max-w-none'
           )}>
@@ -238,14 +235,15 @@ export function EmptyState({
       </div>
 
       {(action || secondaryAction) && (
-        <div className="mt-4 flex items-center gap-2 flex-wrap">
+        <div className={cn("flex flex-wrap items-center gap-3", variant === 'compact' ? 'ml-auto' : 'mt-5')}>
           {action && (
             <Button
               onClick={action.onClick}
               variant="outline"
               size="sm"
+              className="bg-white shadow-sm gap-2"
             >
-              {action.icon && <action.icon className="h-4 w-4 mr-1" />}
+              {action.icon && <action.icon className="h-4 w-4" />}
               {action.label}
             </Button>
           )}
@@ -254,8 +252,9 @@ export function EmptyState({
               onClick={secondaryAction.onClick}
               variant="ghost"
               size="sm"
+              className="gap-2"
             >
-              {secondaryAction.icon && <secondaryAction.icon className="h-4 w-4 mr-1" />}
+              {secondaryAction.icon && <secondaryAction.icon className="h-4 w-4" />}
               {secondaryAction.label}
             </Button>
           )}

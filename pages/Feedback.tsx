@@ -85,7 +85,7 @@ export default function Feedback() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-bold tracking-tight">Shift Feedback</h2>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Shift Feedback</h1>
                     <p className="text-sm text-muted-foreground">{isClient ? 'Rate recent shifts and help us improve.' : 'View client feedback and ratings.'}</p>
                 </div>
             </div>

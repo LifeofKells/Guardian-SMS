@@ -96,7 +96,7 @@ export function PageHeader({
         <div className={cn('flex items-start sm:items-center justify-between gap-3 flex-wrap', className)}>
             <div className="min-w-0">
                 <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-bold tracking-tight text-foreground truncate">{title}</h2>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900 truncate">{title}</h2>
                     {badge !== undefined && (
                         <Badge variant={badgeVariant} className="h-6 px-2.5 shrink-0">
                             {badge}
@@ -104,7 +104,7 @@ export function PageHeader({
                     )}
                 </div>
                 {description && (
-                    <p className="text-sm text-muted-foreground mt-0.5 max-w-xl truncate">{description}</p>
+                    <p className="text-sm text-slate-500 mt-0.5 max-w-xl truncate">{description}</p>
                 )}
             </div>
 

@@ -141,7 +141,7 @@ export default function AuditLogs() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between gap-4 items-center">
                 <div>
-                    <h2 className="text-lg font-bold tracking-tight">System Audit Logs</h2>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">System Audit Logs</h1>
                     <p className="text-sm text-muted-foreground">Track critical system events with action, scope, and operator context.</p>
                 </div>
                 <div className="flex gap-2 items-center">

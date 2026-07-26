@@ -39,10 +39,10 @@ export function QuickActionDock({ onNavigate, onOpenCommandPalette, onOpenActivi
                   onOpenCommandPalette?.();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-card/95 backdrop-blur-xl border border-border/60 shadow-xl text-foreground hover:bg-primary/10 hover:text-primary transition-all duration-300 hover:scale-105 group"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all duration-300 hover:scale-105 group"
               >
                 <span className="text-xs font-semibold">Command Search</span>
-                <div className="p-1.5 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <div className="p-1.5 rounded-xl bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-700 transition-colors">
                   <Search className="h-4 w-4" />
                 </div>
               </button>
@@ -55,10 +55,10 @@ export function QuickActionDock({ onNavigate, onOpenCommandPalette, onOpenActivi
                   onNavigate?.('schedule', { drillDown: true });
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-card/95 backdrop-blur-xl border border-border/60 shadow-xl text-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-all duration-300 hover:scale-105 group"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-300 hover:scale-105 group"
               >
                 <span className="text-xs font-semibold">Dispatch Shift</span>
-                <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                <div className="p-1.5 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <CalendarPlus className="h-4 w-4" />
                 </div>
               </button>
@@ -71,10 +71,10 @@ export function QuickActionDock({ onNavigate, onOpenCommandPalette, onOpenActivi
                   onNavigate?.('reports', { drillDown: true });
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-card/95 backdrop-blur-xl border border-border/60 shadow-xl text-foreground hover:bg-amber-500/10 hover:text-amber-500 transition-all duration-300 hover:scale-105 group"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl text-slate-700 hover:bg-amber-50 hover:text-amber-600 transition-all duration-300 hover:scale-105 group"
               >
                 <span className="text-xs font-semibold">Log Incident</span>
-                <div className="p-1.5 rounded-xl bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                <div className="p-1.5 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                   <FileSpreadsheet className="h-4 w-4" />
                 </div>
               </button>
@@ -88,10 +88,10 @@ export function QuickActionDock({ onNavigate, onOpenCommandPalette, onOpenActivi
                     onOpenActivityStream();
                     setIsOpen(false);
                   }}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-card/95 backdrop-blur-xl border border-border/60 shadow-xl text-foreground hover:bg-emerald-500/10 hover:text-emerald-500 transition-all duration-300 hover:scale-105 group"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-300 hover:scale-105 group"
                 >
                   <span className="text-xs font-semibold">Activity Feed</span>
-                  <div className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                  <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                     <Activity className="h-4 w-4" />
                   </div>
                 </button>

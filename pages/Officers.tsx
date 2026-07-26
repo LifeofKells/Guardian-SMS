@@ -258,7 +258,7 @@ export default function Officers() {
                 <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
                   <Users className="h-4 w-4 text-primary" />
                 </div>
-                <h1 className="text-lg font-bold tracking-tight text-foreground">Officer Roster</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Officer Roster</h1>
               </div>
               <p className="text-xs text-muted-foreground">Manage personnel, certifications, workload &amp; compliance.</p>
             </div>

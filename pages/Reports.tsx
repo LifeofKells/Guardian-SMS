@@ -105,7 +105,7 @@ export default function Reports() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold tracking-tight">Reports & Analytics</h2>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reports & Analytics</h1>
                 {!isClient && (
                     <Button variant="outline" className="gap-2">
                         <Download className="h-4 w-4" /> Export Report

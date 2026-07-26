@@ -295,7 +295,7 @@ export default function Timesheets() {
         <CardContent className="p-4 lg:p-5 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold tracking-tight">Timesheet Studio</h2>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Timesheet Studio</h1>
               <p className="text-xs text-muted-foreground mt-1">A redesigned approval cockpit for attendance, payroll readiness, and DAR verification.</p>
             </div>
             <div className="flex items-center gap-2">
