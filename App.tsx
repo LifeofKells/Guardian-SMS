@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import CommandCenterWorkspace from './pages/CommandCenterWorkspace';
 import Schedule from './pages/Schedule';
@@ -47,7 +47,8 @@ const queryClient = new QueryClient({
 });
 
 function AuthenticatedAppContent() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, mustChangePassword, changePassword, logout } = useAuth();
   const { pushBreadcrumb, replaceLastBreadcrumb, setTopLevelBreadcrumb } = useBreadcrumbs();
   const [newPassword, setNewPassword] = useState('');
@@ -114,6 +115,10 @@ function AuthenticatedAppContent() {
     );
   }
 
+  // Derive current page key from path
+  const path = location.pathname.replace(/^\//, '');
+  const currentPage = path === '' ? 'dashboard' : path;
+
   const handlePageChange = (page: string, data?: Record<string, any>) => {
     const pageLabels: Record<string, string> = {
       dashboard: 'Workspace',
@@ -143,50 +148,31 @@ function AuthenticatedAppContent() {
       pushBreadcrumb(crumb);
     }
 
-    setCurrentPage(page);
-  };
-
-  const renderPage = () => {
-    const pageContent = (() => {
-      switch (currentPage) {
-        case 'dashboard': return <CommandCenterWorkspace onNavigate={handlePageChange} />;
-        case 'schedule': return <Schedule />;
-        case 'calendar': return <CalendarView />;
-        case 'officers': return <Officers />;
-        case 'timesheets': return <Timesheets />;
-        case 'clients': return <Clients />;
-        case 'accounting': return <Accounting />;
-        case 'resources': return <Resources />;
-        case 'messaging': return <Messaging />;
-        case 'reports': return <Reports />;
-        case 'settings': return <Settings />;
-        case 'feedback': return <Feedback />;
-        case 'audit': return <AuditLogs />;
-        default:
-          return (
-            <div className="flex items-center justify-center h-[50vh]">
-              <Card className="w-[400px]">
-                <CardContent className="pt-6 text-center text-muted-foreground">
-                  <p>Module <strong>{currentPage}</strong> is under construction.</p>
-                </CardContent>
-              </Card>
-            </div>
-          );
-      }
-    })();
-
-    return (
-      <React.Fragment key={currentPage}>
-        <AnimatedPage animation="fade-in-up">
-          {pageContent}
-        </AnimatedPage>
-      </React.Fragment>
-    );
+    const targetUrl = page === 'dashboard' ? '/' : `/${page}`;
+    navigate(targetUrl);
   };
 
   return (
     <Layout currentPage={currentPage} setPage={handlePageChange}>
-      {renderPage()}
+      <AnimatedPage key={location.pathname} animation="fade-in-up">
+        <Routes>
+          <Route path="/" element={<CommandCenterWorkspace onNavigate={handlePageChange} />} />
+          <Route path="/dashboard" element={<CommandCenterWorkspace onNavigate={handlePageChange} />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/officers" element={<Officers />} />
+          <Route path="/timesheets" element={<Timesheets />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/accounting" element={<Accounting />} />
+          <Route path="/resources" element={<Resources />} />
+          <Route path="/messaging" element={<Messaging />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/audit" element={<AuditLogs />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatedPage>
     </Layout>
   );
 }
@@ -203,14 +189,8 @@ function AuthenticatedApp() {
 
 function PortalApp() {
   const { user, isLoading } = useClientPortalAuth();
-  const [portalPage, setPortalPage] = React.useState(() => {
-    const path = window.location.pathname;
-    if (path === '/portal/requests') return 'requests';
-    if (path === '/portal/reports') return 'reports';
-    if (path === '/portal/instructions') return 'instructions';
-    if (path === '/portal/profile') return 'profile';
-    return 'dashboard';
-  });
+  const navigate = useNavigate();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -224,53 +204,56 @@ function PortalApp() {
     return <ClientPortalLogin />;
   }
 
-  // Handle navigation within portal
+  const subPath = location.pathname.replace(/^\/portal\/?/, '');
+  const currentPage = subPath === '' ? 'dashboard' : subPath;
+
   const handleNavigate = (page: string) => {
-    setPortalPage(page);
     const newPath = page === 'dashboard' ? '/portal' : `/portal/${page}`;
-    window.history.pushState({}, '', newPath);
+    navigate(newPath);
   };
 
-  // Simple routing for portal
-  if (portalPage === 'requests') {
-    return <ClientPortalLayout currentPage="requests" onNavigate={handleNavigate}><ServiceRequests /></ClientPortalLayout>;
-  }
-
-  if (portalPage === 'reports') {
-    return <ClientPortalLayout currentPage="reports" onNavigate={handleNavigate}><ClientReportsHub /></ClientPortalLayout>;
-  }
-
-  if (portalPage === 'instructions') {
-    return <ClientPortalLayout currentPage="instructions" onNavigate={handleNavigate}><SiteInstructions /></ClientPortalLayout>;
-  }
-
-  if (portalPage === 'profile') {
-    return <ClientPortalLayout currentPage="profile" onNavigate={handleNavigate}><ClientProfile /></ClientPortalLayout>;
-  }
-
   return (
-    <ClientPortalLayout currentPage="dashboard" onNavigate={handleNavigate}>
-      <ClientDashboard />
+    <ClientPortalLayout currentPage={currentPage} onNavigate={handleNavigate}>
+      <AnimatedPage key={location.pathname} animation="fade-in-up">
+        <Routes>
+          <Route path="/" element={<ClientDashboard />} />
+          <Route path="/dashboard" element={<ClientDashboard />} />
+          <Route path="/requests" element={<ServiceRequests />} />
+          <Route path="/reports" element={<ClientReportsHub />} />
+          <Route path="/instructions" element={<SiteInstructions />} />
+          <Route path="/profile" element={<ClientProfile />} />
+          <Route path="*" element={<Navigate to="/portal" replace />} />
+        </Routes>
+      </AnimatedPage>
     </ClientPortalLayout>
   );
 }
 
 export default function App() {
-  const isPortal = window.location.pathname.startsWith('/portal');
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="guardian-theme">
         <ToastProvider>
-          {isPortal ? (
-            <ClientPortalAuthProvider>
-              <PortalApp />
-            </ClientPortalAuthProvider>
-          ) : (
-            <AuthProvider>
-              <AuthenticatedApp />
-            </AuthProvider>
-          )}
+          <BrowserRouter>
+            <Routes>
+              <Route
+                path="/portal/*"
+                element={
+                  <ClientPortalAuthProvider>
+                    <PortalApp />
+                  </ClientPortalAuthProvider>
+                }
+              />
+              <Route
+                path="/*"
+                element={
+                  <AuthProvider>
+                    <AuthenticatedApp />
+                  </AuthProvider>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
