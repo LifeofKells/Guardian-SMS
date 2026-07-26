@@ -1,0 +1,11 @@
+﻿AuditLogs.tsx: Buttons without size prop: 0
+Feedback.tsx: Buttons without size prop: 0
+Reports.tsx: Buttons without size prop: 0
+Dashboard.tsx: Buttons without size prop: 5
+  -> <Button onClick={handleCheckLocation} className="w-full gap-2 h-12 text-base shadow-md" va
+  -> <Button variant="outline" className="h-32 flex flex-col items-center justify-center gap-3 
+  -> <Button variant="outline" className="h-32 flex flex-col items-center justify-center gap-3 
+Timesheets.tsx: Buttons without size prop: 4
+  -> <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+  -> <Button disabled={createMutation.isPending || !newEntry.officer_id || !newEntry.site_id ||
+  -> <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>

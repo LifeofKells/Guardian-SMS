@@ -87,8 +87,8 @@ export function Card({ className, hoverLift = false, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border border-border bg-card text-card-foreground transition-colors',
-        hoverLift && 'hover:border-muted-foreground/25 cursor-pointer',
+        'rounded-lg border border-border bg-card text-card-foreground shadow-sm transition-all duration-150',
+        hoverLift && 'hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 cursor-pointer',
         className
       )}
       {...props}
@@ -110,10 +110,10 @@ export function Badge({ className, variant = 'default', ...props }: React.HTMLAt
   const variants = {
     default: 'border-transparent bg-primary/15 text-primary',
     secondary: 'border-transparent bg-secondary text-secondary-foreground',
-    destructive: 'border-transparent bg-destructive/15 text-destructive',
+    destructive: 'border-transparent bg-red-100 text-red-700',
     outline: 'text-foreground border-border',
-    success: 'border-transparent bg-emerald-500/10 text-emerald-400',
-    warning: 'border-transparent bg-amber-500/10 text-amber-400',
+    success: 'border-transparent bg-emerald-100 text-emerald-700',
+    warning: 'border-transparent bg-amber-100 text-amber-700',
   };
   return (
     <div className={cn('inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide transition-colors', variants[variant], className)} {...props} />
@@ -140,7 +140,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       <input
         type={type}
         className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 transition-colors",
+          "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30 focus-visible:border-teal-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors",
           className
         )}
         ref={ref}
@@ -192,7 +192,7 @@ export function Tabs({
 
 export function TabsList({ className, children }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("inline-flex h-9 items-center gap-1 border-b border-border text-muted-foreground", className)}>
+    <div className={cn("flex items-center gap-0 border-b border-slate-200 text-muted-foreground", className)}>
       {children}
     </div>
   );

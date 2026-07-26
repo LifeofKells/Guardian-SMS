@@ -396,21 +396,30 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+  // ── Greeting ──
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 pb-6">
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-sm font-semibold tracking-tight text-foreground">Command Center</h1>
-          <div className="flex items-center gap-2 mt-1">
+      {/* ── Greeting header ─────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="space-y-0.5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{today}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            {greeting}, {organization?.name || 'there'} 👋
+          </h1>
+          <div className="flex items-center gap-2 pt-0.5">
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <p className="text-sm text-muted-foreground">Systems Operational • {today}</p>
+            <p className="text-sm text-muted-foreground">All systems operational</p>
           </div>
         </div>
-        <div className="flex items-center gap-6 flex-wrap">
-          <nav className="flex items-center border-b border-border">
+
+        <div className="flex items-end gap-3 flex-wrap">
+          {/* Tab nav */}
+          <nav className="flex items-center border-b border-slate-200">
             {(['overview', 'workforce', 'finance', 'risk'] as const).map(tab => (
               <button
                 key={tab}
@@ -418,8 +427,8 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
                 className={cn(
                   'px-3 pb-2 text-xs font-medium capitalize transition-colors border-b-2 -mb-px',
                   activeTab === tab
-                    ? 'border-primary text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    ? 'border-teal-500 text-slate-900'
+                    : 'border-transparent text-muted-foreground hover:text-slate-700 hover:border-slate-300'
                 )}
               >
                 {tab === 'risk' ? 'Risk & Ops' : tab}
@@ -428,8 +437,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
           </nav>
           <Button
             size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
+            className="gap-1.5 text-xs mb-px"
             onClick={() => onNavigate('schedule')}
           >
             <Activity className="h-3 w-3" />
@@ -445,69 +453,69 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
         <>
           {/* 4 KPI cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card hoverLift={true} className="group overflow-hidden relative">
-              <CardContent className="p-6 relative z-10">
+            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-blue-500">
+              <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Active Force</p>
-                    <p className="text-2xl font-bold mt-1.5 tracking-tight group-hover:text-primary transition-colors">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Active Force</p>
+                    <p className="text-3xl font-bold mt-1.5 tracking-tight text-slate-900">
                       <AnimatedCounter value={activeForce} />
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Live GPS signals detected</p>
+                    <p className="text-xs text-muted-foreground mt-1">Officers clocked in</p>
                   </div>
-                  <span className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-                    <Users className="h-5 w-5 text-blue-600" />
+                  <span className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                    <Users className="h-4.5 w-4.5 text-blue-600" />
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className={cn('border-border/60 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group', openIncidents.length > 0 && 'border-red-200 dark:border-red-900/40 shadow-red-500/5')}>
-              <CardContent className="p-6 relative z-10">
+            <Card className={cn('group overflow-hidden relative border-l-4', openIncidents.length > 0 ? 'border-l-red-500' : 'border-l-emerald-500')}>
+              <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Open Incidents</p>
-                    <p className={cn('text-3xl font-bold mt-1', openIncidents.length > 0 ? 'text-red-600' : '')}>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Open Incidents</p>
+                    <p className={cn('text-3xl font-bold mt-1.5 tracking-tight', openIncidents.length > 0 ? 'text-red-600' : 'text-slate-900')}>
                       <AnimatedCounter value={openIncidents.length} />
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">{openIncidents.length > 0 ? 'Requires immediate attention' : 'All clear'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{openIncidents.length > 0 ? 'Requires attention' : 'All clear'}</p>
                   </div>
-                  <span className={cn('h-11 w-11 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300', openIncidents.length > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-muted')}>
-                    <ShieldAlert className={cn('h-5 w-5', openIncidents.length > 0 ? 'text-red-600' : 'text-muted-foreground')} />
+                  <span className={cn('h-9 w-9 rounded-lg flex items-center justify-center shrink-0', openIncidents.length > 0 ? 'bg-red-50' : 'bg-emerald-50')}>
+                    <ShieldAlert className={cn('h-4.5 w-4.5', openIncidents.length > 0 ? 'text-red-600' : 'text-emerald-600')} />
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative">
-              <CardContent className="p-6 relative z-10">
+            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-violet-500">
+              <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Weekly Hours</p>
-                    <p className="text-4xl font-black mt-2 tracking-tight group-hover:text-primary transition-colors duration-500 delay-75">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Weekly Hours</p>
+                    <p className="text-3xl font-bold mt-1.5 tracking-tight text-slate-900">
                       <AnimatedCounter value={weekHours} formatFn={fmtNum} />
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Billable time logged</p>
                   </div>
-                  <span className="h-11 w-11 rounded-xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <Clock className="h-5 w-5 text-violet-600" />
+                  <span className="h-9 w-9 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                    <Clock className="h-4.5 w-4.5 text-violet-600" />
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative">
-              <CardContent className="p-6 relative z-10">
+            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-teal-500">
+              <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Est. Revenue</p>
-                    <p className="text-4xl font-black mt-2 tracking-tight group-hover:text-primary transition-colors duration-500 delay-75">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Est. Revenue</p>
+                    <p className="text-3xl font-bold mt-1.5 tracking-tight text-slate-900">
                       <AnimatedCounter value={estRevenue} formatFn={fmt} />
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Current week projection</p>
                   </div>
-                  <span className="h-11 w-11 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <DollarSign className="h-5 w-5 text-emerald-600" />
+                  <span className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+                    <DollarSign className="h-4.5 w-4.5 text-teal-600" />
                   </span>
                 </div>
               </CardContent>

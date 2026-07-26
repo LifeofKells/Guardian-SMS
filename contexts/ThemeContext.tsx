@@ -26,9 +26,15 @@ export function ThemeProvider({
   defaultTheme = 'light',
   storageKey = 'vite-ui-theme',
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    const stored = localStorage.getItem(storageKey) as Theme | null;
+    // One-time migration: clear stale 'dark' preference from Obsidian era
+    if (stored === 'dark') {
+      localStorage.removeItem(storageKey);
+      return defaultTheme;
+    }
+    return stored || defaultTheme;
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;

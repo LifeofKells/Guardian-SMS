@@ -1,0 +1,339 @@
+﻿=== Accounting.tsx ===
+  Text sizes : {'xl': 5, '2xl': 1, 'xs': 42, 'lg': 7, 'sm': 29, 'base': 1, '3xl': 1}
+  Btn sizes  : {'sm': 19}
+  Headings   : {'1': 1, '3': 2}
+  px text    : ['10', '10', '11', '10']
+  h1 labels  : ['Accounting & Finance']
+
+=== AuditLogs.tsx ===
+  Text sizes : {'lg': 1, 'sm': 5, 'xs': 6, '2xl': 4}
+  Btn sizes  : {'sm': 4}
+  Headings   : {'2': 1}
+  px text    : ['9', '10', '10', '10']
+
+=== CalendarView.tsx ===
+  Text sizes : {'xs': 23, 'sm': 7, 'base': 2, '3xl': 1}
+  Btn sizes  : {'sm': 6}
+  Headings   : {'2': 1}
+  px text    : ['10', '9', '11', '10', '10', '10', '10', '11']
+
+=== Clients.tsx ===
+  Text sizes : {'xl': 3, 'xs': 31, 'sm': 32, '2xl': 4, 'lg': 5, 'base': 5}
+  Btn sizes  : {'sm': 15, 'icon': 1}
+  Headings   : {'1': 2, '3': 3}
+  px text    : ['10', '10', '10', '10', '10', '11', '10', '10']
+  h1 labels  : ['{selectedClient.name}', 'Client Directory']
+
+=== CommandCenterWorkspace.tsx ===
+  Text sizes : {'2xl': 1, 'xs': 38, 'sm': 27, 'lg': 1, '4xl': 10, '3xl': 3}
+  Btn sizes  : {'sm': 3}
+  Headings   : {'1': 1}
+  px text    : ['10', '10', '10', '10', '11']
+  h1 labels  : ['Command Center']
+
+=== Dashboard.tsx ===
+  Text sizes : {'sm': 18, 'xs': 19, '2xl': 2, 'lg': 1, 'xl': 3, 'base': 3}
+  Btn sizes  : {'sm': 5, 'md': 5, 'lg': 1}
+  Headings   : {'4': 2, '3': 5, '2': 2}
+  px text    : ['10', '9', '10', '10', '10', '9', '10', '10']
+
+=== Feedback.tsx ===
+  Text sizes : {'lg': 1, 'sm': 5, 'base': 1, 'xs': 3, '2xl': 1}
+  Btn sizes  : {'sm': 1, 'md': 1}
+  Headings   : {'2': 1}
+
+=== Login.tsx ===
+  Text sizes : {'sm': 8, 'xl': 1, '5xl': 1, 'base': 1, 'xs': 5, '2xl': 2, '3xl': 1}
+  Btn sizes  : {}
+  Headings   : {'1': 2, '2': 1}
+  px text    : ['10', '10', '9', '10', '9', '10', '10', '10']
+  h1 labels  : ['Command Your<br /> <span className="text-transparent bg-clip', 'PRO GUARD']
+
+=== Messaging.tsx ===
+  Text sizes : {'xs': 12, 'sm': 10, 'lg': 2}
+  Btn sizes  : {'sm': 3, 'md': 2}
+  Headings   : {}
+  px text    : ['10', '10', '10', '11', '11', '9', '10', '11']
+
+=== Officers.tsx ===
+  Text sizes : {'xl': 1, 'lg': 2, 'xs': 16, 'sm': 17, '2xl': 1, '3xl': 2}
+  Btn sizes  : {'sm': 15}
+  Headings   : {'1': 1}
+  px text    : ['10', '10', '10', '10', '11', '10', '10', '10']
+  h1 labels  : ['Officer Roster']
+
+=== Reports.tsx ===
+  Text sizes : {'lg': 5, 'xs': 9, 'sm': 4, '2xl': 1}
+  Btn sizes  : {'md': 1, 'sm': 3}
+  Headings   : {'2': 1, '4': 3, '3': 1}
+
+=== Resources.tsx ===
+  Text sizes : {'xl': 2, 'lg': 3, 'xs': 38, 'sm': 44, '2xl': 11, 'base': 3}
+  Btn sizes  : {'sm': 5, 'icon': 3}
+  Headings   : {'1': 1}
+  px text    : ['10', '10', '10']
+  h1 labels  : ['Resources & Assets']
+
+=== Schedule.tsx ===
+  Text sizes : {'lg': 4, 'xs': 25, 'sm': 24, 'base': 4, 'xl': 1}
+  Btn sizes  : {'sm': 24, 'icon': 9}
+  Headings   : {'2': 1, '3': 1}
+  px text    : ['10', '10', '10', '10', '11', '11', '10', '10']
+
+=== Settings.tsx ===
+  Text sizes : {'xs': 10, 'lg': 3, 'sm': 17}
+  Btn sizes  : {'sm': 5}
+  Headings   : {'2': 1, '4': 2}
+  px text    : ['10', '10', '10', '10', '10', '10']
+
+=== Timesheets.tsx ===
+  Text sizes : {'lg': 1, 'xs': 14, 'sm': 11, 'xl': 1}
+  Btn sizes  : {'sm': 13}
+  Headings   : {'2': 1}
+  px text    : ['10', '10', '10', '10', '10']
+
+=== AlertBanner.tsx ===
+  Text sizes : {'sm': 1, 'xs': 1}
+  Btn sizes  : {'sm': 2}
+  Headings   : {}
+
+=== AnalyticsWidgets.tsx ===
+  Text sizes : {'sm': 3, '2xl': 1, 'xs': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== AnimatedCounter.tsx ===
+  Text sizes : {}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== AnimatedDarkModeToggle.tsx ===
+  Text sizes : {}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== AutoSaveIndicator.tsx ===
+  Text sizes : {'xs': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== AvailabilityCalendar.tsx ===
+  Text sizes : {'sm': 2, 'base': 1, 'xs': 5}
+  Btn sizes  : {'sm': 6}
+  Headings   : {'4': 1}
+
+=== BreadcrumbNav.tsx ===
+  Text sizes : {'xs': 1, 'sm': 1}
+  Btn sizes  : {'sm': 1}
+  Headings   : {}
+
+=== BreadcrumbTrail.tsx ===
+  Text sizes : {'sm': 1, 'xs': 1}
+  Btn sizes  : {}
+  Headings   : {'2': 1, '3': 1}
+  px text    : ['10', '9', '10', '10', '10']
+
+=== BulkActionBar.tsx ===
+  Text sizes : {'sm': 1}
+  Btn sizes  : {'sm': 1}
+  Headings   : {}
+
+=== Checkbox.tsx ===
+  Text sizes : {'xs': 1, 'sm': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== ClientPortalLayout.tsx ===
+  Text sizes : {'lg': 2, 'xs': 2, 'sm': 13}
+  Btn sizes  : {'sm': 1}
+  Headings   : {}
+  px text    : ['10', '10']
+
+=== CommandPalette.tsx ===
+  Text sizes : {'xs': 5}
+  Btn sizes  : {}
+  Headings   : {}
+  px text    : ['15', '10', '13', '11', '13', '11', '13', '10']
+
+=== ConflictWarningDialog.tsx ===
+  Text sizes : {'sm': 5, 'xs': 2}
+  Btn sizes  : {}
+  Headings   : {'4': 2}
+
+=== ContextMenu.tsx ===
+  Text sizes : {'sm': 1, 'xs': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== CopyableText.tsx ===
+  Text sizes : {'sm': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== CoverageCalendar.tsx ===
+  Text sizes : {'lg': 1, 'sm': 2, 'xs': 2}
+  Btn sizes  : {}
+  Headings   : {'2': 1}
+  px text    : ['10']
+
+=== DARPreview.tsx ===
+  Text sizes : {'lg': 4, '3xl': 1, 'sm': 7, '2xl': 1, 'xs': 9, 'xl': 1}
+  Btn sizes  : {'sm': 2}
+  Headings   : {'2': 1, '1': 1, '3': 4}
+  px text    : ['10', '10', '10', '10', '10', '10', '10', '9']
+  h1 labels  : ['Daily Activity Report']
+
+=== DragDropSort.tsx ===
+  Text sizes : {}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== EmptyState.tsx ===
+  Text sizes : {'sm': 3, 'xs': 1, 'base': 2, 'lg': 3}
+  Btn sizes  : {'sm': 6}
+  Headings   : {'3': 2}
+
+=== FileDragUpload.tsx ===
+  Text sizes : {'sm': 1, 'xs': 3}
+  Btn sizes  : {'icon': 2}
+  Headings   : {'3': 1}
+
+=== FloatingActionButton.tsx ===
+  Text sizes : {'sm': 2}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== GlassCard.tsx ===
+  Text sizes : {'xs': 6, '2xl': 1, 'sm': 2, 'base': 1, 'lg': 1}
+  Btn sizes  : {}
+  Headings   : {'3': 1}
+  px text    : ['10']
+
+=== HelpTooltip.tsx ===
+  Text sizes : {'sm': 2, 'xs': 4}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== HighlightedText.tsx ===
+  Text sizes : {}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== ImageLightbox.tsx ===
+  Text sizes : {'sm': 3, 'xs': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== InlineEdit.tsx ===
+  Text sizes : {'sm': 3, 'xs': 2}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== KeyboardShortcutsHelp.tsx ===
+  Text sizes : {'xl': 1, 'sm': 3, 'xs': 5}
+  Btn sizes  : {}
+  Headings   : {'2': 1, '3': 1}
+
+=== Layout.tsx ===
+  Text sizes : {'sm': 3, 'xs': 6, 'base': 2, 'lg': 1}
+  Btn sizes  : {'icon': 2, 'sm': 2}
+  Headings   : {'4': 1, '1': 1}
+  px text    : ['8', '10', '10', '10', '13', '9', '13', '11']
+  h1 labels  : ["{pageTitleMap[currentPage] || currentPage.replace('_', ' ')}"]
+
+=== LiveActivityPulse.tsx ===
+  Text sizes : {'xs': 10, 'sm': 4}
+  Btn sizes  : {'sm': 3}
+  Headings   : {'2': 1}
+  px text    : ['10', '10']
+
+=== MicroAnimations.tsx ===
+  Text sizes : {'sm': 2}
+  Btn sizes  : {'sm': 1}
+  Headings   : {}
+
+=== NotificationCenter.tsx ===
+  Text sizes : {'sm': 3, 'xs': 5}
+  Btn sizes  : {}
+  Headings   : {'3': 1}
+  px text    : ['10']
+
+=== OfficerPeekPanel.tsx ===
+  Text sizes : {'sm': 7, 'lg': 1, 'xs': 14, 'xl': 2}
+  Btn sizes  : {'sm': 3}
+  Headings   : {'3': 1}
+  px text    : ['10', '10']
+
+=== OnboardingFlow.tsx ===
+  Text sizes : {'lg': 1, 'sm': 3, 'xs': 2}
+  Btn sizes  : {'sm': 2}
+  Headings   : {'3': 1, '4': 1}
+
+=== OvertimeForecast.tsx ===
+  Text sizes : {'base': 1, '2xl': 3, 'xs': 5, 'sm': 7}
+  Btn sizes  : {}
+  Headings   : {'4': 2}
+
+=== PageHeader.tsx ===
+  Text sizes : {'lg': 1, 'sm': 1}
+  Btn sizes  : {'sm': 1}
+  Headings   : {'2': 1}
+  px text    : ['10']
+
+=== PageTransition.tsx ===
+  Text sizes : {}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== PanicAlertModal.tsx ===
+  Text sizes : {'2xl': 1, 'sm': 6, 'xl': 1}
+  Btn sizes  : {'sm': 2}
+  Headings   : {'3': 1}
+
+=== ProgressiveDisclosure.tsx ===
+  Text sizes : {'xs': 1, 'sm': 5}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== QuickFilterChips.tsx ===
+  Text sizes : {'sm': 3, 'xs': 2}
+  Btn sizes  : {}
+  Headings   : {'3': 1}
+
+=== ShiftTemplateDialog.tsx ===
+  Text sizes : {'sm': 6, 'xs': 1}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== Skeleton.tsx ===
+  Text sizes : {}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== SlidePanel.tsx ===
+  Text sizes : {'lg': 1, 'sm': 1}
+  Btn sizes  : {}
+  Headings   : {'3': 1}
+
+=== SmartToast.tsx ===
+  Text sizes : {'sm': 1, 'xs': 2}
+  Btn sizes  : {}
+  Headings   : {'4': 1}
+
+=== StepIndicator.tsx ===
+  Text sizes : {'xs': 4, 'sm': 6, 'base': 2}
+  Btn sizes  : {}
+  Headings   : {}
+  px text    : ['10']
+
+=== StickyTable.tsx ===
+  Text sizes : {'sm': 2, 'xs': 2}
+  Btn sizes  : {}
+  Headings   : {}
+
+=== ui.tsx ===
+  Text sizes : {'sm': 6, 'xs': 2, 'base': 1, 'lg': 2, 'xl': 1}
+  Btn sizes  : {}
+  Headings   : {'3': 3}
+  px text    : ['10']
+
