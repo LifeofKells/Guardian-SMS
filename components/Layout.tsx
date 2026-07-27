@@ -629,185 +629,185 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
         isCollapsed ? "md:grid-cols-[72px_1fr]" : "md:grid-cols-[240px_1fr] lg:grid-cols-[256px_1fr]"
       )}>
 
-      <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} onNavigate={setPage} />
-      <ToastContainer />
+        <CommandPalette open={isCommandOpen} onOpenChange={setIsCommandOpen} onNavigate={setPage} />
+        <ToastContainer />
 
-      {/* ═══════════════════════════════════════════════
+        {/* ═══════════════════════════════════════════════
           SIDEBAR
           ═══════════════════════════════════════════════ */}
-      <div data-tour="sidebar" className={cn(
-        "hidden md:flex h-full flex-col z-20 transition-all duration-500 ease-in-out relative min-h-0 shadow-[4px_0_24px_rgba(0,0,0,0.4)]",
-        "bg-[#0a0f18] border-r border-[#1e293b] dark:border-white/5",
-        isCollapsed ? "w-[72px]" : "w-[256px]"
-      )}>
+        <div data-tour="sidebar" className={cn(
+          "hidden md:flex h-full flex-col z-20 transition-all duration-500 ease-in-out relative min-h-0 shadow-[4px_0_24px_rgba(0,0,0,0.4)]",
+          "bg-[#0a0f18] border-r border-[#1e293b] dark:border-white/5",
+          isCollapsed ? "w-[72px]" : "w-[256px]"
+        )}>
 
-        {/* Collapse toggle pill */}
-        <button
-          onClick={toggleCollapse}
-          className="absolute -right-3 top-8 z-50 h-6 w-6 rounded-full border border-slate-200 bg-white shadow-md flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-slate-50 transition-all duration-300 focus:outline-none"
-        >
-          <ChevronLeft className={cn("h-3 w-3 transition-transform duration-300", isCollapsed && "rotate-180")} />
-        </button>
-
-        <div className="flex h-full flex-col gap-0 min-h-0">
-
-          {/* Logo header */}
-          <div className={cn(
-            "flex items-center border-b shrink-0 border-white/10 transition-all duration-300 overflow-hidden h-12",
-            isCollapsed ? "justify-center px-0" : "px-3"
-          )}>
-            <div className="flex items-center gap-2.5">
-              <img src={logoUrl} className="h-6 w-6 shrink-0 object-contain brightness-0 invert" alt="Logo" />
-              <span className={cn(
-                "text-sm font-semibold tracking-tight text-white transition-all duration-200 whitespace-nowrap",
-                isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-              )}>
-                {companyName}
-              </span>
-            </div>
-          </div>
-
-          {/* Quick search trigger (expanded only) */}
-          {!isCollapsed && (
-            <div className="px-2 pt-2 pb-1 shrink-0">
-              <button
-                onClick={() => setIsCommandOpen(true)}
-                className="flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-white/10 hover:text-white transition-colors duration-150"
-              >
-                <Search className="h-3 w-3 shrink-0" />
-                <span className="flex-1 text-left truncate">Search…</span>
-                <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-white/10 px-1 font-mono text-[9px] text-slate-400">
-                  ⌘K
-                </kbd>
-              </button>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <ScrollableMenu className="pt-1">
-            <NavMenu currentPage={currentPage} setPage={setPage} collapsed={isCollapsed} />
-          </ScrollableMenu>
-
-          {/* User card at bottom */}
-          <div className={cn("shrink-0 border-t border-white/10 py-2.5", isCollapsed ? "px-2" : "px-2.5")}>
-            <div className={cn(
-              "flex items-center gap-2 rounded-md transition-colors duration-150 cursor-default",
-              isCollapsed ? "justify-center" : "px-2 py-1.5"
-            )}>
-              <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-6 w-6 shrink-0 text-[10px] bg-white/10 border-white/20" />
-              <div className={cn("flex flex-col overflow-hidden transition-all duration-200 text-left", isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100")}>
-                <span className="truncate text-xs font-medium text-white">{profile?.full_name || user?.displayName || 'User'}</span>
-                <span className="truncate text-[10px] text-slate-400 capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════
-          MOBILE MENU OVERLAY
-          ═══════════════════════════════════════════════ */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
-          <div
-            className="fixed inset-y-0 left-0 z-50 w-[240px] bg-[#1e293b] border-r border-[#334155] flex flex-col transition-transform duration-200 animate-in slide-in-from-left"
-            onClick={e => e.stopPropagation()}
+          {/* Collapse toggle pill */}
+          <button
+            onClick={toggleCollapse}
+            className="absolute -right-3 top-8 z-50 h-6 w-6 rounded-full border border-slate-200 bg-white shadow-md flex items-center justify-center text-slate-500 hover:text-teal-600 hover:bg-slate-50 transition-all duration-300 focus:outline-none"
           >
-            <div className="flex h-14 items-center justify-between border-b border-white/10 px-4 shrink-0">
+            <ChevronLeft className={cn("h-3 w-3 transition-transform duration-300", isCollapsed && "rotate-180")} />
+          </button>
+
+          <div className="flex h-full flex-col gap-0 min-h-0">
+
+            {/* Logo header */}
+            <div className={cn(
+              "flex items-center border-b shrink-0 border-white/10 transition-all duration-300 overflow-hidden h-12",
+              isCollapsed ? "justify-center px-0" : "px-3"
+            )}>
               <div className="flex items-center gap-2.5">
-                <img src={logoUrl} className="h-7 w-7 shrink-0 object-contain brightness-0 invert" alt="Logo" />
-                <span className="text-base font-semibold tracking-tight text-white">{companyName}</span>
+                <img src={logoUrl} className="h-6 w-6 shrink-0 object-contain brightness-0 invert" alt="Logo" />
+                <span className={cn(
+                  "text-sm font-semibold tracking-tight text-white transition-all duration-200 whitespace-nowrap",
+                  isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                )}>
+                  {companyName}
+                </span>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)} className="text-slate-300 hover:text-white hover:bg-white/10">
-                <X className="h-5 w-5" />
-              </Button>
             </div>
 
-            <ScrollableMenu className="pt-2">
-              <NavMenu currentPage={currentPage} setPage={setPage} onItemClick={() => setIsMobileMenuOpen(false)} />
+            {/* Quick search trigger (expanded only) */}
+            {!isCollapsed && (
+              <div className="px-2 pt-2 pb-1 shrink-0">
+                <button
+                  onClick={() => setIsCommandOpen(true)}
+                  className="flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-white/10 hover:text-white transition-colors duration-150"
+                >
+                  <Search className="h-3 w-3 shrink-0" />
+                  <span className="flex-1 text-left truncate">Search…</span>
+                  <kbd className="inline-flex h-4 items-center gap-0.5 rounded border border-white/10 px-1 font-mono text-[9px] text-slate-400">
+                    ⌘K
+                  </kbd>
+                </button>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <ScrollableMenu className="pt-1">
+              <NavMenu currentPage={currentPage} setPage={setPage} collapsed={isCollapsed} />
             </ScrollableMenu>
 
-            <div className="mt-auto p-3 shrink-0 border-t border-white/10">
-              <div className="flex items-center gap-2.5 rounded-xl p-2 bg-white/5">
-                <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-8 w-8 bg-white/10 border-white/20" />
-                <div className="flex flex-col overflow-hidden">
-                  <span className="truncate text-[13px] font-semibold text-white">{profile?.full_name || user?.displayName || 'User'}</span>
-                  <span className="truncate text-[11px] text-slate-400 capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
+            {/* User card at bottom */}
+            <div className={cn("shrink-0 border-t border-white/10 py-2.5", isCollapsed ? "px-2" : "px-2.5")}>
+              <div className={cn(
+                "flex items-center gap-2 rounded-md transition-colors duration-150 cursor-default",
+                isCollapsed ? "justify-center" : "px-2 py-1.5"
+              )}>
+                <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-6 w-6 shrink-0 text-[10px] bg-white/10 border-white/20" />
+                <div className={cn("flex flex-col overflow-hidden transition-all duration-200 text-left", isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100")}>
+                  <span className="truncate text-xs font-medium text-white">{profile?.full_name || user?.displayName || 'User'}</span>
+                  <span className="truncate text-[10px] text-slate-400 capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* ═══════════════════════════════════════════════
+        {/* ═══════════════════════════════════════════════
+          MOBILE MENU OVERLAY
+          ═══════════════════════════════════════════════ */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
+            <div
+              className="fixed inset-y-0 left-0 z-50 w-[240px] bg-[#1e293b] border-r border-[#334155] flex flex-col transition-transform duration-200 animate-in slide-in-from-left"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex h-14 items-center justify-between border-b border-white/10 px-4 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <img src={logoUrl} className="h-7 w-7 shrink-0 object-contain brightness-0 invert" alt="Logo" />
+                  <span className="text-base font-semibold tracking-tight text-white">{companyName}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)} className="text-slate-300 hover:text-white hover:bg-white/10">
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <ScrollableMenu className="pt-2">
+                <NavMenu currentPage={currentPage} setPage={setPage} onItemClick={() => setIsMobileMenuOpen(false)} />
+              </ScrollableMenu>
+
+              <div className="mt-auto p-3 shrink-0 border-t border-white/10">
+                <div className="flex items-center gap-2.5 rounded-xl p-2 bg-white/5">
+                  <Avatar src={user?.photoURL || undefined} fallback={user?.email?.charAt(0).toUpperCase() || 'U'} className="h-8 w-8 bg-white/10 border-white/20" />
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="truncate text-[13px] font-semibold text-white">{profile?.full_name || user?.displayName || 'User'}</span>
+                    <span className="truncate text-[11px] text-slate-400 capitalize">{profile?.role?.replace('_', ' ') || 'Officer'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════
           MAIN CONTENT AREA
           ═══════════════════════════════════════════════ */}
-      <div className="flex flex-col h-full overflow-hidden relative">
+        <div className="flex flex-col h-full overflow-hidden relative">
 
-        {/* Top bar */}
-        <header className="flex items-center gap-4 px-4 lg:px-6 h-14 border-b border-slate-200/90 dark:border-white/5 bg-white/90 dark:bg-[#0a0f18]/80 backdrop-blur-2xl shrink-0 z-30 sticky top-0 shadow-sm">
-          {/* Mobile menu button */}
-          <Button variant="ghost" size="icon" className="md:hidden -ml-1" onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
-
-          {/* Page title & Live Status Pill */}
-          <div className="flex-1 flex items-center gap-3 min-w-0">
-            <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
-              {pageTitleMap[currentPage] || currentPage.replace('_', ' ')}
-            </h1>
-
-            {/* Live System Status Pill */}
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>System Operational</span>
-            </div>
-
-            {/* Search bar (desktop) */}
-            <div className="hidden lg:flex items-center max-w-sm w-full ml-auto" data-tour="search">
-              <button
-                onClick={() => setIsCommandOpen(true)}
-                className="group flex w-full items-center gap-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850 px-3.5 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 shadow-2xs"
-                title="Search (Cmd+K)"
-              >
-                <Search className="h-3.5 w-3.5 shrink-0 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
-                <span className="flex-1 text-left truncate">Search officers, sites, shifts...</span>
-                <kbd className="inline-flex h-4.5 items-center gap-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 font-mono text-[10px] font-semibold text-slate-500 shadow-2xs">
-                  <span className="text-[9px]">⌘</span>K
-                </kbd>
-              </button>
-            </div>
-          </div>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <NotificationBell />
-            <div className="px-0.5">
-              <AnimatedDarkModeToggle
-                isDark={theme === 'dark'}
-                onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                size="sm"
-              />
-            </div>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 ml-1 rounded-xl" onClick={handleLogout}>
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs font-medium">Sign Out</span>
+          {/* Top bar */}
+          <header className="flex items-center gap-4 px-4 lg:px-6 h-14 border-b border-slate-200/90 dark:border-white/5 bg-white/90 dark:bg-[#0a0f18]/80 backdrop-blur-2xl shrink-0 z-30 sticky top-0 shadow-sm">
+            {/* Mobile menu button */}
+            <Button variant="ghost" size="icon" className="md:hidden -ml-1" onClick={() => setIsMobileMenuOpen(true)}>
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle Menu</span>
             </Button>
-          </div>
-        </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-muted/15 px-4 pt-3 pb-8 lg:px-6 lg:pt-4 xl:px-8 xl:pt-5 transition-colors duration-300">
-          <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
-            {children}
-          </div>
-        </main>
-      </div>
+            {/* Page title & Live Status Pill */}
+            <div className="flex-1 flex items-center gap-3 min-w-0">
+              <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+                {pageTitleMap[currentPage] || currentPage.replace('_', ' ')}
+              </h1>
+
+              {/* Live System Status Pill */}
+              <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>System Operational</span>
+              </div>
+
+              {/* Search bar (desktop) */}
+              <div className="hidden lg:flex items-center max-w-sm w-full ml-auto" data-tour="search">
+                <button
+                  onClick={() => setIsCommandOpen(true)}
+                  className="group flex w-full items-center gap-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850 px-3.5 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 shadow-2xs"
+                  title="Search (Cmd+K)"
+                >
+                  <Search className="h-3.5 w-3.5 shrink-0 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
+                  <span className="flex-1 text-left truncate">Search officers, sites, shifts...</span>
+                  <kbd className="inline-flex h-4.5 items-center gap-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 font-mono text-[10px] font-semibold text-slate-500 shadow-2xs">
+                    <span className="text-[9px]">⌘</span>K
+                  </kbd>
+                </button>
+              </div>
+            </div>
+
+            {/* Right actions */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <NotificationBell />
+              <div className="px-0.5">
+                <AnimatedDarkModeToggle
+                  isDark={theme === 'dark'}
+                  onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  size="sm"
+                />
+              </div>
+              <Button variant="ghost" size="sm" className="gap-1.5 text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 ml-1 rounded-xl" onClick={handleLogout}>
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-xs font-medium">Sign Out</span>
+              </Button>
+            </div>
+          </header>
+
+          {/* Page content */}
+          <main className="flex-1 overflow-y-auto bg-muted/15 px-4 pt-3 pb-8 lg:px-6 lg:pt-4 xl:px-8 xl:pt-5 transition-colors duration-300">
+            <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
+              {children}
+            </div>
+          </main>
+        </div>
 
         <QuickActionDock
           onNavigate={setPage}
