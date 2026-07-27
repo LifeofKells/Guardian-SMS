@@ -290,46 +290,51 @@ export default function Timesheets() {
   }
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-      <Card className="border-border/70 bg-gradient-to-r from-background to-muted/20">
-        <CardContent className="p-4 lg:p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Timesheet Studio</h1>
-              <p className="text-xs text-muted-foreground mt-1">A redesigned approval cockpit for attendance, payroll readiness, and DAR verification.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['timeEntries'] })}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
-              {isAdmin && <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" /> Export</Button>}
-              {isAdmin && <Button size="sm" onClick={() => setIsAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Entry</Button>}
-            </div>
+    <div className="h-[calc(100vh-100px)] flex flex-col gap-6">
+      
+      {/* ── Architectural Header ── */}
+      <div className="flex flex-col gap-5 shrink-0">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Timesheet Studio</h1>
+            <p className="text-sm text-muted-foreground mt-1">A redesigned approval cockpit for attendance, payroll readiness, and DAR verification.</p>
           </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <MiniStat title="Visible" value={stats.total} tone="slate" />
-            <MiniStat title="Hours" value={Number(stats.hours.toFixed(1))} tone="blue" />
-            <MiniStat title="Pending" value={stats.pending} tone="amber" />
-            <MiniStat title="Approved" value={stats.approved} tone="emerald" />
-            <MiniStat title="Rejected" value={stats.rejected} tone="rose" />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-9 px-4 border-border/60 bg-transparent hover:bg-muted/20" onClick={() => queryClient.invalidateQueries({ queryKey: ['timeEntries'] })}><RefreshCw className="h-4 w-4 mr-2" /> Sync</Button>
+            {isAdmin && <Button variant="outline" size="sm" className="h-9 px-4 border-border/60 bg-transparent hover:bg-muted/20" onClick={exportCsv}><Download className="h-4 w-4 mr-2" /> Export</Button>}
+            {isAdmin && <Button size="sm" className="h-9 px-4 shadow-sm" onClick={() => setIsAddOpen(true)}><Plus className="h-4 w-4 mr-2" /> Add Entry</Button>}
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto] gap-2">
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search officer, badge, site" />
-            <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <MiniStat title="Visible" value={stats.total} tone="slate" />
+          <MiniStat title="Hours" value={Number(stats.hours.toFixed(1))} tone="blue" />
+          <MiniStat title="Pending" value={stats.pending} tone="amber" />
+          <MiniStat title="Approved" value={stats.approved} tone="emerald" />
+          <MiniStat title="Rejected" value={stats.rejected} tone="rose" />
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-3 border-b border-border/40 pb-5">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr] flex-1 gap-3 min-w-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-[0.6rem] h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search officer, badge, site..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 bg-card/40 border-border/50 text-sm shadow-none focus-visible:ring-1" />
+            </div>
+            <select className="h-9 rounded-md border border-border/50 bg-card/40 px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none custom-select-arrow" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
-            <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
+            <select className="h-9 rounded-md border border-border/50 bg-card/40 px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none custom-select-arrow" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
               <option value="all">All Sites</option>
               {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
             </select>
-            <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
-            <Button variant="outline" onClick={resetFilters}><Filter className="h-4 w-4 mr-1" /> Reset</Button>
+            <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="h-9 bg-card/40 border-border/50 text-sm shadow-none focus-visible:ring-1" />
           </div>
-        </CardContent>
-      </Card>
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground h-9 px-3">Reset</Button>
+        </div>
+      </div>
 
       <Tabs defaultValue={tab} value={tab} onValueChange={(value) => setTab(value as BoardTab)} className="flex-1 flex flex-col gap-4 min-h-0">
         <TabsList className="w-fit">
@@ -570,11 +575,12 @@ function StatusBadge({ status }: { status: TimeEntry['status'] }) {
 }
 
 function MiniStat({ title, value, tone }: { title: string; value: number; tone: 'slate' | 'blue' | 'amber' | 'emerald' | 'rose' }) {
-  const color = tone === 'blue' ? 'text-blue-600' : tone === 'amber' ? 'text-amber-600' : tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : 'text-foreground';
+  const color = tone === 'blue' ? 'text-blue-400' : tone === 'amber' ? 'text-amber-500' : tone === 'emerald' ? 'text-emerald-500' : tone === 'rose' ? 'text-rose-500' : 'text-foreground';
+  const borderTone = tone === 'blue' ? 'border-l-blue-400/50' : tone === 'amber' ? 'border-l-amber-500/50' : tone === 'emerald' ? 'border-l-emerald-500/50' : tone === 'rose' ? 'border-l-rose-500/50' : 'border-l-border/50';
   return (
-    <div className="rounded-lg border border-border bg-background/80 p-3">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{title}</p>
-      <p className={cn('text-xl font-bold mt-1', color)}>{value}</p>
+    <div className={cn("p-4 rounded-xl border border-border/40 bg-card/40 backdrop-blur-md shadow-sm border-l-4", borderTone)}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+      <p className={cn('text-3xl font-bold mt-1 tracking-tight', color)}>{value}</p>
     </div>
   );
 }

@@ -88,15 +88,12 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, badge, isExpan
           : "w-full gap-2.5 px-2.5 py-1.5 justify-start text-left",
         active
           ? collapsed
-            ? "bg-white/20 text-white"
-            : "bg-white text-[#1e293b] font-semibold shadow-sm"
-          : "text-slate-300 hover:text-white hover:bg-white/10"
+            ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
+            : "bg-gradient-to-r from-teal-500/10 to-teal-500/0 text-teal-400 font-semibold shadow-[inset_2px_0_0_0_#14b8a6]"
+          : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
       )}
     >
       {/* Active indicator */}
-      {active && !collapsed && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-r bg-teal-500" />
-      )}
 
       <div className="relative shrink-0 flex items-center justify-center">
         <Icon className={cn(
@@ -182,11 +179,11 @@ function NavSubItem({ icon: Icon, label, active, onClick, collapsed }: NavItemPr
       {/* Tree connector */}
       <span className={cn(
         "absolute left-[18px] top-0 bottom-0 w-[1.5px] transition-colors duration-300",
-        active ? "bg-teal-500/40" : "bg-white/10"
+        active ? "bg-teal-500/40" : "bg-white/5"
       )} />
       <span className={cn(
         "absolute left-[18px] top-1/2 w-2.5 h-[1.5px] rounded-r transition-colors duration-300",
-        active ? "bg-teal-500/60" : "bg-white/10"
+        active ? "bg-teal-500/60" : "bg-white/5"
       )} />
       <Icon className={cn(
         "h-3.5 w-3.5 shrink-0 relative z-10 transition-transform duration-300 group-hover:scale-110",
@@ -639,8 +636,8 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
           SIDEBAR
           ═══════════════════════════════════════════════ */}
       <div data-tour="sidebar" className={cn(
-        "hidden md:flex h-full flex-col z-20 transition-all duration-500 ease-in-out relative min-h-0",
-        "bg-[#1e293b] border-r border-[#334155]",
+        "hidden md:flex h-full flex-col z-20 transition-all duration-500 ease-in-out relative min-h-0 shadow-[4px_0_24px_rgba(0,0,0,0.4)]",
+        "bg-[#0a0f18] border-r border-[#1e293b] dark:border-white/5",
         isCollapsed ? "w-[72px]" : "w-[256px]"
       )}>
 
@@ -749,37 +746,46 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
       <div className="flex flex-col h-full overflow-hidden relative">
 
         {/* Top bar */}
-        <header className="flex items-center gap-4 px-4 lg:px-6 h-14 border-b border-slate-200 bg-white shrink-0 z-30 sticky top-0">
+        <header className="flex items-center gap-4 px-4 lg:px-6 h-14 border-b border-slate-200/90 dark:border-white/5 bg-white/90 dark:bg-[#0a0f18]/80 backdrop-blur-2xl shrink-0 z-30 sticky top-0 shadow-sm">
           {/* Mobile menu button */}
           <Button variant="ghost" size="icon" className="md:hidden -ml-1" onClick={() => setIsMobileMenuOpen(true)}>
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle Menu</span>
           </Button>
 
-          {/* Page title */}
-          <div className="flex-1 flex items-center gap-4 min-w-0">
-            <h1 className="text-sm font-semibold capitalize tracking-tight text-foreground truncate">
+          {/* Page title & Live Status Pill */}
+          <div className="flex-1 flex items-center gap-3 min-w-0">
+            <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
               {pageTitleMap[currentPage] || currentPage.replace('_', ' ')}
             </h1>
+
+            {/* Live System Status Pill */}
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>System Operational</span>
+            </div>
 
             {/* Search bar (desktop) */}
             <div className="hidden lg:flex items-center max-w-sm w-full ml-auto" data-tour="search">
               <button
                 onClick={() => setIsCommandOpen(true)}
-                className="group flex w-full items-center gap-2 rounded-xl border border-border/40 bg-muted/30 px-3.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-300"
+                className="group flex w-full items-center gap-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850 px-3.5 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 shadow-2xs"
                 title="Search (Cmd+K)"
               >
-                <Search className="h-3.5 w-3.5 shrink-0 group-hover:text-primary transition-colors" />
-                <span className="flex-1 text-left truncate text-xs">Search officers, sites…</span>
-                <kbd className="inline-flex h-5 items-center gap-0.5 rounded bg-background/50 border border-border/30 px-1.5 font-mono text-[10px] font-bold">
-                  <span className="text-xs">⌘</span>K
+                <Search className="h-3.5 w-3.5 shrink-0 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
+                <span className="flex-1 text-left truncate">Search officers, sites, shifts...</span>
+                <kbd className="inline-flex h-4.5 items-center gap-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 font-mono text-[10px] font-semibold text-slate-500 shadow-2xs">
+                  <span className="text-[9px]">⌘</span>K
                 </kbd>
               </button>
             </div>
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell />
             <div className="px-0.5">
               <AnimatedDarkModeToggle
@@ -788,9 +794,9 @@ export function Layout({ children, currentPage, setPage }: { children?: React.Re
                 size="sm"
               />
             </div>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-1" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 ml-1 rounded-xl" onClick={handleLogout}>
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Sign Out</span>
+              <span className="hidden sm:inline text-xs font-medium">Sign Out</span>
             </Button>
           </div>
         </header>

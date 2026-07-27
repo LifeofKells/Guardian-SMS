@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, cn } from '../components/ui';
+import { Avatar, Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, cn } from '../components/ui';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, EMPTY_STATES } from '../components/EmptyState';
 import { useAuth } from '../contexts/AuthContext';
@@ -115,7 +115,7 @@ function EmojiReactionBar({
           className="inline-flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
           title="Add reaction"
         >
-          <SmilePlus className="h-3 w-3" />
+          <SmilePlus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
 
         {/* Quick Picker */}
@@ -275,7 +275,7 @@ export default function Messaging() {
 
   // ── Data Queries ──
 
-  const { data: channels = [] } = useQuery({
+  const { data: channels = [], isLoading: isLoadingChannels } = useQuery({
     queryKey: ['message_channels', organization?.id],
     enabled: !!organization,
     queryFn: async () => {
@@ -370,7 +370,7 @@ export default function Messaging() {
   // ── Bootstrap default channels ──
 
   useEffect(() => {
-    if (!organization || hasBootstrapped.current || channels.length > 0 || createChannelMutation.isPending) return;
+    if (!organization || hasBootstrapped.current || isLoadingChannels || channels.length > 0 || createChannelMutation.isPending) return;
     hasBootstrapped.current = true;
     const createdAt = new Date().toISOString();
 
@@ -384,7 +384,7 @@ export default function Messaging() {
     Promise.all(defaults.map((item) => createChannelMutation.mutateAsync(item))).catch(() => {
       addToast({ type: 'error', title: 'Messaging Setup Failed', description: 'Could not initialize default channels.' });
     });
-  }, [organization, channels.length, createChannelMutation, profile?.id, addToast]);
+  }, [organization, channels.length, isLoadingChannels, createChannelMutation, profile?.id, addToast]);
 
   // ── Computed Data ──
 
@@ -610,9 +610,9 @@ export default function Messaging() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 overflow-hidden">
         {/* ── Channel List ── */}
-        <Card className="overflow-hidden flex flex-col">
+        <Card className="overflow-hidden flex flex-col shadow-none border-border/60 bg-muted/10 dark:bg-[#080c14]/40">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Channels</CardTitle>
@@ -654,26 +654,21 @@ export default function Messaging() {
                   key={channel.id}
                   onClick={() => setActiveChannelId(channel.id)}
                   className={cn(
-                    'w-full rounded-xl border text-left transition-all',
-                    isCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
-                    isActive ? 'border-primary bg-primary/10 shadow-sm' : unread > 0 ? 'border-primary/30 bg-primary/5 hover:bg-primary/10' : 'border-border hover:bg-muted/50'
+                    'w-full flex items-center justify-between px-3 py-1.5 rounded-md transition-all text-sm group',
+                    isActive ? 'bg-primary/10 text-primary font-medium' : unread > 0 ? 'font-bold text-foreground hover:bg-muted' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <ChannelIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className={cn('truncate font-semibold', isCompact ? 'text-xs' : 'text-sm', unread > 0 && !isActive && 'text-foreground')}>#{channel.name}</span>
+                      <Hash className={cn("h-4 w-4 shrink-0 opacity-70", isActive && 'text-primary opacity-100')} />
+                      <span className="truncate">{channel.name}</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {channel.pinned && <Pin className="h-3.5 w-3.5 text-primary" />}
+                      {channel.pinned && <Pin className="h-3.5 w-3.5 text-primary opacity-70" />}
                       {unread > 0 && (
-                        <Badge className="h-5 px-1.5 animate-in zoom-in-50 duration-200">{unread}</Badge>
+                        <Badge className="h-5 px-1.5 bg-primary/20 text-primary animate-in zoom-in-50 duration-200">{unread}</Badge>
                       )}
                     </div>
-                  </div>
-                  <div className={cn('mt-1 flex items-center gap-2 text-muted-foreground', isCompact ? 'text-[10px]' : 'text-[11px]')}>
-                    <Badge variant="secondary" className="h-4 px-1.5 normal-case tracking-normal">{roleAudienceByType[channel.type]}</Badge>
-                    <span className="truncate">{channel.description || 'No description'}</span>
                   </div>
                 </button>
               );
@@ -699,7 +694,7 @@ export default function Messaging() {
         </Card>
 
         {/* ── Message Area ── */}
-        <Card className="overflow-hidden flex flex-col">
+        <Card className="overflow-hidden flex flex-col shadow-none border-border/60">
           {activeChannel ? (
             <>
               <CardHeader className="pb-3 border-b border-border">
@@ -721,7 +716,7 @@ export default function Messaging() {
               <CardContent
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className={cn('flex-1 overflow-y-auto custom-scrollbar space-y-4 bg-muted/10 relative', isCompact ? 'p-3' : 'p-4')}
+                className={cn('flex-1 overflow-y-auto custom-scrollbar space-y-4 bg-transparent relative', isCompact ? 'p-3' : 'p-4')}
               >
                 {pinnedMessages.length > 0 && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
@@ -741,75 +736,93 @@ export default function Messaging() {
                   const seenCount = message.read_by?.length || 0;
                   const replies = repliesByParent[message.id] || [];
                   return (
-                    <div key={message.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
-                      <div className={cn('max-w-[85%] rounded-2xl border shadow-sm', isCompact ? 'px-3 py-2' : 'px-4 py-2.5', mine ? 'bg-primary text-primary-foreground border-primary/50' : 'bg-card border-border')}>
-                        <div className="flex items-center gap-2 text-[11px] opacity-80 mb-1">
-                          <span className="font-semibold">{message.sender_name}</span>
+                    <div key={message.id} className="group flex gap-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors py-2 px-3 rounded-lg animate-in slide-in-from-bottom-2 fade-in duration-300 relative">
+                      
+                      {/* Avatar */}
+                      <div className="shrink-0 mt-0.5">
+                        <Avatar src={undefined} fallback={message.sender_name.charAt(0).toUpperCase()} className="h-9 w-9 rounded-md border border-border/50 text-xs font-bold" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Header: Name & Time */}
+                        <div className="flex items-baseline gap-2 mb-0.5">
+                          <span className="font-bold text-foreground text-sm">{message.sender_name}</span>
                           {message.sender_role && (
-                            <Badge variant="secondary" className={cn("h-3.5 px-1 text-[9px] capitalize", mine && 'bg-primary-foreground/20 text-primary-foreground')}>
+                            <Badge variant="secondary" className="h-4 px-1 pb-0.5 text-[9px] capitalize text-muted-foreground bg-transparent border-transparent p-0 shadow-none">
                               {message.sender_role.replace('_', ' ')}
                             </Badge>
                           )}
-                          {message.priority === 'urgent' && <Badge variant="warning" className="h-4 px-1.5">Urgent</Badge>}
-                          {message.pinned && <Pin className="h-3.5 w-3.5" />}
+                          <span className="text-[11px] text-muted-foreground font-medium hover:underline cursor-pointer">{timeAgo(message.created_at)}</span>
+                          
+                          {message.priority === 'urgent' && <Badge variant="warning" className="h-4 px-1.5 ml-1 leading-none py-0">Urgent</Badge>}
+                          {message.pinned && <Pin className="h-3 w-3 ml-1 text-primary" />}
                         </div>
-                        <p className={cn('whitespace-pre-wrap break-words', isCompact ? 'text-xs' : 'text-sm')}>
+
+                        {/* Message Body */}
+                        <p className={cn('whitespace-pre-wrap break-words leading-relaxed text-foreground/90', isCompact ? 'text-[13px]' : 'text-sm')}>
                           {/* Render @mentions as highlighted text */}
                           {message.message.split(/(@\w+[\w\s]*)/g).map((part, i) =>
                             part.startsWith('@') ? (
-                              <span key={i} className={cn("font-semibold", mine ? "text-primary-foreground/90" : "text-primary")}>{part}</span>
+                              <span key={i} className="font-semibold text-primary bg-primary/10 px-1 rounded mx-0.5">{part}</span>
                             ) : (
                               <React.Fragment key={i}>{part}</React.Fragment>
                             )
                           )}
                         </p>
-                        <div className="mt-1.5 flex items-center justify-between gap-3 text-[10px] opacity-75">
-                          <span>{timeAgo(message.created_at)}</span>
-                          <div className="flex items-center gap-1">
-                            <ReadReceipt seenCount={seenCount} total={10} />
-                            <span>Seen by {seenCount}</span>
-                          </div>
-                        </div>
 
-                        {/* Action buttons */}
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            onClick={() => setReplyToMessageId(message.id)}
-                            className="inline-flex items-center gap-1 text-[11px] font-medium opacity-85 hover:opacity-100 transition-opacity"
-                          >
-                            <Reply className="h-3.5 w-3.5" /> Reply
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Emoji Reactions area (below bubble) */}
-                      <div className={cn('max-w-[85%]', mine ? 'pr-2' : 'pl-2')}>
+                        {/* Reactions */}
                         <EmojiReactionBar
                           messageId={message.id}
                           onReact={handleReaction}
                           showPicker={emojiPickerMessageId === message.id}
                           onTogglePicker={() => setEmojiPickerMessageId(emojiPickerMessageId === message.id ? null : message.id)}
                         />
+
+                        {/* Thread Replies inline */}
+                        {replies.length > 0 && (
+                          <div className={cn('mt-3 border-l-2 border-border/40 pl-3', isCompact ? 'space-y-2' : 'space-y-3')}>
+                            {replies.map((reply) => {
+                              return (
+                                <div key={reply.id} className="flex gap-2.5 group/reply relative">
+                                  <div className="shrink-0">
+                                    <Avatar src={undefined} fallback={reply.sender_name.charAt(0).toUpperCase()} className="h-6 w-6 rounded-md border border-border/50 text-[10px] font-bold" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-2 mb-0.5">
+                                      <span className="font-bold text-foreground text-[13px]">{reply.sender_name}</span>
+                                      <span className="text-[10px] text-muted-foreground">{timeAgo(reply.created_at)}</span>
+                                    </div>
+                                    <p className="text-[13px] break-words whitespace-pre-wrap leading-relaxed text-foreground/90">{reply.message}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Thread Replies */}
-                      {replies.length > 0 && (
-                        <div className={cn('mt-2 w-[80%]', isCompact ? 'space-y-1' : 'space-y-1.5')}>
-                          {replies.map((reply) => {
-                            const replyMine = reply.sender_id === (profile?.id || user?.uid);
-                            return (
-                              <div key={reply.id} className={cn('rounded-xl border', isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm', replyMine ? 'bg-primary/10 border-primary/30 ml-6' : 'bg-card border-border')}>
-                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-0.5">
-                                  <span className="font-medium">{reply.sender_name}</span>
-                                  <span className="opacity-60">·</span>
-                                  <span className="opacity-60">{timeAgo(reply.created_at)}</span>
-                                </div>
-                                <p className="text-sm break-words whitespace-pre-wrap">{reply.message}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                      {/* Quick Actions (Hover) */}
+                      <div className="absolute top-0 right-2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border shadow-sm rounded-md flex items-center pr-1">
+                        <button
+                          onClick={() => setEmojiPickerMessageId(message.id)}
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-l-md"
+                          title="Add reaction"
+                        >
+                          <SmilePlus className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setReplyToMessageId(message.id)}
+                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                          title="Reply in thread"
+                        >
+                          <Reply className="h-4 w-4" />
+                        </button>
+                        {mine && (
+                          <div className="pl-2 border-l border-border/60 flex items-center justify-center text-muted-foreground mt-0.5" title="Read Receipt">
+                            <ReadReceipt seenCount={seenCount} total={10} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -848,49 +861,43 @@ export default function Messaging() {
               <TypingIndicator names={typingNames} />
 
               {/* ── Composer ── */}
-              <div className="border-t border-border p-3 bg-card/80">
+              <div className="p-4 bg-transparent pt-0">
                 {replyTarget && (
-                  <div className="mb-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 flex items-start justify-between gap-2 animate-in slide-in-from-bottom-2 duration-200">
-                    <div className="text-xs">
-                      <span className="font-semibold">Replying to {replyTarget.sender_name}:</span> {replyTarget.message.slice(0, 80)}
+                  <div className="mb-0 rounded-t-lg bg-muted/30 px-3 py-2 flex items-start justify-between gap-2 border border-border border-b-0 -mb-[1px] relative z-10">
+                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+                      <Reply className="h-3 w-3" /> Replying to <span className="font-semibold text-foreground">{replyTarget.sender_name}</span>
                     </div>
                     <button onClick={() => setReplyToMessageId(null)} className="text-muted-foreground hover:text-foreground">
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 )}
-
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <button
-                    onClick={() => setPriority(priority === 'urgent' ? 'normal' : 'urgent')}
-                    className={cn('px-2.5 py-1 text-xs rounded-md border transition-colors', priority === 'urgent' ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'border-border text-muted-foreground hover:bg-muted')}
-                  >
-                    Mark Urgent
-                  </button>
-                  {isManager && !replyToMessageId && (
-                    <button
-                      onClick={() => setPinDirective((v) => !v)}
-                      className={cn('px-2.5 py-1 text-xs rounded-md border transition-colors', pinDirective ? 'border-primary/50 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}
-                    >
-                      Pin Directive
+                
+                <div className={cn("rounded-xl border border-border bg-card shadow-sm flex flex-col focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all overflow-hidden relative z-20", replyTarget && 'rounded-t-none')}>
+                  <div className="bg-muted/10 px-2 py-1.5 border-b border-border/50 flex items-center gap-1 text-muted-foreground">
+                    <button className="p-1 rounded hover:bg-muted transition-colors"><span className="font-bold font-serif text-[15px] px-1.5">B</span></button>
+                    <button className="p-1 rounded hover:bg-muted transition-colors"><span className="italic font-serif text-[15px] px-1.5">I</span></button>
+                    <button className="p-1 rounded hover:bg-muted transition-colors"><span className="line-through font-serif text-[14px] px-1.5">S</span></button>
+                    <div className="w-px h-4 bg-border/80 mx-1" />
+                    <button onClick={() => setPriority(priority === 'urgent' ? 'normal' : 'urgent')} className={cn("h-7 rounded transition-colors text-xs font-medium px-2 flex items-center gap-1.5", priority === 'urgent' ? 'bg-amber-500/15 text-amber-600' : 'hover:bg-muted text-muted-foreground')}>
+                      <BellRing className="h-3 w-3" /> {priority === 'urgent' ? 'Urgent' : 'Normal'}
                     </button>
-                  )}
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground ml-auto">
-                    <AtSign className="h-3 w-3" /> Type @ to mention
+                    {isManager && !replyToMessageId && (
+                      <button onClick={() => setPinDirective((v) => !v)} className={cn("h-7 rounded transition-colors text-xs font-medium px-2 flex items-center gap-1.5", pinDirective ? 'bg-primary/15 text-primary' : 'hover:bg-muted text-muted-foreground')}>
+                        <Pin className="h-3 w-3" /> {pinDirective ? 'Pinned' : 'Pin'}
+                      </button>
+                    )}
                   </div>
-                </div>
-
-                <div className="relative">
-                  <MentionAutocomplete
-                    query={mentionQuery}
-                    members={mentionMembers}
-                    onSelect={handleMentionSelect}
-                    visible={showMentions}
-                  />
-                  <div className="flex items-center gap-2">
-                    <Input
+                  <div className="relative">
+                    <MentionAutocomplete
+                      query={mentionQuery}
+                      members={mentionMembers}
+                      onSelect={handleMentionSelect}
+                      visible={showMentions}
+                    />
+                    <textarea 
                       value={draft}
-                      onChange={handleDraftChange}
+                      onChange={handleDraftChange as any}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -900,10 +907,19 @@ export default function Messaging() {
                           setShowMentions(false);
                         }
                       }}
-                      placeholder={replyToMessageId ? 'Write a reply...' : `Message #${activeChannel.name}...`}
+                      placeholder={replyTarget ? 'Write a reply...' : `Message #${activeChannel?.name || 'channel'}...`}
+                      className="w-full bg-transparent border-0 focus:ring-0 resize-none px-3 py-2.5 text-[15px] placeholder:text-muted-foreground outline-none min-h-[50px] custom-scrollbar"
+                      rows={1}
                     />
-                    <Button onClick={sendMessage} disabled={!draft.trim() || sendMessageMutation.isPending} className="shrink-0 gap-1.5">
-                      <Send className="h-4 w-4" /> Send
+                  </div>
+                  <div className="bg-card px-2 pb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-0.5">
+                      <button className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><Plus className="h-4 w-4" /></button>
+                      <button className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><SmilePlus className="h-4 w-4" /></button>
+                      <button className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><AtSign className="h-4 w-4" /></button>
+                    </div>
+                    <Button onClick={sendMessage} size="sm" disabled={!draft.trim() || sendMessageMutation.isPending} className="h-8 gap-1.5 px-4 rounded-md">
+                      <Send className="h-3.5 w-3.5" /> 
                     </Button>
                   </div>
                 </div>

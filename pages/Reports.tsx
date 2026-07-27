@@ -103,21 +103,34 @@ export default function Reports() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reports & Analytics</h1>
-                {!isClient && (
-                    <Button variant="outline" className="gap-2">
-                        <Download className="h-4 w-4" /> Export Report
-                    </Button>
-                )}
+        <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col min-h-0">
+            {/* ── HEADER BAND ── */}
+            <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden relative z-10 shrink-0">
+                <div className="p-5 lg:p-6 relative">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-1">
+                                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
+                                    <TrendingUp className="h-4 w-4 text-primary" />
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reports & Analytics</h1>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Comprehensive overview of incidents, billing, and DAR.</p>
+                        </div>
+                        {!isClient && (
+                            <Button variant="outline" className="h-9 rounded-xl px-4 gap-2 text-xs font-semibold">
+                                <Download className="h-3.5 w-3.5" /> Export Report
+                            </Button>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            <Tabs defaultValue={isClient ? "dar" : "incidents"} className="space-y-4">
-                <TabsList>
-                    {isClient && <TabsTrigger value="dar" className="gap-2"><FileText className="h-4 w-4" /> Daily Activity Reports</TabsTrigger>}
-                    <TabsTrigger value="incidents" className="gap-2"><AlertTriangle className="h-4 w-4" /> Incident Log</TabsTrigger>
-                    {!isClient && <TabsTrigger value="billing" className="gap-2"><DollarSign className="h-4 w-4" /> Billing & Costs</TabsTrigger>}
+            <Tabs defaultValue={isClient ? "dar" : "incidents"} className="space-y-4 flex-1 flex flex-col min-h-0">
+                <TabsList className="shrink-0 w-max bg-muted/40 p-1 border border-border/40">
+                    {isClient && <TabsTrigger value="dar" className="gap-2 text-xs"><FileText className="h-4 w-4" /> Daily Activity Reports</TabsTrigger>}
+                    <TabsTrigger value="incidents" className="gap-2 text-xs"><AlertTriangle className="h-4 w-4" /> Incident Log</TabsTrigger>
+                    {!isClient && <TabsTrigger value="billing" className="gap-2 text-xs"><DollarSign className="h-4 w-4" /> Billing & Costs</TabsTrigger>}
                 </TabsList>
 
                 {isClient && (

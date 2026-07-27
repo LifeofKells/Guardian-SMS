@@ -29,6 +29,9 @@ import { db } from '../lib/db';
 import type { Certification, Officer } from '../lib/types';
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Award,
   Briefcase,
   CheckCircle2,
@@ -109,6 +112,7 @@ export default function Officers() {
   const [statusFilter, setStatusFilter] = useState<'all' | Officer['employment_status']>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'ok' | 'expiring' | 'expired'>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -203,13 +207,18 @@ export default function Officers() {
         return `${o.full_name} ${o.email} ${o.badge_number} ${(o.skills || []).join(' ')}`.toLowerCase().includes(q);
       })
       .sort((a, b) => {
-        if (sortBy === 'name') return a.full_name.localeCompare(b.full_name);
-        const as = analyticsByOfficer.get(a.id), bs = analyticsByOfficer.get(b.id);
-        if (sortBy === 'upcoming') return (bs?.upcoming || 0) - (as?.upcoming || 0);
-        if (sortBy === 'hours') return (bs?.hours30d || 0) - (as?.hours30d || 0);
-        return (bs?.incidents || 0) - (as?.incidents || 0);
+        let cmp = 0;
+        if (sortBy === 'name') {
+          cmp = a.full_name.localeCompare(b.full_name, undefined, { sensitivity: 'base' });
+        } else {
+          const as = analyticsByOfficer.get(a.id), bs = analyticsByOfficer.get(b.id);
+          if (sortBy === 'upcoming') cmp = (as?.upcoming || 0) - (bs?.upcoming || 0);
+          else if (sortBy === 'hours') cmp = (as?.hours30d || 0) - (bs?.hours30d || 0);
+          else if (sortBy === 'incidents') cmp = (as?.incidents || 0) - (bs?.incidents || 0);
+        }
+        return sortOrder === 'asc' ? cmp : -cmp;
       });
-  }, [officers, search, statusFilter, complianceFilter, attentionOnly, sortBy, analyticsByOfficer]);
+  }, [officers, search, statusFilter, complianceFilter, attentionOnly, sortBy, sortOrder, analyticsByOfficer]);
 
   const rosterStats = useMemo(() => ({
     total: officers.length,
@@ -306,14 +315,26 @@ export default function Officers() {
             </Button>
 
             {/* Sort */}
-            <div className="relative shrink-0">
-              <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="h-9 rounded-xl border border-border/50 bg-background px-3 pr-8 text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 appearance-none min-w-[130px] transition-all duration-200 font-medium cursor-pointer">
-                <option value="name">Sort: Name</option>
-                <option value="upcoming">Sort: Upcoming</option>
-                <option value="hours">Sort: 30d Hours</option>
-                <option value="incidents">Sort: Incidents</option>
-              </select>
-              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none rotate-90" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="relative">
+                <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="h-9 rounded-xl border border-border/50 bg-background px-3 pr-8 text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 appearance-none min-w-[130px] transition-all duration-200 font-medium cursor-pointer">
+                  <option value="name">Sort: Name</option>
+                  <option value="upcoming">Sort: Upcoming</option>
+                  <option value="hours">Sort: 30d Hours</option>
+                  <option value="incidents">Sort: Incidents</option>
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none rotate-90" />
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="h-9 w-9 p-0 rounded-xl shrink-0 text-xs transition-all duration-200 hover:border-primary/40"
+                title={sortOrder === 'asc' ? 'Sort Ascending (A to Z)' : 'Sort Descending (Z to A)'}
+              >
+                {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4 text-primary" /> : <ArrowDown className="h-4 w-4 text-primary" />}
+              </Button>
             </div>
 
             {/* View */}
@@ -523,16 +544,73 @@ export default function Officers() {
         {view === 'table' && (
           <div className="h-full overflow-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 border-b border-border/50 bg-muted/50 backdrop-blur-xl shadow-sm">
+              <thead className="sticky top-0 z-10 border-b border-border/50 dark:border-white/5 bg-slate-50/80 dark:bg-[#0a0f18]/80 backdrop-blur-2xl shadow-sm">
                 <tr>
-                  {canEdit && <th className="w-10 p-3" />}
-                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Officer</th>
-                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Contact</th>
-                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Status</th>
-                  <th className="p-3 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Compliance</th>
-                  <th className="p-3 text-center text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Upcoming</th>
-                  <th className="p-3 text-center text-[10px] uppercase tracking-wider font-bold text-muted-foreground">30d Hrs</th>
-                  {canEdit && <th className="p-3 text-right text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Actions</th>}
+                  {canEdit && <th className="w-10 px-3 py-2" />}
+                  <th
+                    className="px-3 py-2 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none"
+                    onClick={() => {
+                      if (sortBy === 'name') {
+                        setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setSortBy('name');
+                        setSortOrder('asc');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-1">
+                      Officer
+                      {sortBy === 'name' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Contact</th>
+                  <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Status</th>
+                  <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Compliance</th>
+                  <th
+                    className="px-3 py-2 text-center text-[10px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none"
+                    onClick={() => {
+                      if (sortBy === 'upcoming') {
+                        setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setSortBy('upcoming');
+                        setSortOrder('desc');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      Upcoming
+                      {sortBy === 'upcoming' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-3 py-2 text-center text-[10px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none"
+                    onClick={() => {
+                      if (sortBy === 'hours') {
+                        setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setSortBy('hours');
+                        setSortOrder('desc');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      30d Hrs
+                      {sortBy === 'hours' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />
+                      )}
+                    </div>
+                  </th>
+                  {canEdit && <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -540,41 +618,41 @@ export default function Officers() {
                   const a = analyticsByOfficer.get(officer.id);
                   const sm = statusMeta(officer.employment_status);
                   return (
-                    <tr key={officer.id} className="hover:bg-muted/20 transition-colors group">
+                    <tr key={officer.id} className="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group">
                       {canEdit && (
-                        <td className="p-3">
-                          <input type="checkbox" checked={selectedIds.includes(officer.id)} onChange={() => setSelectedIds(prev => prev.includes(officer.id) ? prev.filter(id => id !== officer.id) : [...prev, officer.id])} className="h-3.5 w-3.5 rounded accent-primary" />
+                        <td className="px-3 py-1.5">
+                          <input type="checkbox" checked={selectedIds.includes(officer.id)} onChange={() => setSelectedIds(prev => prev.includes(officer.id) ? prev.filter(id => id !== officer.id) : [...prev, officer.id])} className="h-3.5 w-3.5 rounded border-border accent-primary" />
                         </td>
                       )}
-                      <td className="p-3">
+                      <td className="px-3 py-1.5">
                         <button onClick={() => setSelectedOfficerId(officer.id)} className="flex items-center gap-2.5 text-left hover:text-primary transition-colors">
                           <div className="relative shrink-0">
-                            <Avatar src={officer.image_url} fallback={officer.full_name[0]} className="h-8 w-8" />
+                            <Avatar src={officer.image_url} fallback={officer.full_name[0]} className="h-8 w-8 ring-2 ring-background/50" />
                             <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background', sm.dot)} />
                           </div>
                           <div>
-                            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{officer.full_name}</p>
+                            <p className="font-semibold text-foreground group-hover:text-primary transition-colors text-[13px]">{officer.full_name}</p>
                             <p className="text-[10px] text-muted-foreground font-mono">#{officer.badge_number}</p>
                           </div>
                         </button>
                       </td>
-                      <td className="p-3 text-xs text-muted-foreground">
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground">
                         <div className="flex flex-col gap-0.5">
                           {officer.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{officer.email}</span>}
                           {officer.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{officer.phone}</span>}
                         </div>
                       </td>
-                      <td className="p-3">
-                        <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border', sm.badge)}>{sm.label}</span>
+                      <td className="px-3 py-1.5">
+                        <span className={cn('inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold border', sm.badge)}>{sm.label}</span>
                       </td>
-                      <td className="p-3"><CompliancePill state={a?.compliance || 'ok'} /></td>
-                      <td className="p-3 text-center font-bold tabular-nums text-sm">{a?.upcoming ?? 0}</td>
-                      <td className="p-3 text-center font-bold tabular-nums text-sm">{(a?.hours30d ?? 0).toFixed(1)}</td>
+                      <td className="px-3 py-1.5"><CompliancePill state={a?.compliance || 'ok'} /></td>
+                      <td className="px-3 py-1.5 text-center font-bold tabular-nums text-[13px]">{a?.upcoming ?? 0}</td>
+                      <td className="px-3 py-1.5 text-center font-bold tabular-nums text-[13px]">{(a?.hours30d ?? 0).toFixed(1)}</td>
                       {canEdit && (
-                        <td className="p-3 text-right">
-                          <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="sm" variant="ghost" onClick={() => setSelectedOfficerId(officer.id)} title="View profile"><UserCog className="h-3.5 w-3.5" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => openEdit(officer)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <td className="px-3 py-1.5 text-right">
+                          <div className="inline-flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-md" onClick={() => setSelectedOfficerId(officer.id)} title="View profile"><UserCog className="h-3.5 w-3.5" /></Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-md" onClick={() => openEdit(officer)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
                           </div>
                         </td>
                       )}

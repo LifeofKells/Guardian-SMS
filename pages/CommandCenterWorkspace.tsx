@@ -453,69 +453,88 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
         <>
           {/* 4 KPI cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-blue-500">
+            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-blue-500 shadow-card dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Active Force</p>
-                    <p className="text-3xl font-bold mt-1.5 tracking-tight text-slate-900">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Force</p>
+                    <p className="text-3xl font-extrabold mt-1.5 tracking-tight text-slate-900 dark:text-slate-100">
                       <AnimatedCounter value={activeForce} />
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Officers clocked in</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60">
+                        <TrendingUp className="h-3 w-3" /> +12.4%
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">vs last week</span>
+                    </div>
                   </div>
-                  <span className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                    <Users className="h-4.5 w-4.5 text-blue-600" />
+                  <span className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className={cn('group overflow-hidden relative border-l-4', openIncidents.length > 0 ? 'border-l-red-500' : 'border-l-emerald-500')}>
+            <Card className={cn('group overflow-hidden relative border-l-4 shadow-card dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5', openIncidents.length > 0 ? 'border-l-red-500' : 'border-l-emerald-500')}>
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Open Incidents</p>
-                    <p className={cn('text-3xl font-bold mt-1.5 tracking-tight', openIncidents.length > 0 ? 'text-red-600' : 'text-slate-900')}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Open Incidents</p>
+                    <p className={cn('text-3xl font-extrabold mt-1.5 tracking-tight', openIncidents.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100')}>
                       <AnimatedCounter value={openIncidents.length} />
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">{openIncidents.length > 0 ? 'Requires attention' : 'All clear'}</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className={cn('inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md border', openIncidents.length > 0 ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400')}>
+                        {openIncidents.length > 0 ? 'Action Needed' : 'All Clear'}
+                      </span>
+                    </div>
                   </div>
-                  <span className={cn('h-9 w-9 rounded-lg flex items-center justify-center shrink-0', openIncidents.length > 0 ? 'bg-red-50' : 'bg-emerald-50')}>
-                    <ShieldAlert className={cn('h-4.5 w-4.5', openIncidents.length > 0 ? 'text-red-600' : 'text-emerald-600')} />
+                  <span className={cn('h-10 w-10 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs', openIncidents.length > 0 ? 'bg-red-50 dark:bg-red-950/40 border-red-200/60 dark:border-red-800/60' : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-800/60')}>
+                    <ShieldAlert className={cn('h-5 w-5', openIncidents.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')} />
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-violet-500">
+            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-violet-500 shadow-card dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Weekly Hours</p>
-                    <p className="text-3xl font-bold mt-1.5 tracking-tight text-slate-900">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Weekly Hours</p>
+                    <p className="text-3xl font-extrabold mt-1.5 tracking-tight text-slate-900 dark:text-slate-100">
                       <AnimatedCounter value={weekHours} formatFn={fmtNum} />
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Billable time logged</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-1.5 py-0.5 rounded-md border border-violet-200/60 dark:border-violet-800/60">
+                        Billable
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">time logged</span>
+                    </div>
                   </div>
-                  <span className="h-9 w-9 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                    <Clock className="h-4.5 w-4.5 text-violet-600" />
+                  <span className="h-10 w-10 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200/60 dark:border-violet-800/60 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Clock className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-teal-500">
+            <Card hoverLift={true} className="group overflow-hidden relative border-l-4 border-l-teal-500 shadow-card dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Est. Revenue</p>
-                    <p className="text-3xl font-bold mt-1.5 tracking-tight text-slate-900">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Est. Revenue</p>
+                    <p className="text-3xl font-extrabold mt-1.5 tracking-tight text-slate-900 dark:text-slate-100">
                       <AnimatedCounter value={estRevenue} formatFn={fmt} />
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Current week projection</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-1.5 py-0.5 rounded-md border border-teal-200/60 dark:border-teal-800/60">
+                        Projected
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">this week</span>
+                    </div>
                   </div>
-                  <span className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
-                    <DollarSign className="h-4.5 w-4.5 text-teal-600" />
+                  <span className="h-10 w-10 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800/60 flex items-center justify-center shrink-0 shadow-2xs">
+                    <DollarSign className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                   </span>
                 </div>
               </CardContent>
@@ -524,7 +543,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
 
           {/* Charts row */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
-            <Card hoverLift={true} className="overflow-hidden relative group">
+            <Card hoverLift={true} className="overflow-hidden relative group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">7-Day Activity Trend</CardTitle>
               </CardHeader>
@@ -541,7 +560,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="overflow-hidden relative group">
+            <Card hoverLift={true} className="overflow-hidden relative group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">Workforce Status</CardTitle>
               </CardHeader>
@@ -612,7 +631,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="overflow-hidden relative group">
+            <Card className="overflow-hidden relative group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">Active Personnel</CardTitle>
               </CardHeader>
@@ -644,7 +663,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden relative group">
+            <Card className="overflow-hidden relative group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">Upcoming Shifts (Next 24h)</CardTitle>
               </CardHeader>
@@ -690,7 +709,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
       {activeTab === 'finance' && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card hoverLift={true} className="group overflow-hidden relative">
+            <Card hoverLift={true} className="group overflow-hidden relative dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-6 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -707,7 +726,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative">
+            <Card hoverLift={true} className="group overflow-hidden relative dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-6 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -724,7 +743,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative">
+            <Card hoverLift={true} className="group overflow-hidden relative dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-6 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -744,7 +763,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
             </Card>
           </div>
 
-          <Card className="overflow-hidden relative group">
+          <Card className="overflow-hidden relative group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">Daily Financial Performance</CardTitle>
             </CardHeader>
@@ -771,7 +790,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
       {activeTab === 'risk' && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className={cn('border-border/60 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group', openIncidents.length > 0 && 'border-red-200 dark:border-red-900/40')}>
+            <Card className={cn('border-border/60 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5', openIncidents.length > 0 && 'border-red-200 dark:border-red-900/40')}>
               <CardContent className="p-6 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -788,7 +807,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card hoverLift={true} className="group overflow-hidden relative">
+            <Card hoverLift={true} className="group overflow-hidden relative dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-6 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -805,7 +824,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group">
+            <Card className="border-border/60 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -824,7 +843,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-border/60 shadow-sm overflow-hidden flex flex-col">
+            <Card className="border-border/60 shadow-sm overflow-hidden flex flex-col dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">Recent Incident Log</CardTitle>
               </CardHeader>
@@ -860,7 +879,7 @@ export default function CommandCenterWorkspace({ onNavigate }: { onNavigate: (pa
               </CardContent>
             </Card>
 
-            <Card className="border-border/60">
+            <Card className="border-border/60 dark:bg-[#0a0f18]/60 dark:backdrop-blur-xl dark:border-white/5">
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/70">High Risk Locations</CardTitle>
               </CardHeader>

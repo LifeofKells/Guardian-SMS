@@ -47,6 +47,7 @@ import {
   Plus,
   RefreshCw,
   Shuffle,
+  Search,
   Sparkles,
   Trash2,
   UserCheck,
@@ -86,9 +87,9 @@ const dateKey = (date: Date) => {
 const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const statusTone = (shift: EnrichedShift) => {
-  if (shift.status === 'completed') return 'border-emerald-500/40 bg-emerald-500/10';
-  if (!shift.officer_id) return 'border-amber-500/40 bg-amber-500/10';
-  return 'border-blue-500/40 bg-blue-500/10';
+  if (shift.status === 'completed') return 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+  if (!shift.officer_id) return 'border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 dark:text-amber-400';
+  return 'border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 dark:text-blue-400';
 };
 
 export default function Schedule() {
@@ -564,72 +565,77 @@ export default function Schedule() {
   }
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-      <Card className="border-border/70 bg-gradient-to-r from-background to-muted/20">
-        <CardContent className="p-4 lg:p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Shift Studio</h1>
-              <p className="text-xs text-muted-foreground mt-1">A redesigned scheduling workspace optimized for dispatch speed and staffing clarity.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['schedule'] })}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
-              {canEdit && <Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4 mr-1" /> New Shift Plan</Button>}
-            </div>
+    <div className="h-[calc(100vh-100px)] flex flex-col gap-6">
+      
+      {/* ── Architectural Header ── */}
+      <div className="flex flex-col gap-5 shrink-0">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Shift Studio</h1>
+            <p className="text-sm text-muted-foreground mt-1">High-density scheduling and resource dispatch.</p>
           </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatMini title="Open" value={stats.open} tone="amber" />
-            <StatMini title="Assigned" value={stats.assigned} tone="blue" />
-            <StatMini title="Completed" value={stats.completed} tone="emerald" />
-            <StatMini title="Conflict Flags" value={stats.conflicts} tone="rose" />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-9 px-4 border-border/60 bg-transparent hover:bg-muted/20" onClick={() => queryClient.invalidateQueries({ queryKey: ['schedule'] })}><RefreshCw className="h-4 w-4 mr-2" /> Sync</Button>
+            {canEdit && <Button size="sm" className="h-9 px-4 shadow-sm" onClick={() => setIsCreateOpen(true)}><Plus className="h-4 w-4 mr-2" /> New Shift Plan</Button>}
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr_0.9fr_0.8fr_auto] gap-2">
-            <Input placeholder="Search site, client, officer" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatMini title="Open Shifts" value={stats.open} tone="amber" />
+          <StatMini title="Assigned" value={stats.assigned} tone="blue" />
+          <StatMini title="Completed" value={stats.completed} tone="emerald" />
+          <StatMini title="Conflict Flags" value={stats.conflicts} tone="rose" />
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr] flex-1 gap-3 min-w-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-[0.6rem] h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search location, client, or officer..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 bg-card/40 border-border/50 text-sm shadow-none focus-visible:ring-1" />
+            </div>
+            <select className="h-9 rounded-md border border-border/50 bg-card/40 px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none custom-select-arrow" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
               <option value="all">All Sites</option>
               {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
             </select>
-            <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={officerFilter} onChange={(e) => setOfficerFilter(e.target.value)}>
+            <select className="h-9 rounded-md border border-border/50 bg-card/40 px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none custom-select-arrow" value={officerFilter} onChange={(e) => setOfficerFilter(e.target.value)}>
               <option value="all">All Officers</option>
               {officers.filter((officer) => officer.employment_status === 'active').map((officer) => <option key={officer.id} value={officer.id}>{officer.full_name}</option>)}
             </select>
-            <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+            <select className="h-9 rounded-md border border-border/50 bg-card/40 px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none custom-select-arrow" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
               <option value="all">All Status</option>
               <option value="open">Open</option>
               <option value="assigned">Assigned</option>
               <option value="completed">Completed</option>
             </select>
-            <Button variant="outline" onClick={resetFilters}>Reset</Button>
           </div>
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground h-9 px-3">Reset</Button>
+        </div>
 
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setWeekAnchor(addDays(weekAnchor, -7))}><ChevronLeft className="h-4 w-4" /></Button>
-              <div className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold min-w-[220px] text-center">
-                {weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {addDays(weekStart, 6).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-              </div>
-              <Button variant="outline" size="icon" onClick={() => setWeekAnchor(addDays(weekAnchor, 7))}><ChevronRight className="h-4 w-4" /></Button>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-4 border-t border-border/40">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" className="h-8 w-8 border-border/50" onClick={() => setWeekAnchor(addDays(weekAnchor, -7))}><ChevronLeft className="h-4 w-4" /></Button>
+            <div className="rounded-md border border-border/50 px-3 py-1 bg-card/30 text-sm font-semibold min-w-[200px] text-center shadow-sm">
+              {weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <span className="text-muted-foreground mx-1">-</span> {addDays(weekStart, 6).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
-            <div className="flex items-center gap-2">
-              {canEdit && (
-                <Button variant={selectionMode ? 'secondary' : 'outline'} size="sm" onClick={() => { setSelectionMode((prev) => !prev); setSelectedIds([]); }}>
-                  <Layers className="h-4 w-4 mr-1" /> {selectionMode ? 'Exit Bulk' : 'Bulk Select'}
-                </Button>
-              )}
-              <Tabs defaultValue={view} value={view} onValueChange={(value) => setView(value as View)}>
-                <TabsList>
-                  <TabsTrigger value="studio"><Sparkles className="h-3.5 w-3.5 mr-1" /> Studio</TabsTrigger>
-                  <TabsTrigger value="timeline"><CalendarDays className="h-3.5 w-3.5 mr-1" /> Timeline</TabsTrigger>
-                  <TabsTrigger value="calendar"><Calendar className="h-3.5 w-3.5 mr-1" /> Calendar</TabsTrigger>
-                  <TabsTrigger value="agenda"><List className="h-3.5 w-3.5 mr-1" /> Agenda</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+            <Button variant="outline" size="icon" className="h-8 w-8 border-border/50" onClick={() => setWeekAnchor(addDays(weekAnchor, 7))}><ChevronRight className="h-4 w-4" /></Button>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <Button variant={selectionMode ? 'secondary' : 'outline'} size="sm" className={cn("h-8 px-3 transition-colors", selectionMode ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/30" : "border-border/50")} onClick={() => { setSelectionMode((prev) => !prev); setSelectedIds([]); }}>
+                <Layers className="h-3.5 w-3.5 mr-1.5" /> {selectionMode ? 'Exit Bulk' : 'Bulk Select'}
+              </Button>
+            )}
+            <Tabs defaultValue={view} value={view} onValueChange={(value) => setView(value as View)}>
+              <TabsList className="h-8 p-0.5 bg-muted/40 border border-border/50">
+                <TabsTrigger value="studio" className="text-xs py-1 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm"><Sparkles className="h-3.5 w-3.5 mr-1" /> Studio</TabsTrigger>
+                <TabsTrigger value="timeline" className="text-xs py-1 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm"><CalendarDays className="h-3.5 w-3.5 mr-1" /> Timeline</TabsTrigger>
+                <TabsTrigger value="calendar" className="text-xs py-1 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm"><Calendar className="h-3.5 w-3.5 mr-1" /> Calendar</TabsTrigger>
+                <TabsTrigger value="agenda" className="text-xs py-1 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm"><List className="h-3.5 w-3.5 mr-1" /> Agenda</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+      </div>
 
       {selectionMode && selectedIds.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
@@ -1457,11 +1463,12 @@ function buildCreateRows(form: {
 }
 
 function StatMini({ title, value, tone }: { title: string; value: number; tone: 'amber' | 'blue' | 'emerald' | 'rose' }) {
-  const color = tone === 'amber' ? 'text-amber-600' : tone === 'blue' ? 'text-blue-600' : tone === 'emerald' ? 'text-emerald-600' : 'text-rose-600';
+  const color = tone === 'amber' ? 'text-amber-500' : tone === 'blue' ? 'text-blue-400' : tone === 'emerald' ? 'text-emerald-500' : 'text-rose-500';
+  const borderTone = tone === 'amber' ? 'border-l-amber-500/50' : tone === 'blue' ? 'border-l-blue-400/50' : tone === 'emerald' ? 'border-l-emerald-500/50' : 'border-l-rose-500/50';
   return (
-    <div className="rounded-lg border border-border bg-background/80 p-3">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{title}</p>
-      <p className={cn('text-xl font-bold mt-1', color)}>{value}</p>
+    <div className={cn("p-4 rounded-xl border border-border/40 bg-card/40 backdrop-blur-md shadow-sm border-l-4", borderTone)}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+      <p className={cn('text-3xl font-bold mt-1 tracking-tight', color)}>{value}</p>
     </div>
   );
 }

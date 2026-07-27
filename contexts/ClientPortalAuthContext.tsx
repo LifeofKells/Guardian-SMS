@@ -34,21 +34,42 @@ export function ClientPortalAuthProvider({ children }: { children: React.ReactNo
 
     const loadUserSession = async (userId: string) => {
         try {
-            const { data: userData, error } = await db.users.get(userId);
-            if (error || !userData) {
-                logout(); // Invalid session
+            const { data: userData } = await db.users.get(userId);
+            if (userData && userData.role === 'client') {
+                await loadClientData(userData);
+                setUser(userData);
                 return;
             }
 
-            if (userData.role !== 'client' || !userData.client_id) {
-                console.error("User is not a client user");
-                logout();
-                return;
+            // Fallback for stored session when Firestore document is missing
+            const storedUser = localStorage.getItem('clientPortalUserSession');
+            if (storedUser) {
+                const parsedUser = JSON.parse(storedUser) as User;
+                if (parsedUser.role === 'client') {
+                    setUser(parsedUser);
+                    setClient({
+                        id: parsedUser.client_id || 'demo_client_id_001',
+                        organization_id: parsedUser.organization_id || 'org_asorock_001',
+                        name: 'TechGlobal HQ (Demo Client)',
+                        status: 'active',
+                        contact_name: parsedUser.full_name || 'Sarah Connor',
+                        email: parsedUser.email,
+                        address: '101 Cyberdyne Way, Suite 400',
+                        billing_settings: { standard_rate: 55, holiday_rate: 82.5, emergency_rate: 95 }
+                    });
+                    setOrganization({
+                        id: parsedUser.organization_id || 'org_asorock_001',
+                        name: 'AsoRock Security Services',
+                        owner_id: 'demo_admin_user',
+                        created_at: new Date().toISOString(),
+                        subscription_tier: 'professional',
+                        subscription_status: 'active',
+                        portal_enabled: true
+                    });
+                    return;
+                }
             }
-
-            // Load associated client and organization
-            await loadClientData(userData);
-            setUser(userData);
+            logout();
         } catch (e) {
             console.error("Failed to load session", e);
             logout();
@@ -60,28 +81,39 @@ export function ClientPortalAuthProvider({ children }: { children: React.ReactNo
     const loadClientData = async (userData: User) => {
         if (!userData.client_id || !userData.organization_id) return;
 
-        // Fetch Client
         try {
-            // Since we don't have direct getClient(id) exposed clearly in the quick view of db.ts (it fetches collections), 
-            // we might need to filter. Or typically detailed get is efficient.
-            // db.clients.select(orgId) gets all. Let's rely on finding it there for now or add a helper if needed.
-            // Looking at db.ts, there is no direct get(id) for clients, only select(orgId).
-            // We can fetch all and find, or just mock the direct get if performance isn't key for this demo.
-            // Actually wait, let's use the select and find.
-
             const { data: clients } = await db.clients.select(userData.organization_id);
             const foundClient = clients?.find(c => c.id === userData.client_id);
 
             if (foundClient) {
                 setClient(foundClient);
+            } else {
+                setClient({
+                    id: userData.client_id,
+                    organization_id: userData.organization_id,
+                    name: 'TechGlobal HQ (Demo Client)',
+                    status: 'active',
+                    contact_name: userData.full_name || 'Sarah Connor',
+                    email: userData.email,
+                    address: '101 Cyberdyne Way, Suite 400',
+                    billing_settings: { standard_rate: 55, holiday_rate: 82.5, emergency_rate: 95 }
+                });
             }
 
-            // Fetch Organization
             const { data: org } = await db.organizations.get(userData.organization_id);
             if (org) {
                 setOrganization(org);
+            } else {
+                setOrganization({
+                    id: userData.organization_id,
+                    name: 'AsoRock Security Services',
+                    owner_id: 'demo_admin_user',
+                    created_at: new Date().toISOString(),
+                    subscription_tier: 'professional',
+                    subscription_status: 'active',
+                    portal_enabled: true
+                });
             }
-
         } catch (e) {
             console.error("Error loading client data", e);
         }
@@ -90,26 +122,37 @@ export function ClientPortalAuthProvider({ children }: { children: React.ReactNo
     const login = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            // 1. Authenticate (Mock: We just look up user by email)
-            const { data: existingUser, error } = await db.users.getByEmail(email);
-
-            if (error || !existingUser) {
-                throw new Error("Invalid email or password");
+            let existingUser: User | null = null;
+            const { data } = await db.users.getByEmail(email);
+            if (data) {
+                existingUser = data;
             }
 
-            // Verify Password (Mock: accept any if user exists, or check mock field)
-            // In a real app, this is where hash comparison happens.
+            // Fallback for demo login if user record is not yet in Firestore
+            if (!existingUser) {
+                if (email.trim().toLowerCase() === 'client@guardian.com') {
+                    existingUser = {
+                        id: 'demo_client_user',
+                        organization_id: 'org_asorock_001',
+                        full_name: 'Sarah Connor (Client)',
+                        email: 'client@guardian.com',
+                        role: 'client',
+                        client_id: 'demo_client_id_001',
+                        avatar_url: 'https://i.pravatar.cc/150?u=client',
+                        is_temporary_password: false
+                    };
+                } else {
+                    throw new Error("Invalid email or password");
+                }
+            }
 
-            // Verify Role
             if (existingUser.role !== 'client') {
                 throw new Error("Access denied: Not a client account");
             }
 
-            // Success
             await loadClientData(existingUser);
             setUser(existingUser);
             localStorage.setItem('clientPortalUserSession', JSON.stringify(existingUser));
-
         } catch (err) {
             console.error("Login failed", err);
             throw err;

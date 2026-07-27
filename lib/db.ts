@@ -707,6 +707,14 @@ export const db = {
                 return { error: e };
             }
         },
+        delete: async (id: string) => {
+            try {
+                await deleteDoc(doc(firestore, 'message_channels', id));
+                return { error: null };
+            } catch (e: any) {
+                return { error: e };
+            }
+        },
         subscribe: (orgId: string, callback: (data: MessageChannel[]) => void) => {
             try {
                 const q = query(collection(firestore, 'message_channels'), where('organization_id', '==', orgId));
