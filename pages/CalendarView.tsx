@@ -31,13 +31,16 @@ import {
     Sparkles,
     BarChart3,
     TrendingUp,
-    Users,
+    LayoutGrid,
+    Columns,
 } from 'lucide-react';
 
 interface EnrichedShift extends Shift {
     site?: Site & { client?: Client };
     officer?: Officer | null;
 }
+
+type ViewMode = 'month' | 'week';
 
 const dateKey = (date: Date) => {
     const y = date.getFullYear();
@@ -53,39 +56,61 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// ── Status helpers ──
 function statusColor(isOpen: boolean, isDone: boolean) {
-    if (isDone) return { bg: 'bg-emerald-500', light: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800/50', text: 'text-emerald-700 dark:text-emerald-300', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' };
-    if (isOpen) return { bg: 'bg-amber-500', light: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800/50', text: 'text-amber-700 dark:text-amber-300', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' };
-    return { bg: 'bg-blue-500', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800/50', text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' };
+    if (isDone) return { bg: 'bg-emerald-500', light: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800/50', text: 'text-emerald-700 dark:text-emerald-300', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', dot: 'bg-emerald-500', stripe: 'border-l-emerald-500' };
+    if (isOpen) return { bg: 'bg-amber-500', light: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800/50', text: 'text-amber-700 dark:text-amber-300', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', dot: 'bg-amber-500', stripe: 'border-l-amber-500' };
+    return { bg: 'bg-blue-500', light: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800/50', text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', dot: 'bg-blue-500', stripe: 'border-l-blue-500' };
 }
 
-// ── Tiny shift chip rendered inside a day cell ──
+// Shift chip for month grid cells
 function ShiftChip({ shift }: { shift: EnrichedShift }) {
     const isOpen = !shift.officer_id;
     const isDone = shift.status === 'completed';
     const col = statusColor(isOpen, isDone);
+    const startHour = new Date(shift.start_time).toLocaleTimeString([], { hour: 'numeric', hour12: true });
     return (
-        <div className={cn(
-            'w-full truncate rounded-lg px-1.5 py-[3px] text-[10px] font-semibold leading-tight flex items-center gap-1 transition-all',
-            col.badge
-        )}>
-            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', col.bg)} />
+        <div
+            className={cn(
+                'w-full truncate rounded-md px-1.5 py-[3px] text-[10px] font-semibold leading-tight flex items-center gap-1 transition-all cursor-pointer hover:opacity-80 border-l-2',
+                col.badge, col.stripe
+            )}
+        >
             <span className="truncate">{shift.site?.name || 'Shift'}</span>
+            <span className="ml-auto shrink-0 opacity-60">{startHour}</span>
         </div>
     );
 }
 
-// ── Mini month for the sidebar ──
-function MiniMonth({
-    anchor,
-    selectedDate,
-    onSelectDate,
-    onChangeMonth,
-    shiftCountByDay,
-}: {
-    anchor: Date;
-    selectedDate: Date | null;
+// Richer shift chip for week column view
+function WeekShiftChip({ shift, onClick }: { shift: EnrichedShift; onClick?: (e?: React.MouseEvent) => void }) {
+    const isOpen = !shift.officer_id;
+    const isDone = shift.status === 'completed';
+    const col = statusColor(isOpen, isDone);
+    return (
+        <div
+            onClick={onClick}
+            className={cn(
+                'w-full rounded-lg px-2 py-1.5 text-[10px] font-medium flex flex-col gap-0.5 transition-all cursor-pointer hover:opacity-80 border-l-2 border border-transparent',
+                col.light, col.stripe, col.border
+            )}
+        >
+            <span className="font-semibold truncate text-[11px]">{shift.site?.name || 'Shift'}</span>
+            <span className="opacity-70">{timeLabel(shift.start_time)} – {timeLabel(shift.end_time)}</span>
+            {shift.officer && (
+                <span className="opacity-80 truncate">{shift.officer.full_name}</span>
+            )}
+            {isOpen && (
+                <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                    <AlertTriangle className="h-2.5 w-2.5" /> Unassigned
+                </span>
+            )}
+        </div>
+    );
+}
+
+// Mini month for sidebar
+function MiniMonth({ anchor, selectedDate, onSelectDate, onChangeMonth, shiftCountByDay }: {
+    anchor: Date; selectedDate: Date | null;
     onSelectDate: (d: Date) => void;
     onChangeMonth: (dir: 1 | -1) => void;
     shiftCountByDay: Record<string, number>;
@@ -102,16 +127,13 @@ function MiniMonth({
     }, [anchor]);
 
     const today = dateKey(new Date());
-
     return (
         <div className="select-none">
             <div className="flex items-center justify-between mb-3 px-0.5">
                 <button onClick={() => onChangeMonth(-1)} className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
                     <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
-                <span className="text-xs font-bold text-foreground">
-                    {SHORT_MONTHS[anchor.getMonth()]} {anchor.getFullYear()}
-                </span>
+                <span className="text-xs font-bold text-foreground">{SHORT_MONTHS[anchor.getMonth()]} {anchor.getFullYear()}</span>
                 <button onClick={() => onChangeMonth(1)} className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
                     <ChevronRight className="h-3.5 w-3.5" />
                 </button>
@@ -141,10 +163,7 @@ function MiniMonth({
                         >
                             <span>{date.getDate()}</span>
                             {count > 0 && !isSelected && (
-                                <span className={cn(
-                                    'absolute bottom-1 h-0.5 w-3 rounded-full',
-                                    isToday ? 'bg-primary/60' : 'bg-muted-foreground/25'
-                                )} />
+                                <span className={cn('absolute bottom-1 h-0.5 w-3 rounded-full', isToday ? 'bg-primary/60' : 'bg-muted-foreground/25')} />
                             )}
                         </button>
                     );
@@ -154,7 +173,6 @@ function MiniMonth({
     );
 }
 
-// ── Stat pill for the sidebar ──
 function SidebarStat({ label, value, color }: { label: string; value: number; color: string }) {
     return (
         <div className="flex items-center justify-between py-1">
@@ -167,30 +185,101 @@ function SidebarStat({ label, value, color }: { label: string; value: number; co
     );
 }
 
+// Week view — 7 column layout
+function WeekGrid({ weekDates, shifts, today, selectedDate, onSelectDate, canEdit, onAddShift, monthShifts, statusFilter }: {
+    weekDates: Date[];
+    shifts: EnrichedShift[];
+    today: string;
+    selectedDate: Date | null;
+    onSelectDate: (d: Date) => void;
+    canEdit: boolean;
+    onAddShift: (dateStr: string) => void;
+    monthShifts: EnrichedShift[];
+    statusFilter: string;
+}) {
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-border/40 bg-muted/20 shrink-0">
+                {weekDates.map((date, i) => {
+                    const key = dateKey(date);
+                    const isToday = key === today;
+                    const isSelected = selectedDate ? dateKey(selectedDate) === key : false;
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    return (
+                        <div key={key} className={cn(
+                            'flex flex-col items-center py-2.5 cursor-pointer transition-all',
+                            isSelected && 'bg-primary/10',
+                            isWeekend && 'text-muted-foreground/50'
+                        )} onClick={() => onSelectDate(date)}>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{DAYS[date.getDay()]}</span>
+                            <span className={cn(
+                                'mt-1 h-7 w-7 flex items-center justify-center rounded-full text-sm font-bold transition-all',
+                                isToday ? 'bg-primary text-primary-foreground' :
+                                    isSelected ? 'bg-primary/15 text-primary' :
+                                        'text-foreground/80 hover:bg-muted'
+                            )}>{date.getDate()}</span>
+                        </div>
+                    );
+                })}
+            </div>
+            {/* Columns */}
+            <div className="grid grid-cols-7 flex-1 overflow-y-auto divide-x divide-border/25">
+                {weekDates.map(date => {
+                    const key = dateKey(date);
+                    const dayShifts = monthShifts
+                        .filter(s => dateKey(new Date(s.start_time)) === key)
+                        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                    const isToday = key === today;
+                    const isSelected = selectedDate ? dateKey(selectedDate) === key : false;
+                    return (
+                        <div key={key} className={cn(
+                            'flex flex-col gap-1 p-1.5 min-h-0 relative group',
+                            isSelected && 'bg-primary/[0.04]',
+                            isToday && !isSelected && 'bg-primary/[0.03]',
+                        )} onClick={() => onSelectDate(date)}>
+                            {dayShifts.map(shift => (
+                                <WeekShiftChip key={shift.id} shift={shift} onClick={() => onSelectDate(date)} />
+                            ))}
+                            {dayShifts.length === 0 && (
+                                <div className="flex-1 flex items-center justify-center">
+                                    <span className="text-[10px] text-muted-foreground/25 font-medium">—</span>
+                                </div>
+                            )}
+                            {canEdit && (
+                                <button
+                                    onClick={e => { e.stopPropagation(); onAddShift(key); }}
+                                    className="absolute top-1 right-1 h-5 w-5 rounded-full items-center justify-center bg-primary text-primary-foreground shadow-sm opacity-0 group-hover:opacity-100 transition-all hidden group-hover:flex z-10"
+                                    title="New shift"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function CalendarView() {
     const { profile, organization } = useAuth();
     const { addToast } = useToast();
     const queryClient = useQueryClient();
     const canEdit = profile?.role === 'admin' || profile?.role === 'ops_manager' || profile?.role === 'owner';
 
-    // Main calendar state
     const [anchor, setAnchor] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
+    const [viewMode, setViewMode] = useState<ViewMode>('month');
     const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'assigned' | 'completed'>('all');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [createData, setCreateData] = useState({
-        site_id: '',
-        officer_id: '',
-        date: dateKey(new Date()),
-        start_time: '08:00',
-        end_time: '16:00',
-        break_duration: 30,
-        pay_rate: '',
-        bill_rate: '',
-        status: 'published' as Shift['status'],
+        site_id: '', officer_id: '', date: dateKey(new Date()),
+        start_time: '08:00', end_time: '16:00', break_duration: 30,
+        pay_rate: '', bill_rate: '', status: 'published' as Shift['status'],
     });
 
-    // ── Queries ──
     const { data: shifts = [], isLoading } = useQuery({
         queryKey: ['schedule', organization?.id],
         enabled: !!organization,
@@ -222,7 +311,6 @@ export default function CalendarView() {
         },
     });
 
-    // ── Mutations ──
     const createMutation = useMutation({
         mutationFn: async (row: Partial<Shift>) => { await db.shifts.create(row as any); },
         onSuccess: () => {
@@ -244,7 +332,6 @@ export default function CalendarView() {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
     });
 
-    // ── Derived data ──
     const today = dateKey(new Date());
     const monthKey = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, '0')}`;
 
@@ -279,6 +366,33 @@ export default function CalendarView() {
         return cells;
     }, [anchor]);
 
+    // Week view: compute the 7 days of the week containing selectedDate (or anchor)
+    const weekDates = useMemo(() => {
+        const base = selectedDate || anchor;
+        const dow = base.getDay();
+        const sunday = new Date(base);
+        sunday.setDate(base.getDate() - dow);
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(sunday);
+            d.setDate(sunday.getDate() + i);
+            return d;
+        });
+    }, [selectedDate, anchor]);
+
+    // All shifts for the visible week (for week view filter)
+    const weekShifts = useMemo(() => {
+        const startKey = dateKey(weekDates[0]);
+        const endKey = dateKey(weekDates[6]);
+        return shifts.filter(s => {
+            const k = dateKey(new Date(s.start_time));
+            if (k < startKey || k > endKey) return false;
+            if (statusFilter === 'open') return !s.officer_id;
+            if (statusFilter === 'assigned') return !!s.officer_id && s.status !== 'completed';
+            if (statusFilter === 'completed') return s.status === 'completed';
+            return true;
+        });
+    }, [shifts, weekDates, statusFilter]);
+
     const dayShifts = useMemo(() => {
         if (!selectedDate) return [];
         const key = dateKey(selectedDate);
@@ -300,8 +414,7 @@ export default function CalendarView() {
         assigned: monthShifts.filter(s => !!s.officer_id && s.status !== 'completed').length,
         completed: monthShifts.filter(s => s.status === 'completed').length,
         coverage: monthShifts.length > 0
-            ? Math.round((monthShifts.filter(s => !!s.officer_id).length / monthShifts.length) * 100)
-            : 0,
+            ? Math.round((monthShifts.filter(s => !!s.officer_id).length / monthShifts.length) * 100) : 0,
     }), [monthShifts]);
 
     const handleCreate = () => {
@@ -331,7 +444,20 @@ export default function CalendarView() {
     const changeMonth = (dir: 1 | -1) =>
         setAnchor(a => new Date(a.getFullYear(), a.getMonth() + dir, 1));
 
-    // ────────────────────────────────────────────────
+    const changeWeek = (dir: 1 | -1) => {
+        const base = selectedDate || anchor;
+        const next = new Date(base);
+        next.setDate(base.getDate() + dir * 7);
+        setSelectedDate(next);
+        setAnchor(new Date(next.getFullYear(), next.getMonth(), 1));
+    };
+
+    const openAddShift = (dateStr?: string) => {
+        setCreateData(p => ({ ...p, date: dateStr || (selectedDate ? dateKey(selectedDate) : today) }));
+        setIsCreateOpen(true);
+    };
+
+    // ─────────────────────────────────────
     return (
         <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 110px)' }}>
             <div className="flex h-full">
@@ -339,8 +465,6 @@ export default function CalendarView() {
                 {/* ── LEFT SIDEBAR ── */}
                 <aside className="hidden xl:flex flex-col w-[220px] shrink-0 border-r border-border/40 bg-muted/10 overflow-y-auto scrollbar-hide">
                     <div className="p-4 space-y-5">
-
-                        {/* Mini-month navigator */}
                         <div className="rounded-xl border border-border/40 bg-card p-3">
                             <MiniMonth
                                 anchor={anchor}
@@ -354,7 +478,6 @@ export default function CalendarView() {
                             />
                         </div>
 
-                        {/* Month stats */}
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2 flex items-center gap-1.5">
                                 <BarChart3 className="h-3 w-3" /> This Month
@@ -364,8 +487,6 @@ export default function CalendarView() {
                                 <SidebarStat label="Open" value={monthStats.open} color="bg-amber-500" />
                                 <SidebarStat label="Assigned" value={monthStats.assigned} color="bg-blue-500" />
                                 <SidebarStat label="Completed" value={monthStats.completed} color="bg-emerald-500" />
-
-                                {/* Coverage */}
                                 <div className="pt-2">
                                     <div className="flex items-center justify-between mb-1.5">
                                         <span className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wide flex items-center gap-1">
@@ -386,7 +507,6 @@ export default function CalendarView() {
                             </div>
                         </div>
 
-                        {/* Status filter */}
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Filter</p>
                             <div className="rounded-xl border border-border/40 bg-card p-1.5 space-y-0.5">
@@ -413,19 +533,11 @@ export default function CalendarView() {
                             </div>
                         </div>
 
-                        {/* Quick actions */}
                         {canEdit && (
                             <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-2">Actions</p>
                                 <div className="space-y-1.5">
-                                    <Button
-                                        size="sm"
-                                        className="w-full justify-start gap-2 h-8 text-xs"
-                                        onClick={() => {
-                                            setCreateData(p => ({ ...p, date: selectedDate ? dateKey(selectedDate) : today }));
-                                            setIsCreateOpen(true);
-                                        }}
-                                    >
+                                    <Button size="sm" className="w-full justify-start gap-2 h-8 text-xs" onClick={() => openAddShift()}>
                                         <Plus className="h-3.5 w-3.5" /> New Shift
                                     </Button>
                                     <Button size="sm" variant="outline" className="w-full justify-start gap-2 h-8 text-xs" onClick={goToToday}>
@@ -434,43 +546,78 @@ export default function CalendarView() {
                                 </div>
                             </div>
                         )}
-
                     </div>
                 </aside>
 
-                {/* ── MAIN CALENDAR AREA ── */}
+                {/* ── MAIN AREA ── */}
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-                    {/* ── Toolbar / Header ── */}
+                    {/* ── Toolbar ── */}
                     <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border/40 bg-card shrink-0">
                         <div className="flex items-center gap-3">
-                            {/* Month nav */}
+                            {/* Nav buttons */}
                             <div className="flex items-center gap-1">
                                 <button
-                                    onClick={() => changeMonth(-1)}
+                                    onClick={() => viewMode === 'month' ? changeMonth(-1) : changeWeek(-1)}
                                     className="h-8 w-8 flex items-center justify-center rounded-xl border border-border/40 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </button>
                                 <button
-                                    onClick={() => changeMonth(1)}
+                                    onClick={() => viewMode === 'month' ? changeMonth(1) : changeWeek(1)}
                                     className="h-8 w-8 flex items-center justify-center rounded-xl border border-border/40 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                                 >
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
                             </div>
+
+                            {/* Title */}
                             <div>
-                                <h2 className="text-base font-bold text-foreground leading-none">
-                                    {MONTHS[anchor.getMonth()]}
-                                </h2>
-                                <p className="text-xs text-muted-foreground mt-0.5">{anchor.getFullYear()}</p>
+                                {viewMode === 'month' ? (
+                                    <>
+                                        <h2 className="text-base font-bold text-foreground leading-none">
+                                            {MONTHS[anchor.getMonth()]}
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground mt-0.5">{anchor.getFullYear()}</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h2 className="text-base font-bold text-foreground leading-none">
+                                            {weekDates[0].getDate()} {SHORT_MONTHS[weekDates[0].getMonth()]} – {weekDates[6].getDate()} {SHORT_MONTHS[weekDates[6].getMonth()]}
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground mt-0.5">{weekDates[0].getFullYear()}</p>
+                                    </>
+                                )}
                             </div>
+
                             <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-semibold ml-1" onClick={goToToday}>
                                 Today
                             </Button>
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {/* View mode toggle */}
+                            <div className="flex items-center bg-muted/50 rounded-xl p-0.5 border border-border/30">
+                                <button
+                                    onClick={() => setViewMode('month')}
+                                    className={cn(
+                                        'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all',
+                                        viewMode === 'month' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                >
+                                    <LayoutGrid className="h-3 w-3" /> Month
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('week')}
+                                    className={cn(
+                                        'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all',
+                                        viewMode === 'week' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                >
+                                    <Columns className="h-3 w-3" /> Week
+                                </button>
+                            </div>
+
                             {/* Mobile filter pills */}
                             <div className="flex xl:hidden items-center bg-muted/50 rounded-xl p-0.5 gap-0.5 border border-border/30">
                                 {(['all', 'open', 'assigned', 'completed'] as const).map(s => (
@@ -486,144 +633,131 @@ export default function CalendarView() {
                                     </button>
                                 ))}
                             </div>
+
                             {canEdit && (
-                                <Button
-                                    size="sm"
-                                    className="h-8 gap-1.5 px-3 text-xs"
-                                    onClick={() => {
-                                        setCreateData(p => ({ ...p, date: selectedDate ? dateKey(selectedDate) : today }));
-                                        setIsCreateOpen(true);
-                                    }}
-                                >
+                                <Button size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => openAddShift()}>
                                     <Plus className="h-3.5 w-3.5" /> New Shift
                                 </Button>
                             )}
                         </div>
                     </div>
 
-                    {/* ── Calendar + Day Lens split ── */}
-                    <div className={cn('flex flex-1 min-h-0 overflow-hidden')}>
+                    {/* ── Calendar / Day Lens ── */}
+                    <div className="flex flex-1 min-h-0 overflow-hidden">
 
-                        {/* Calendar grid */}
+                        {/* Grid area */}
                         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                            {/* Day-of-week headers */}
-                            <div className="grid grid-cols-7 border-b border-border/40 bg-muted/20 shrink-0">
-                                {DAYS.map((d, i) => (
-                                    <div key={d} className={cn(
-                                        'py-2.5 text-center text-[10px] font-bold uppercase tracking-widest',
-                                        i === 0 || i === 6 ? 'text-muted-foreground/40' : 'text-muted-foreground/70'
-                                    )}>
-                                        {d}
-                                    </div>
-                                ))}
-                            </div>
 
                             {isLoading ? (
                                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
                                     <RefreshCw className="h-6 w-6 animate-spin opacity-20" />
                                     <span className="text-sm font-medium opacity-50">Loading shifts…</span>
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-7 grid-rows-6 flex-1 divide-y divide-border/30 overflow-hidden">
-                                    {calendarMatrix.map((date, idx) => {
-                                        if (!date) {
-                                            return <div key={`empty-${idx}`} className="bg-muted/[0.07] border-r border-border/25 last:border-r-0" />;
-                                        }
-
-                                        const key = dateKey(date);
-                                        const dayRows: EnrichedShift[] = monthShifts.filter(s => dateKey(new Date(s.start_time)) === key);
-                                        const allDayRows: EnrichedShift[] = shifts.filter(s => dateKey(new Date(s.start_time)) === key);
-                                        const openCount = allDayRows.filter(s => !s.officer_id).length;
-                                        const isToday = key === today;
-                                        const isSelected = selectedDate ? dateKey(selectedDate) === key : false;
-                                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                                        const isOtherMonth = date.getMonth() !== anchor.getMonth();
-
-                                        return (
-                                            <div
-                                                key={key}
-                                                onClick={() => setSelectedDate(isSelected ? null : date)}
-                                                className={cn(
-                                                    'relative flex flex-col min-h-0 border-r border-border/25 last:border-r-0 cursor-pointer transition-all duration-200 group overflow-hidden',
-                                                    isSelected ? 'bg-primary/[0.07] ring-inset ring-1 ring-primary/40' :
-                                                        isToday ? 'bg-primary/[0.04]' :
-                                                            isWeekend ? 'bg-muted/[0.12]' :
-                                                                'bg-background hover:bg-muted/30',
-                                                    isOtherMonth && 'opacity-35'
-                                                )}
-                                            >
-                                                {/* Today accent bar */}
-                                                {isToday && !isSelected && (
-                                                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary rounded-none" />
-                                                )}
-
-                                                {/* Day header */}
-                                                <div className="flex items-center justify-between px-2 pt-2 pb-1 shrink-0">
-                                                    <span className={cn(
-                                                        'inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
-                                                        isToday
-                                                            ? 'bg-primary text-primary-foreground shadow-sm'
-                                                            : isSelected
-                                                                ? 'text-primary font-bold'
-                                                                : isWeekend
-                                                                    ? 'text-muted-foreground/50'
-                                                                    : 'text-foreground/80 group-hover:text-foreground'
-                                                    )}>
-                                                        {date.getDate()}
-                                                    </span>
-
-                                                    {allDayRows.length > 0 && (
-                                                        <span className={cn(
-                                                            'text-[9px] font-bold px-1.5 py-0.5 rounded-md tabular-nums',
-                                                            openCount > 0
-                                                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
-                                                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
-                                                        )}>
-                                                            {allDayRows.length}
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                {/* Shift chips */}
-                                                <div className="px-1.5 pb-1.5 space-y-0.5 flex-1 overflow-hidden">
-                                                    {dayRows.slice(0, 3).map(shift => (
-                                                        <React.Fragment key={shift.id}>
-                                                            <ShiftChip shift={shift} />
-                                                        </React.Fragment>
-                                                    ))}
-                                                    {dayRows.length > 3 && (
-                                                        <div className="text-[9px] text-muted-foreground/50 pl-1.5 font-semibold">
-                                                            +{dayRows.length - 3} more
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Hover add button */}
-                                                {canEdit && (
-                                                    <button
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            setCreateData(p => ({ ...p, date: key }));
-                                                            setIsCreateOpen(true);
-                                                        }}
-                                                        className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full items-center justify-center bg-primary text-primary-foreground shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200 hidden group-hover:flex"
-                                                        title="New shift"
-                                                    >
-                                                        <Plus className="h-3 w-3" />
-                                                    </button>
-                                                )}
+                            ) : viewMode === 'month' ? (
+                                <>
+                                    {/* Day-of-week headers */}
+                                    <div className="grid grid-cols-7 border-b border-border/40 bg-muted/20 shrink-0">
+                                        {DAYS.map((d, i) => (
+                                            <div key={d} className={cn(
+                                                'py-2.5 text-center text-[10px] font-bold uppercase tracking-widest',
+                                                i === 0 || i === 6 ? 'text-muted-foreground/40' : 'text-muted-foreground/70'
+                                            )}>
+                                                {d}
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-7 grid-rows-6 flex-1 divide-y divide-border/30 overflow-hidden">
+                                        {calendarMatrix.map((date, idx) => {
+                                            if (!date) {
+                                                return <div key={`empty-${idx}`} className="bg-muted/[0.07] border-r border-border/25 last:border-r-0" />;
+                                            }
+                                            const key = dateKey(date);
+                                            const dayRows = monthShifts.filter(s => dateKey(new Date(s.start_time)) === key);
+                                            const allDayRows = shifts.filter(s => dateKey(new Date(s.start_time)) === key);
+                                            const openCount = allDayRows.filter(s => !s.officer_id).length;
+                                            const isToday = key === today;
+                                            const isSelected = selectedDate ? dateKey(selectedDate) === key : false;
+                                            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                                            const isOtherMonth = date.getMonth() !== anchor.getMonth();
+                                            return (
+                                                <div
+                                                    key={key}
+                                                    onClick={() => setSelectedDate(isSelected ? null : date)}
+                                                    className={cn(
+                                                        'relative flex flex-col min-h-0 border-r border-border/25 last:border-r-0 cursor-pointer transition-all duration-200 group overflow-hidden',
+                                                        isSelected ? 'bg-primary/[0.07] ring-inset ring-1 ring-primary/40' :
+                                                            isToday ? 'bg-primary/[0.04]' :
+                                                                isWeekend ? 'bg-muted/[0.12]' :
+                                                                    'bg-background hover:bg-muted/30',
+                                                        isOtherMonth && 'opacity-35'
+                                                    )}
+                                                >
+                                                    {isToday && !isSelected && (
+                                                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />
+                                                    )}
+                                                    <div className="flex items-center justify-between px-2 pt-2 pb-1 shrink-0">
+                                                        <span className={cn(
+                                                            'inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
+                                                            isToday ? 'bg-primary text-primary-foreground shadow-sm' :
+                                                                isSelected ? 'text-primary font-bold' :
+                                                                    isWeekend ? 'text-muted-foreground/50' :
+                                                                        'text-foreground/80 group-hover:text-foreground'
+                                                        )}>
+                                                            {date.getDate()}
+                                                        </span>
+                                                        {allDayRows.length > 0 && (
+                                                            <span className={cn(
+                                                                'text-[9px] font-bold px-1.5 py-0.5 rounded-md tabular-nums',
+                                                                openCount > 0
+                                                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                                                            )}>
+                                                                {allDayRows.length}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="px-1.5 pb-1.5 space-y-0.5 flex-1 overflow-hidden">
+                                                        {dayRows.slice(0, 3).map(shift => (
+                                                            <ShiftChip key={shift.id} shift={shift} />
+                                                        ))}
+                                                        {dayRows.length > 3 && (
+                                                            <div className="text-[9px] text-muted-foreground/50 pl-1 font-semibold">
+                                                                +{dayRows.length - 3} more
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={e => { e.stopPropagation(); openAddShift(key); }}
+                                                            className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full items-center justify-center bg-primary text-primary-foreground shadow-sm opacity-0 group-hover:opacity-100 transition-all hidden group-hover:flex"
+                                                            title="New shift"
+                                                        >
+                                                            <Plus className="h-3 w-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            ) : (
+                                <WeekGrid
+                                    weekDates={weekDates}
+                                    shifts={shifts}
+                                    today={today}
+                                    selectedDate={selectedDate}
+                                    onSelectDate={setSelectedDate}
+                                    canEdit={canEdit}
+                                    onAddShift={openAddShift}
+                                    monthShifts={weekShifts}
+                                    statusFilter={statusFilter}
+                                />
                             )}
                         </div>
 
                         {/* ── DAY LENS PANEL ── */}
                         {selectedDate && (
                             <div className="w-[290px] xl:w-[310px] shrink-0 flex flex-col border-l border-border/40 bg-card/80 backdrop-blur-xl overflow-hidden animate-in slide-in-from-right-4 duration-300 ease-out">
-
-                                {/* Lens header */}
                                 <div className="p-4 border-b border-border/40 shrink-0 bg-gradient-to-br from-card to-muted/10">
                                     <div className="flex items-start justify-between">
                                         <div>
@@ -631,9 +765,7 @@ export default function CalendarView() {
                                                 {selectedDate.toLocaleDateString(undefined, { weekday: 'long' })}
                                             </p>
                                             <div className="flex items-baseline gap-2">
-                                                <p className="text-3xl font-bold leading-none text-foreground">
-                                                    {selectedDate.getDate()}
-                                                </p>
+                                                <p className="text-3xl font-bold leading-none text-foreground">{selectedDate.getDate()}</p>
                                                 <p className="text-sm text-muted-foreground font-medium">
                                                     {selectedDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                                                 </p>
@@ -668,11 +800,11 @@ export default function CalendarView() {
                                     </div>
                                 </div>
 
-                                {/* Timeline */}
+                                {/* 24h Timeline */}
                                 {dayStats.total > 0 && (
                                     <div className="px-4 py-3 border-b border-border/40 shrink-0 bg-muted/5">
-                                        <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Timeline (24h)</p>
-                                        <div className="relative h-6 rounded-xl bg-muted/60 overflow-hidden">
+                                        <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Timeline</p>
+                                        <div className="relative h-8 rounded-xl bg-muted/60 overflow-hidden">
                                             {dayShifts.map((shift, idx) => {
                                                 const s = new Date(shift.start_time);
                                                 const e = new Date(shift.end_time);
@@ -686,12 +818,12 @@ export default function CalendarView() {
                                                 return (
                                                     <div
                                                         key={shift.id}
-                                                        className={cn('absolute rounded-md opacity-85', {
+                                                        className={cn('absolute rounded-md opacity-80', {
                                                             'bg-emerald-500': isDone,
                                                             'bg-amber-400': isOpen,
                                                             'bg-blue-500': !isOpen && !isDone,
                                                         })}
-                                                        style={{ left: `${left}%`, width: `${width}%`, top: idx % 2 === 0 ? '3px' : '13px', height: '10px' }}
+                                                        style={{ left: `${left}%`, width: `${width}%`, top: idx % 2 === 0 ? '4px' : '18px', height: '10px' }}
                                                         title={`${shift.site?.name} — ${timeLabel(shift.start_time)}`}
                                                     />
                                                 );
@@ -706,10 +838,7 @@ export default function CalendarView() {
                                 {/* Actions */}
                                 {canEdit && (
                                     <div className="flex gap-2 px-4 py-3 border-b border-border/40 shrink-0">
-                                        <Button size="sm" className="flex-1 h-8 gap-1.5 text-xs" onClick={() => {
-                                            setCreateData(p => ({ ...p, date: dateKey(selectedDate) }));
-                                            setIsCreateOpen(true);
-                                        }}>
+                                        <Button size="sm" className="flex-1 h-8 gap-1.5 text-xs" onClick={() => openAddShift()}>
                                             <Plus className="h-3.5 w-3.5" /> Add Shift
                                         </Button>
                                         {dayStats.open > 0 && (
@@ -750,9 +879,7 @@ export default function CalendarView() {
                                                             col.light, col.border
                                                         )}
                                                     >
-                                                        {/* Left accent */}
                                                         <div className={cn('absolute left-0 top-0 bottom-0 w-1 rounded-r-sm', col.bg)} />
-
                                                         <div className="pl-2">
                                                             <div className="flex items-start justify-between gap-2">
                                                                 <div className="min-w-0">
@@ -765,16 +892,12 @@ export default function CalendarView() {
                                                                     {isDone ? 'Done' : isOpen ? 'Open' : 'Active'}
                                                                 </span>
                                                             </div>
-
-                                                            {/* Time */}
                                                             <div className="flex items-center gap-1.5 mt-1.5">
                                                                 <Clock className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                                                                 <span className="text-xs text-muted-foreground font-medium">
                                                                     {timeLabel(shift.start_time)} – {timeLabel(shift.end_time)}
                                                                 </span>
                                                             </div>
-
-                                                            {/* Officer */}
                                                             <div className="flex items-center justify-between mt-2">
                                                                 {shift.officer ? (
                                                                     <div className="flex items-center gap-1.5">
